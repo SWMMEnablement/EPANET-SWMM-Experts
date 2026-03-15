@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "EPANET for SWMM5 Experts"
+version = "1.0.0"
+id = "artifacts/epanet-swmm"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 23741
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/epanet-swmm run dev"
+
+[services.env]
+PORT = "23741"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/epanet-swmm", "run", "build"]
+publicDir = "artifacts/epanet-swmm/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

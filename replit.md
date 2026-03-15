@@ -21,6 +21,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
+│   ├── epanet-swmm/        # EPANET for SWMM5 Experts — static HTML app served by Vite
 │   └── api-server/         # Express API server
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
@@ -90,6 +91,14 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `artifacts/epanet-swmm` (`@workspace/epanet-swmm`)
+
+EPANET for SWMM5 Experts — "The Rosetta Stone." A self-contained single-page HTML application with 11 interactive tabs, 3 animated canvases, 17 interactive sliders, force main calculators, and US/SI unit toggle. Served as a static HTML file by Vite (no React — the app is pure HTML/CSS/JS). The main content is in `index.html`.
+
+- Preview path: `/`
+- Dev: `pnpm --filter @workspace/epanet-swmm run dev`
+- Build: `pnpm --filter @workspace/epanet-swmm run build`
 
 ### `scripts` (`@workspace/scripts`)
 

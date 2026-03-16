@@ -3080,22 +3080,22 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
     <p class="section-intro">Complete collection of all equations, formulas, source code, and reference tables from this app — viewable inline or <a href="#" onclick="generateDocs();return false;" style="color:var(--swmm-glow);text-decoration:underline;">downloadable as a printable document</a>.</p>
 
     <div class="ref-toc">
-      <a href="#ref-1" onclick="scrollToRef(this)">1. Fundamental Equations</a>
-      <a href="#ref-2" onclick="scrollToRef(this)">2. EPANET Solver</a>
-      <a href="#ref-3" onclick="scrollToRef(this)">3. CFL Condition</a>
-      <a href="#ref-4" onclick="scrollToRef(this)">4. Force Main: n ↔ C</a>
-      <a href="#ref-5" onclick="scrollToRef(this)">5. Water Quality</a>
-      <a href="#ref-6" onclick="scrollToRef(this)">6. Emitter Equation</a>
-      <a href="#ref-7" onclick="scrollToRef(this)">7. Preissmann Slot</a>
-      <a href="#ref-8" onclick="scrollToRef(this)">8. Roughness Table</a>
-      <a href="#ref-9" onclick="scrollToRef(this)">9. Unit Conversions</a>
-      <a href="#ref-10" onclick="scrollToRef(this)">10. Quick Reference</a>
-      <a href="#ref-11" onclick="scrollToRef(this)">11. Force Main Setup</a>
-      <a href="#ref-12" onclick="scrollToRef(this)">12. Decision Guide</a>
-      <a href="#ref-13" onclick="scrollToRef(this)">13. Convergence</a>
-      <a href="#ref-14" onclick="scrollToRef(this)">14. Working Example</a>
-      <a href="#ref-15" onclick="scrollToRef(this)">15. Transient Checklist</a>
-      <a href="#ref-16" onclick="scrollToRef(this)">16. About EPANET</a>
+      <a href="#ref-1" onclick="scrollToRef(event,this)">1. Fundamental Equations</a>
+      <a href="#ref-2" onclick="scrollToRef(event,this)">2. EPANET Solver</a>
+      <a href="#ref-3" onclick="scrollToRef(event,this)">3. CFL Condition</a>
+      <a href="#ref-4" onclick="scrollToRef(event,this)">4. Force Main: n ↔ C</a>
+      <a href="#ref-5" onclick="scrollToRef(event,this)">5. Water Quality</a>
+      <a href="#ref-6" onclick="scrollToRef(event,this)">6. Emitter Equation</a>
+      <a href="#ref-7" onclick="scrollToRef(event,this)">7. Preissmann Slot</a>
+      <a href="#ref-8" onclick="scrollToRef(event,this)">8. Roughness Table</a>
+      <a href="#ref-9" onclick="scrollToRef(event,this)">9. Unit Conversions</a>
+      <a href="#ref-10" onclick="scrollToRef(event,this)">10. Quick Reference</a>
+      <a href="#ref-11" onclick="scrollToRef(event,this)">11. Force Main Setup</a>
+      <a href="#ref-12" onclick="scrollToRef(event,this)">12. Decision Guide</a>
+      <a href="#ref-13" onclick="scrollToRef(event,this)">13. Convergence</a>
+      <a href="#ref-14" onclick="scrollToRef(event,this)">14. Working Example</a>
+      <a href="#ref-15" onclick="scrollToRef(event,this)">15. Transient Checklist</a>
+      <a href="#ref-16" onclick="scrollToRef(event,this)">16. About EPANET</a>
     </div>
 
     <!-- REF 1 -->
@@ -3710,7 +3710,8 @@ Daily  0.6 0.5</div>
     window.scrollTo({top: 200, behavior: 'smooth'});
   }
 
-  function scrollToRef(el) {
+  function scrollToRef(evt, el) {
+    evt.preventDefault();
     if (el && el.getAttribute) {
       const id = el.getAttribute('href').replace('#', '');
       const target = document.getElementById(id);

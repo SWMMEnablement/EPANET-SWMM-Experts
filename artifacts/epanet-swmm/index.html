@@ -526,6 +526,114 @@
   .file-snippet .kw2 { color: var(--epanet-amber); }
   .file-snippet .cm { color: var(--text-dim); }
 
+  /* ===== REFERENCE DOCS INLINE ===== */
+  .ref-section { margin-bottom: 36px; }
+  .ref-section h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--swmm-glow);
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ref-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--epanet-glow);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  .ref-section p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    line-height: 1.7;
+  }
+  .ref-eq {
+    background: rgba(17,24,39,0.8);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--accent-cyan);
+    margin: 12px 0;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .ref-code {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: #e6edf3;
+    margin: 12px 0;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .ref-note {
+    background: rgba(245,158,11,0.08);
+    border-left: 4px solid var(--epanet-amber);
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    border-radius: 0 8px 8px 0;
+  }
+  .ref-note strong { color: var(--epanet-glow); }
+  .ref-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 14px 0;
+    font-size: 0.84rem;
+  }
+  .ref-table th {
+    background: rgba(30,45,74,0.7);
+    padding: 10px 14px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .ref-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(30,45,74,0.4);
+    background: var(--bg-card);
+    color: var(--text-muted);
+  }
+  .ref-table tr:hover td { background: var(--bg-card-hover); }
+  .ref-toc {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 16px 0 28px;
+  }
+  .ref-toc a {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--swmm-glow);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .ref-toc a:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  @media (max-width: 700px) {
+    .ref-toc { grid-template-columns: 1fr; }
+  }
+
   /* ===== FOOTER ===== */
   .footer {
     text-align: center;
@@ -773,6 +881,7 @@
     <button class="nav-tab" data-tab="gotchas">Gotchas</button>
     <button class="nav-tab" data-tab="whichtool">Which Tool?</button>
     <button class="nav-tab" data-tab="forcemains">Force Mains</button>
+    <button class="nav-tab" data-tab="docs">Reference</button>
   </div>
 
   <!-- ===== SECTION: THE BIG FLIP ===== -->
@@ -2965,6 +3074,519 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
     </div>
   </div>
 
+  <!-- ===== SECTION: REFERENCE DOCS ===== -->
+  <div class="section" id="sec-docs">
+    <h2 class="section-title">Equations & Code Reference</h2>
+    <p class="section-intro">Complete collection of all equations, formulas, source code, and reference tables from this app — viewable inline or <a href="#" onclick="generateDocs();return false;" style="color:var(--swmm-glow);text-decoration:underline;">downloadable as a printable document</a>.</p>
+
+    <div class="ref-toc">
+      <a href="#ref-1" onclick="scrollToRef(this)">1. Fundamental Equations</a>
+      <a href="#ref-2" onclick="scrollToRef(this)">2. EPANET Solver</a>
+      <a href="#ref-3" onclick="scrollToRef(this)">3. CFL Condition</a>
+      <a href="#ref-4" onclick="scrollToRef(this)">4. Force Main: n ↔ C</a>
+      <a href="#ref-5" onclick="scrollToRef(this)">5. Water Quality</a>
+      <a href="#ref-6" onclick="scrollToRef(this)">6. Emitter Equation</a>
+      <a href="#ref-7" onclick="scrollToRef(this)">7. Preissmann Slot</a>
+      <a href="#ref-8" onclick="scrollToRef(this)">8. Roughness Table</a>
+      <a href="#ref-9" onclick="scrollToRef(this)">9. Unit Conversions</a>
+      <a href="#ref-10" onclick="scrollToRef(this)">10. Quick Reference</a>
+      <a href="#ref-11" onclick="scrollToRef(this)">11. Force Main Setup</a>
+      <a href="#ref-12" onclick="scrollToRef(this)">12. Decision Guide</a>
+      <a href="#ref-13" onclick="scrollToRef(this)">13. Convergence</a>
+      <a href="#ref-14" onclick="scrollToRef(this)">14. Working Example</a>
+      <a href="#ref-15" onclick="scrollToRef(this)">15. Transient Checklist</a>
+      <a href="#ref-16" onclick="scrollToRef(this)">16. About EPANET</a>
+    </div>
+
+    <!-- REF 1 -->
+    <div class="ref-section" id="ref-1">
+      <h3>1. Fundamental Equations</h3>
+
+      <h4>1.1 Saint-Venant Equations (SWMM5 Dynamic Wave)</h4>
+      <p>SWMM5 solves the one-dimensional Saint-Venant equations for unsteady, non-uniform flow:</p>
+<div class="ref-eq">Continuity:  ∂A/∂t + ∂Q/∂x = q_lat
+
+Momentum:   ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf + gA·hL = 0
+
+Where:
+  A  = cross-sectional flow area (varies with depth and position)
+  Q  = volumetric flow rate
+  q_lat = lateral inflow per unit length
+  H  = water surface elevation
+  Sf = friction slope (from Manning's equation)
+  hL = local (minor) losses
+  g  = gravitational acceleration
+
+Momentum equation terms:
+  ∂Q/∂t        → Local acceleration
+  ∂(Q²/A)/∂x   → Convective acceleration
+  gA·∂H/∂x     → Pressure/gravity force
+  gA·Sf         → Friction force
+  gA·hL         → Local losses</div>
+
+      <h4>1.2 Manning's Equation (SWMM5 Friction)</h4>
+<div class="ref-eq">US Units:  Q = (1.486/n) · A · R^(2/3) · S^(1/2)
+SI Units:  Q = (1.0/n) · A · R^(2/3) · S^(1/2)
+
+Friction Slope:
+  Sf = [n·Q / (φ·A·R^(2/3))]²    where φ = 1.486 (US) or 1.0 (SI)
+
+Where:
+  n = Manning's roughness coefficient
+  A = flow area
+  R = hydraulic radius = A/P (P = wetted perimeter)
+  S = friction slope</div>
+
+      <h4>1.3 Hazen-Williams Equation (EPANET Default)</h4>
+<div class="ref-eq">Headloss:  hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)
+
+Velocity:
+  US: V = 1.318 · C · R^0.63 · Sf^0.54
+  SI: V = 0.8492 · C · R^0.63 · Sf^0.54
+
+Friction Slope:
+  Sf = [V / (Cf · C · R^0.63)]^(1/0.54)    where Cf = 1.318 (US) or 0.8492 (SI)
+
+Where:
+  C = Hazen-Williams roughness coefficient (higher = smoother)
+  hf = headloss (ft or m)
+  L = pipe length
+  d = pipe diameter
+  R = hydraulic radius (D/4 for full circular pipe)</div>
+
+      <h4>1.4 Darcy-Weisbach Equation (EPANET Alternative)</h4>
+<div class="ref-eq">hf = f · (L/D) · (V²/2g)
+
+Where:
+  f = Darcy friction factor (from Moody diagram / Colebrook-White)
+  L = pipe length
+  D = pipe diameter
+  V = flow velocity
+  g = gravitational acceleration
+
+Colebrook-White (implicit):
+  1/√f = -2·log₁₀(ε/(3.7·D) + 2.51/(Re·√f))
+
+Swamee-Jain (explicit approximation):
+  f = 0.25 / [log₁₀(ε/(3.7·D) + 5.74/Re^0.9)]²</div>
+    </div>
+
+    <!-- REF 2 -->
+    <div class="ref-section" id="ref-2">
+      <h3>2. EPANET Solver — Gradient Algorithm</h3>
+
+      <h4>2.1 Todini-Pilati Global Gradient Algorithm (1988)</h4>
+<div class="ref-eq">At each hydraulic timestep, EPANET solves simultaneously:
+
+Node continuity:    ΣQ_in - ΣQ_out = Demand    (at every junction)
+Energy equation:    H_i - H_j = hf(Q) + hm(Q)  (along every pipe)
+
+Where:
+  H_i, H_j = heads at upstream and downstream nodes
+  hf(Q) = friction headloss (Hazen-Williams, Darcy-Weisbach, or Manning)
+  hm(Q) = minor loss = K · V²/2g
+
+Solution method:
+  1. Linearize nonlinear headloss equations (Newton-Raphson)
+  2. Assemble sparse matrix system: [A]{H} = {b}
+  3. Solve for node heads H and link flows Q
+  4. Check convergence: |ΔQ| &lt; tolerance and |ΔH| &lt; tolerance
+  5. Iterate until converged (typically 5-10 iterations)</div>
+
+      <h4>2.2 Extended Period Simulation (EPS)</h4>
+<div class="ref-eq">Tank level update between timesteps:
+  V_tank(t+Δt) = V_tank(t) + (ΣQ_in - ΣQ_out) · Δt
+
+Typical timesteps:
+  Hydraulic: 1 hour (unconditionally stable)
+  Quality:   5 minutes (advection through pipes)
+  Pattern:   1 hour (demand multiplier update)</div>
+    </div>
+
+    <!-- REF 3 -->
+    <div class="ref-section" id="ref-3">
+      <h3>3. Courant-Friedrichs-Lewy (CFL) Condition</h3>
+<div class="ref-eq">Δt ≤ Δx / (V + c)
+
+Where:
+  Δt = computational timestep
+  Δx = conduit length (spatial step)
+  V  = flow velocity
+  c  = gravity wave celerity = √(gA/T)
+  T  = top width of water surface
+  g  = gravitational acceleration (32.2 ft/s² or 9.81 m/s²)
+
+Example: 400 ft pipe, V=5 ft/s, c=15 ft/s → Δt_max = 400/(5+15) = 20 sec
+Example: 50 ft pipe, V=10 ft/s, c=20 ft/s → Δt_max = 50/(10+20) = 1.7 sec</div>
+    </div>
+
+    <!-- REF 4 -->
+    <div class="ref-section" id="ref-4">
+      <h3>4. Force Main: Manning's n ↔ Hazen-Williams C</h3>
+
+      <h4>4.1 SWMM5 Conversion Formula</h4>
+<div class="ref-eq">Full derivation (setting Manning velocity = H-W velocity):
+  n = (φ / (Cf · C)) · R^(2/3 - 0.63) · Sf^(1/2 - 0.54)
+  n = (φ / (Cf · C)) · R^(0.0367)     · Sf^(-0.04)
+                                          ↑ SWMM drops this term
+
+SWMM5 approximation (forcemain.c):
+  n = (φ / Cf) · R^(0.0367) / C
+
+Where:
+  φ  = Manning constant: 1.486 (US) or 1.0 (SI)
+  Cf = H-W constant: 1.318 (US) or 0.8492 (SI)
+  R  = hydraulic radius at full flow = D/4
+  C  = Hazen-Williams coefficient
+
+Error from dropped Sf^(-0.04) term:
+  At Sf = 0.001: Sf^(-0.04) = 1.32  (32% error in n)
+  At Sf = 0.01:  Sf^(-0.04) = 1.10  (10% error in n)
+  At Sf = 0.1:   Sf^(-0.04) = 1.04  ( 4% error in n)</div>
+
+      <h4>4.2 SWMM5 Source Code — forcemain.c</h4>
+<div class="ref-code">// From SWMM5 forcemain.c — forcemain_getEquivN()
+// Computes equivalent Manning's n from Hazen-Williams C
+
+double forcemain_getEquivN(int j, int k) {
+    double a1, a2, r;
+
+    a1 = PHI;   // Manning constant: 1.486 (US) or 1.0 (SI)
+    a2 = Cf;    // H-W constant: 1.318 (US) or 0.8492 (SI)
+
+    // Hydraulic radius at full depth
+    r = xsect_getRofY(&amp;Link[j].xsect, 1.0);
+
+    // n = (a1/a2) × R^(2/3 - 0.63) / C
+    return (a1 / a2) * pow(r, 2./3. - 0.63)
+           / Conduit[k].roughness;  // roughness = C for H-W
+}
+
+// forcemain_getFricSlope() — used during actual routing
+// (bypasses equivalent n, uses H-W directly)
+double forcemain_getFricSlope(int j, int k, double v, double hrad) {
+    double  r, sf;
+
+    switch (ForceMainEqn) {
+    case H_W:
+        r = Conduit[k].roughness;  // C
+        sf = pow(v / (Cf * r * pow(hrad, 0.63)), 1.0/0.54);
+        break;
+    case D_W:
+        // Darcy-Weisbach with Swamee-Jain friction factor
+        ...
+    }
+    return sf;
+}</div>
+    </div>
+
+    <!-- REF 5 -->
+    <div class="ref-section" id="ref-5">
+      <h3>5. Water Quality Equations</h3>
+
+      <h4>5.1 Chlorine Decay (EPANET)</h4>
+<div class="ref-eq">Bulk decay (first-order):
+  C(t) = C₀ · e^(-kb·t)
+  kb = bulk decay coefficient (1/day)
+
+Wall decay:
+  Rate = kw · (C / (C + kf))    (for kw > 0, first-order wall reaction)
+  kw = wall reaction coefficient
+  kf = mass transfer coefficient
+
+Combined decay in a pipe segment:
+  dC/dt = -kb·C - (2·kw·kf)/(R·(kw + kf)) · C
+  R = hydraulic radius</div>
+
+      <h4>5.2 Source Tracing</h4>
+<div class="ref-eq">EPANET: Built-in analysis type — select "Trace" and a source node.
+  Returns % of water from that source at every node.
+
+SWMM5 equivalent (DIY):
+  Define conservative pollutant: decay = 0
+  Set concentration = 100 at source inflow, 0 everywhere else
+  Result: concentration at node = % from that source
+  Advantage: SWMM supports multiple tracers simultaneously</div>
+    </div>
+
+    <!-- REF 6 -->
+    <div class="ref-section" id="ref-6">
+      <h3>6. Emitter Equation (EPANET)</h3>
+<div class="ref-eq">Q = C_e · P^γ
+
+Where:
+  Q   = outflow rate
+  C_e = emitter coefficient
+  P   = pressure at the node
+  γ   = pressure exponent (default 0.5, giving orifice-type flow)
+
+Used for: leaks, sprinklers, fire hydrants, pressure-dependent demands</div>
+    </div>
+
+    <!-- REF 7 -->
+    <div class="ref-section" id="ref-7">
+      <h3>7. Preissmann Slot (SWMM5)</h3>
+<div class="ref-eq">Purpose: Allow Saint-Venant equations to handle pressurized flow
+  by maintaining a virtual free surface in surcharged pipes.
+
+Slot width:
+  T_slot = g · A_full / c²
+
+Where:
+  A_full = full pipe cross-sectional area
+  c = target pressure wave celerity (typically ~1000 ft/s)
+  g = gravitational acceleration
+
+Example: 48-inch pipe, c=1000 ft/s
+  A_full = π(2)²/4 = 12.57 ft²
+  T_slot = 32.2 × 12.57 / 1000² = 0.0004 ft (very narrow)</div>
+    </div>
+
+    <!-- REF 8 -->
+    <div class="ref-section" id="ref-8">
+      <h3>8. Roughness Reference Table</h3>
+      <table class="ref-table">
+        <tr><th>Pipe Material</th><th>Manning's n</th><th>H-W C</th><th>Notes</th></tr>
+        <tr><td>New PVC / HDPE</td><td>0.009</td><td>150</td><td>Smoothest common pipe</td></tr>
+        <tr><td>Concrete (smooth, new)</td><td>0.013</td><td>140</td><td>SWMM default</td></tr>
+        <tr><td>Ductile Iron (new)</td><td>0.012</td><td>140</td><td></td></tr>
+        <tr><td>Cast Iron (new)</td><td>0.014</td><td>130</td><td></td></tr>
+        <tr><td>Cast Iron (10+ years)</td><td>0.015</td><td>110</td><td>Aging effect</td></tr>
+        <tr><td>Cast Iron (old)</td><td>0.016–0.020</td><td>80–100</td><td>Tuberculated</td></tr>
+        <tr><td>Steel (new)</td><td>0.015</td><td>120</td><td></td></tr>
+        <tr><td>Brick sewer</td><td>0.015</td><td>100</td><td></td></tr>
+        <tr><td>Corrugated Metal</td><td>0.024</td><td>80</td><td></td></tr>
+        <tr><td>Very rough</td><td>0.030–0.040</td><td>60–70</td><td></td></tr>
+      </table>
+      <div class="ref-note"><strong>Remember:</strong> Manning's n ↑ = rougher. Hazen-Williams C ↑ = smoother. They move in opposite directions.</div>
+    </div>
+
+    <!-- REF 9 -->
+    <div class="ref-section" id="ref-9">
+      <h3>9. Key Unit Conversions</h3>
+      <table class="ref-table">
+        <tr><th>Quantity</th><th>US → SI</th><th>SI → US</th></tr>
+        <tr><td>Flow</td><td>1 CFS = 0.02832 CMS</td><td>1 CMS = 35.31 CFS</td></tr>
+        <tr><td>Flow</td><td>1 GPM = 0.06309 L/s</td><td>1 L/s = 15.85 GPM</td></tr>
+        <tr><td>Flow</td><td>1 MGD = 43.81 L/s</td><td>1 L/s = 0.02283 MGD</td></tr>
+        <tr><td>Length</td><td>1 ft = 0.3048 m</td><td>1 m = 3.281 ft</td></tr>
+        <tr><td>Diameter</td><td>1 in = 25.4 mm</td><td>1 mm = 0.03937 in</td></tr>
+        <tr><td>Pressure</td><td>1 ft H₂O = 0.4333 psi</td><td>1 psi = 2.307 ft H₂O</td></tr>
+        <tr><td>Pressure</td><td>1 m H₂O = 9.81 kPa</td><td>1 kPa = 0.1020 m H₂O</td></tr>
+        <tr><td>Manning φ</td><td>US: 1.486</td><td>SI: 1.0</td></tr>
+        <tr><td>H-W Cf</td><td>US: 1.318</td><td>SI: 0.8492</td></tr>
+      </table>
+    </div>
+
+    <!-- REF 10 -->
+    <div class="ref-section" id="ref-10">
+      <h3>10. Quick Reference — SWMM5 vs EPANET</h3>
+      <table class="ref-table">
+        <tr><th>Concept</th><th>SWMM5</th><th>EPANET</th></tr>
+        <tr><td>Flow type</td><td>Partial, free surface</td><td>Full, pressurized</td></tr>
+        <tr><td>Driving force</td><td>Gravity (elevation)</td><td>Pressure (head)</td></tr>
+        <tr><td>Roughness</td><td>Manning's n (↑ = rougher)</td><td>H-W C (↑ = smoother)</td></tr>
+        <tr><td>Solver</td><td>Dynamic wave (Saint-Venant)</td><td>Gradient Algorithm (Todini-Pilati)</td></tr>
+        <tr><td>Timestep</td><td>Seconds (Courant-limited)</td><td>Hours (unconditionally stable)</td></tr>
+        <tr><td>Water input</td><td>Rainfall → subcatchments → inflows</td><td>Demands at junctions</td></tr>
+        <tr><td>Junction elevation</td><td>Invert (bottom of pipe)</td><td>Ground level</td></tr>
+        <tr><td>Boundary node</td><td>Outfall</td><td>Reservoir</td></tr>
+        <tr><td>Storage</td><td>Any shape, evaporation, seepage</td><td>Cylindrical/curve, mixing models</td></tr>
+        <tr><td>Pipe shape</td><td>20+ cross-sections</td><td>Circular only, always full</td></tr>
+        <tr><td>Water quality</td><td>Multi-pollutant</td><td>Single constituent</td></tr>
+        <tr><td>Source tracing</td><td>Conservative pollutant (DIY)</td><td>Built-in analysis</td></tr>
+        <tr><td>Energy costs</td><td>Not tracked</td><td>Full pump energy analysis</td></tr>
+        <tr><td>File format</td><td>.inp (section-based)</td><td>.inp (section-based)</td></tr>
+        <tr><td>Control rules</td><td>IF-THEN (DEPTH, STATUS)</td><td>IF-THEN (LEVEL, STATUS IS)</td></tr>
+      </table>
+    </div>
+
+    <!-- REF 11 -->
+    <div class="ref-section" id="ref-11">
+      <h3>11. SWMM5 Force Main Setup</h3>
+
+      <h4>11.1 Setup Checklist</h4>
+      <table class="ref-table">
+        <tr><th>Step</th><th>Setting</th><th>Details</th></tr>
+        <tr><td>1</td><td>[OPTIONS] FORCE_MAIN_EQUATION</td><td>Set to H-W or D-W. Global setting — all force mains use the same equation.</td></tr>
+        <tr><td>2</td><td>[XSECTIONS] Shape = FORCE_MAIN</td><td>NOT CIRCULAR. This is how SWMM5 identifies a conduit as a force main.</td></tr>
+        <tr><td>3</td><td>[CONDUITS] Roughness</td><td>Enter C value (if H-W) or roughness height ε (if D-W). NOT Manning's n.</td></tr>
+        <tr><td>4</td><td>Downstream node</td><td>Must allow surcharge. Set surcharge depth appropriately.</td></tr>
+        <tr><td>5</td><td>Upstream pump</td><td>A pump must pressurize the main. Typical: Wet Well → Pump → Force Main → Junction.</td></tr>
+      </table>
+      <div class="ref-note"><strong>Common mistake:</strong> Using CIRCULAR instead of FORCE_MAIN in [XSECTIONS]. SWMM will treat it as a gravity conduit and never apply the H-W pressurized equation.</div>
+
+      <h4>11.2 Flow Regime Transition</h4>
+<div class="ref-eq">d/D &lt; 1.0  →  Manning's equation with equivalent n
+d/D = 1.0  →  Transition point (both equations give same Sf)
+d/D ≥ 1.0  →  Hazen-Williams directly with C (or D-W with ε)
+
+Key insight: If the pump runs continuously and the force main
+is always full, the equivalent n is NEVER USED — SWMM applies
+H-W directly. The conversion only matters during pump startup,
+shutdown, and cycling when the main drains down and refills.</div>
+
+      <h4>11.3 Force Main System Context</h4>
+<div class="ref-eq">Wet Well (STORAGE) → Pump (PUMP) → Force Main (CONDUIT) → Discharge (JUNCTION)
+
+Total Dynamic Head = Static Lift + h_f(friction) + h_m(minor losses)
+
+Your H-W C choice affects:
+  • System head curve intersection with pump curve
+  • Pump cycling frequency (less friction → faster drawdown)
+  • Pump discharge head (friction loss adds to static lift)</div>
+    </div>
+
+    <!-- REF 12 -->
+    <div class="ref-section" id="ref-12">
+      <h3>12. Decision Guide: SWMM5 vs EPANET</h3>
+
+      <h4>12.1 Stay in SWMM5 For</h4>
+      <table class="ref-table">
+        <tr><th>Use Case</th><th>Why SWMM5</th></tr>
+        <tr><td>Rainfall-runoff modeling</td><td>EPANET has zero hydrology</td></tr>
+        <tr><td>Combined sewer systems</td><td>EPANET can't model CSO diversions</td></tr>
+        <tr><td>Open-channel flow</td><td>EPANET is pressurized-only</td></tr>
+        <tr><td>Backwater effects</td><td>EPANET's steady-state doesn't propagate downstream→upstream</td></tr>
+        <tr><td>Surcharge analysis</td><td>EPANET pipes are always full by definition</td></tr>
+        <tr><td>LID / green infrastructure</td><td>Bio-retention, permeable pavement — SWMM only</td></tr>
+        <tr><td>Multi-pollutant washoff</td><td>EPANET tracks one constituent at a time</td></tr>
+      </table>
+
+      <h4>12.2 Use EPANET For</h4>
+      <table class="ref-table">
+        <tr><th>Use Case</th><th>Why EPANET</th></tr>
+        <tr><td>Water distribution operations</td><td>Tank filling/draining, pump scheduling, pressure zones</td></tr>
+        <tr><td>Fire flow analysis</td><td>Can the system deliver required flow at minimum pressure?</td></tr>
+        <tr><td>Chlorine residual modeling</td><td>Bulk + wall decay with mixing models</td></tr>
+        <tr><td>Water age analysis</td><td>Dead ends, oversized mains, stagnation zones</td></tr>
+        <tr><td>Source blending</td><td>What % of water from each treatment plant?</td></tr>
+        <tr><td>Energy cost optimization</td><td>Pump kWh, demand charges, optimal scheduling</td></tr>
+        <tr><td>Pressure-dependent demand</td><td>Low-pressure scenario analysis</td></tr>
+      </table>
+    </div>
+
+    <!-- REF 13 -->
+    <div class="ref-section" id="ref-13">
+      <h3>13. Convergence Troubleshooting</h3>
+
+      <h4>13.1 SWMM5 Issues → EPANET Equivalents</h4>
+      <table class="ref-table">
+        <tr><th>SWMM5 Problem</th><th>EPANET Equivalent</th></tr>
+        <tr><td>Continuity error > 10% (Courant violated)</td><td>"System unbalanced" — increase TRIALS in [OPTIONS]</td></tr>
+        <tr><td>Flow oscillations (small surface area)</td><td>Negative pressures — check disconnected nodes</td></tr>
+        <tr><td>"Node X flooded" (head > max depth)</td><td>Negative pressures at demand nodes</td></tr>
+        <tr><td>Pump cycling wildly (control conflicts)</td><td>"Pump cannot deliver" — check static head vs shutoff</td></tr>
+      </table>
+
+      <h4>13.2 EPANET [OPTIONS] Convergence Settings</h4>
+<div class="ref-eq">TRIALS     200      ;; max iterations (default 40)
+ACCURACY   0.01     ;; flow convergence criterion (default 0.01 = 1%)
+UNBALANCED CONTINUE 10  ;; continue if unbalanced, up to 10 extra trials
+
+Rule: EPANET either converges (answer correct) or doesn't
+(tells you). No gradual degradation like SWMM's rising
+continuity error. It's binary — works or doesn't.</div>
+    </div>
+
+    <!-- REF 14 -->
+    <div class="ref-section" id="ref-14">
+      <h3>14. Working Example — Same System, Both Models</h3>
+
+      <h4>14.1 SWMM5 .INP (Gravity)</h4>
+<div class="ref-code">[OPTIONS]
+FLOW_UNITS  CFS
+ROUTING_STEP  00:00:30
+
+[JUNCTIONS]
+;;Name  Elev  MaxDepth
+J1      100   10        ;invert elevation
+J2       95    8
+
+[OUTFALLS]
+Out1    90    FREE
+
+[CONDUITS]
+;;Name  From  To   Len  n
+C1      J1    J2   500  0.013
+C2      J2    Out1 400  0.013
+
+[XSECTIONS]
+C1      CIRCULAR  2.0
+C2      CIRCULAR  2.0</div>
+
+      <h4>14.2 EPANET .INP (Pressurized)</h4>
+<div class="ref-code">[OPTIONS]
+Units     GPM
+Headloss  H-W
+Hydraulic Timestep  1:00
+
+[JUNCTIONS]
+;;ID  Elev  Demand  Pattern
+J1    100   0
+J2     95   50      Daily
+
+[RESERVOIRS]
+R1    150
+
+[PIPES]
+;;ID  N1  N2  Len  Diam  C
+P1    R1  J1  500  24    130
+P2    J1  J2  400  24    130
+
+[PATTERNS]
+Daily  0.5 0.4 0.5 0.7 1.0 1.3
+Daily  1.5 1.4 1.2 1.0 0.9 0.8
+Daily  0.9 1.2 1.4 1.1 0.9 0.7
+Daily  0.6 0.5</div>
+
+      <h4>14.3 Translation Notes</h4>
+      <table class="ref-table">
+        <tr><th>Change</th><th>Explanation</th></tr>
+        <tr><td>Outfall → Reservoir</td><td>SWMM's downstream boundary becomes EPANET's upstream source. Direction flips.</td></tr>
+        <tr><td>Inflow → Demand</td><td>Water enters via reservoir, leaves at demands. Opposite direction of thinking.</td></tr>
+        <tr><td>n=0.013 → C=130</td><td>Roughness direction inverted. Higher C = smoother.</td></tr>
+        <tr><td>CIRCULAR 2.0 → Diam 24</td><td>SWMM: shape + ft. EPANET: diameter in inches, no [XSECTIONS] needed.</td></tr>
+        <tr><td>Δt = 30s → Δt = 1hr</td><td>120× larger timestep — no wave propagation to track.</td></tr>
+      </table>
+    </div>
+
+    <!-- REF 15 -->
+    <div class="ref-section" id="ref-15">
+      <h3>15. Transient Checklist</h3>
+      <table class="ref-table">
+        <tr><th>Scenario</th><th>EPANET Handles?</th><th>Alternative</th></tr>
+        <tr><td>Water hammer (rapid valve closure)</td><td>No — no pressure wave</td><td>HAMMER, AFT Impulse</td></tr>
+        <tr><td>Pump trip (sudden power failure)</td><td>No — no inertial rundown</td><td>Transient solver</td></tr>
+        <tr><td>Rapid demand change (fire flow)</td><td>No — instant application</td><td>Reduce timestep or use transient solver</td></tr>
+        <tr><td>Slow tank fill/drain cycles</td><td>Yes — EPS handles perfectly</td><td>—</td></tr>
+        <tr><td>Pump scheduling (gradual)</td><td>Yes</td><td>—</td></tr>
+        <tr><td>Valve setpoint changes over hours</td><td>Yes</td><td>—</td></tr>
+      </table>
+      <div class="ref-note"><strong>Rule of thumb:</strong> If it happens faster than your EPANET timestep (typically 1 hour), you need a different tool.</div>
+    </div>
+
+    <!-- REF 16 -->
+    <div class="ref-section" id="ref-16">
+      <h3>16. About EPANET — Origins & Open Source Transition</h3>
+
+      <h4>16.1 Dr. Lewis A. Rossman and EPANET</h4>
+      <p>Dr. Rossman, an environmental engineer at EPA's Water Supply and Water Resources Division in Cincinnati, authored EPANET and the EPANET 2 Users Manual, and is recognized as the program's original creator.</p>
+      <p>EPANET first appeared in the early 1990s as a research tool to understand hydraulic and water-quality behavior in drinking water distribution systems, quickly becoming a de facto global standard.</p>
+      <p>Community colleagues have noted that he wrote EPANET "from scratch," with a well-organized codebase that others could understand, modify, and recompile — an important precursor to later open-source collaboration.</p>
+
+      <h4>16.2 Transition to Community Open Source</h4>
+      <p>After more than 30 years of service at EPA, Lew announced his retirement effective April 1, 2014, which the EPANET user community marked as the end of an era for EPA-led development.</p>
+      <p>In 2015, the WDSA Standing Committee of ASCE's EWRI initiated an open-source EPANET project, with development coordinated through the Open Water Analytics (OWA) community, enabling volunteers worldwide to maintain and extend the engine and toolkit.</p>
+      <p>EPA's later release of EPANET 2.2.0 explicitly recognized this new model as a collaboration between EPA and the community developers organized via OWA.</p>
+
+      <h4>16.3 Legacy</h4>
+      <p>Today's open, community-based EPANET development flows directly from Lew's original work at EPA and the decision to release EPANET into the public domain.</p>
+      <div class="ref-note"><strong>On the dedication:</strong> The statement "Every pressurized pipe model in the world traces back to his work" is a powerful tribute. As a strict factual claim it overreaches (since other proprietary and academic engines have independent roots), but as a dedication it effectively conveys his outsized influence on distribution system modeling practice worldwide.</div>
+    </div>
+
+  </div>
+
 </div><!-- /container -->
 
 <div class="container">
@@ -3086,6 +3708,16 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
     // Update URL hash with full state
     saveStateToHash();
     window.scrollTo({top: 200, behavior: 'smooth'});
+  }
+
+  function scrollToRef(el) {
+    if (el && el.getAttribute) {
+      const id = el.getAttribute('href').replace('#', '');
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
   }
 
   tabs.forEach(tab => {

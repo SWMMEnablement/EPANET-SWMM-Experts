@@ -48,8 +48,7 @@
      If offline or Google unreachable, the app still looks great. */
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap');
 
-  :root {
-    /* Font stacks with robust fallbacks */
+  :root, [data-theme="dark"] {
     --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', 'Monaco', 'Courier New', monospace;
     --bg-deep: #0a0e1a;
@@ -67,6 +66,89 @@
     --text-muted: #94a3b8;
     --text-dim: #64748b;
     --gravity-purple: #8b5cf6;
+    --bg-glow-1: rgba(59,130,246,0.06);
+    --bg-glow-2: rgba(245,158,11,0.05);
+    --theme-label: "Dark";
+  }
+
+  [data-theme="uf"] {
+    --bg-deep: #001427;
+    --bg-card: #002147;
+    --bg-card-hover: #003060;
+    --border: #004080;
+    --swmm-blue: #0021A5;
+    --swmm-glow: #4060d0;
+    --epanet-amber: #FA4616;
+    --epanet-glow: #FF6B3D;
+    --accent-cyan: #4da6ff;
+    --accent-green: #10b981;
+    --accent-red: #FA4616;
+    --text-primary: #e8ecf4;
+    --text-muted: #9ab0d0;
+    --text-dim: #6888aa;
+    --gravity-purple: #6040c0;
+    --bg-glow-1: rgba(0,33,165,0.08);
+    --bg-glow-2: rgba(250,70,22,0.06);
+  }
+
+  [data-theme="osu"] {
+    --bg-deep: #1a0a0a;
+    --bg-card: #2a1010;
+    --bg-card-hover: #3a1818;
+    --border: #5a2020;
+    --swmm-blue: #BB0000;
+    --swmm-glow: #e04040;
+    --epanet-amber: #A0A0A0;
+    --epanet-glow: #cccccc;
+    --accent-cyan: #ff6666;
+    --accent-green: #10b981;
+    --accent-red: #BB0000;
+    --text-primary: #f0e8e8;
+    --text-muted: #c0a8a8;
+    --text-dim: #907878;
+    --gravity-purple: #BB0000;
+    --bg-glow-1: rgba(187,0,0,0.08);
+    --bg-glow-2: rgba(160,160,160,0.05);
+  }
+
+  [data-theme="auburn"] {
+    --bg-deep: #0d1020;
+    --bg-card: #141830;
+    --bg-card-hover: #1c2240;
+    --border: #2a3358;
+    --swmm-blue: #03244d;
+    --swmm-glow: #3060a0;
+    --epanet-amber: #DD550C;
+    --epanet-glow: #F56E28;
+    --accent-cyan: #5588cc;
+    --accent-green: #10b981;
+    --accent-red: #DD550C;
+    --text-primary: #e8ecf4;
+    --text-muted: #9aa8c8;
+    --text-dim: #6878a0;
+    --gravity-purple: #5040a0;
+    --bg-glow-1: rgba(3,36,77,0.08);
+    --bg-glow-2: rgba(221,85,12,0.06);
+  }
+
+  [data-theme="epa"] {
+    --bg-deep: #081018;
+    --bg-card: #0f1a28;
+    --bg-card-hover: #162438;
+    --border: #1e3350;
+    --swmm-blue: #0071BC;
+    --swmm-glow: #40a0e8;
+    --epanet-amber: #2E8B57;
+    --epanet-glow: #3CB371;
+    --accent-cyan: #40a0e8;
+    --accent-green: #2E8B57;
+    --accent-red: #cf4444;
+    --text-primary: #e0ecf4;
+    --text-muted: #90b0c8;
+    --text-dim: #6088a8;
+    --gravity-purple: #6070b0;
+    --bg-glow-1: rgba(0,113,188,0.08);
+    --bg-glow-2: rgba(46,139,87,0.06);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -86,8 +168,8 @@
     top: 0; left: 0;
     width: 100%; height: 100%;
     background:
-      radial-gradient(ellipse at 20% 20%, rgba(59,130,246,0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(245,158,11,0.05) 0%, transparent 50%);
+      radial-gradient(ellipse at 20% 20%, var(--bg-glow-1) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, var(--bg-glow-2) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
   }
@@ -666,7 +748,7 @@
     .hero { padding: 20px 0; border-bottom: 2px solid #000; }
     .hero h1 { background: none; -webkit-text-fill-color: #000; color: #000; font-size: 22px; }
     .hero .subtitle, .hero .legend { color: #333; }
-    #unitToggle, #docsBtn, #docsTip, .nav-tabs, canvas, .fm-preset, input[type="range"],
+    #unitToggle, #themeSelect, #docsBtn, #docsTip, .nav-tabs, canvas, .fm-preset, input[type="range"],
     #flipStatus, #fmDirection, #fmTooltip, #fmSlopeWarning, #docsBtn { display: none !important; }
     .section { display: block !important; page-break-inside: avoid; margin-bottom: 20px; border-top: 1px solid #ccc; padding-top: 12px; }
     .section-title { color: #000; font-size: 16px; }
@@ -856,6 +938,15 @@
           <button id="btnUS" onclick="setUnits('us')" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 12px;border:none;background:rgba(6,182,212,0.15);color:var(--accent-cyan);cursor:pointer;letter-spacing:1px;">US</button>
           <button id="btnSI" onclick="setUnits('si')" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 12px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;letter-spacing:1px;">SI</button>
         </div>
+      </div>
+      <div class="legend-item" style="margin-left:10px;border-left:1px solid var(--border);padding-left:20px;">
+        <select id="themeSelect" onchange="setTheme(this.value)" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card);color:var(--text-muted);cursor:pointer;letter-spacing:0.5px;outline:none;">
+          <option value="dark">Dark</option>
+          <option value="uf">UF Gators</option>
+          <option value="osu">Ohio State</option>
+          <option value="auburn">Auburn</option>
+          <option value="epa">EPA</option>
+        </select>
       </div>
       <div class="legend-item" style="margin-left:10px;border-left:1px solid var(--border);padding-left:20px;position:relative;">
         <button id="docsBtn" onclick="generateDocs()" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.25s;letter-spacing:0.5px;" onmouseenter="showDocsTip(true)" onmouseleave="showDocsTip(false)">📄 <span style="border-bottom:1px dashed var(--text-dim);">Docs</span></button>
@@ -3601,6 +3692,18 @@ Daily  0.6 0.5</div>
 
 <script>
   // =====================================================
+  // === THEME SYSTEM ===
+  // =====================================================
+  const VALID_THEMES = ['dark','uf','osu','auburn','epa'];
+  function setTheme(theme) {
+    if (!VALID_THEMES.includes(theme)) theme = 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    const sel = document.getElementById('themeSelect');
+    if (sel) sel.value = theme;
+    if (typeof saveStateToHash === 'function') saveStateToHash();
+  }
+
+  // =====================================================
   // === GLOBAL UNIT SYSTEM ===
   // =====================================================
   let unitSystem = 'us'; // 'us' or 'si'
@@ -5391,6 +5494,8 @@ Daily  0.6 0.5</div>
     const params = new URLSearchParams();
     params.set('tab', tabName);
     params.set('units', unitSystem);
+    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    if (theme !== 'dark') params.set('theme', theme);
     // Save force main state
     params.set('fmC', document.getElementById('fmC').value);
     params.set('fmN', parseFloat(document.getElementById('fmN').value).toFixed(4));
@@ -5421,6 +5526,11 @@ Daily  0.6 0.5</div>
     // Full state hash (e.g., #tab=calculator&units=si&fmC=130...)
     try {
       const params = new URLSearchParams(hash);
+
+      // Restore theme
+      if (params.has('theme')) {
+        setTheme(params.get('theme'));
+      }
 
       // Restore units first
       if (params.has('units')) {

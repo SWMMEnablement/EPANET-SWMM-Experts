@@ -972,6 +972,7 @@
     <button class="nav-tab" data-tab="gotchas">Gotchas</button>
     <button class="nav-tab" data-tab="whichtool">Which Tool?</button>
     <button class="nav-tab" data-tab="forcemains">Force Mains</button>
+    <button class="nav-tab" data-tab="firstprinciples">First Principles</button>
     <button class="nav-tab" data-tab="docs">Reference</button>
   </div>
 
@@ -3162,6 +3163,395 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
           </ul>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: FIRST PRINCIPLES ===== -->
+  <div class="section" id="sec-firstprinciples">
+    <h2 class="section-title">First-Principles Deconstruction: EPANET → SWMM5</h2>
+    <p class="section-intro">An EPANET modeler carries a <strong>pressurized-pipe, demand-driven, quasi-steady-state</strong> mental model into a domain that is <strong>open-channel, rainfall-driven, fully unsteady, and nonlinear</strong>. Nearly every inherited instinct is wrong or dangerously incomplete. This document strips away every inherited assumption, identifies bedrock physics, and rebuilds the correct mental model from scratch.</p>
+
+    <div style="display:flex;flex-direction:column;gap:32px;">
+
+    <!-- PART 1 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;">
+      <h3 style="color:var(--accent-cyan);font-size:1.15rem;margin-bottom:20px;">PART 1: Inherited Assumptions — The Full Inventory</h3>
+
+      <h4 style="color:var(--epanet-amber);font-size:0.95rem;margin:20px 0 10px;">Category A: The Pipe Itself</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>#</th><th>Inherited Assumption</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>A1</td><td>Pipes are always full and pressurized</td><td>EPANET core assumption</td></tr>
+            <tr><td>A2</td><td>Head loss is a simple algebraic function of Q (H-W or D-W)</td><td>Steady friction models</td></tr>
+            <tr><td>A3</td><td>Pipes have no storage — flow in = flow out instantaneously</td><td>Steady-state mass balance</td></tr>
+            <tr><td>A4</td><td>Flow direction is determined by the pressure gradient and is essentially fixed</td><td>Network topology + demands</td></tr>
+            <tr><td>A5</td><td>A pipe is fully characterized by length, diameter, roughness</td><td>EPANET link model</td></tr>
+            <tr><td>A6</td><td>There is no "depth" variable — just pressure head</td><td>Full-pipe hydraulics</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="color:var(--epanet-amber);font-size:0.95rem;margin:20px 0 10px;">Category B: The Node</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>#</th><th>Inherited Assumption</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>B1</td><td>Nodes are dimensionless — zero storage, zero volume</td><td>Junction continuity: ΣQ_in = ΣQ_out</td></tr>
+            <tr><td>B2</td><td>Demands are inputs; pressures are outputs</td><td>Demand-driven analysis (DDA)</td></tr>
+            <tr><td>B3</td><td>A node's elevation is just a datum for HGL calculation</td><td>Energy reference</td></tr>
+            <tr><td>B4</td><td>Tanks are the only elements with storage</td><td>EPANET tank model</td></tr>
+            <tr><td>B5</td><td>Negative pressure means the model is broken</td><td>DDA framework</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="color:var(--epanet-amber);font-size:0.95rem;margin:20px 0 10px;">Category C: The Solver / Time</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>#</th><th>Inherited Assumption</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>C1</td><td>The system reaches steady-state at each time step (EPS)</td><td>Extended Period Simulation</td></tr>
+            <tr><td>C2</td><td>Time steps are long (minutes to hours) and benign</td><td>Quasi-steady assumption</td></tr>
+            <tr><td>C3</td><td>The solver always converges if the model is "reasonable"</td><td>Todini-Pilati gradient method</td></tr>
+            <tr><td>C4</td><td>Courant number, CFL condition — never heard of it</td><td>Irrelevant to steady-state</td></tr>
+            <tr><td>C5</td><td>Mass balance is automatic and exact</td><td>Algebraic constraint</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="color:var(--epanet-amber);font-size:0.95rem;margin:20px 0 10px;">Category D: The System Boundary / Drivers</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>#</th><th>Inherited Assumption</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>D1</td><td>The network IS the model — there's nothing "upstream"</td><td>EPANET scope</td></tr>
+            <tr><td>D2</td><td>Water enters via reservoirs (infinite source) or tanks</td><td>Boundary conditions</td></tr>
+            <tr><td>D3</td><td>Demands are known a priori (fixed or pattern-multiplied)</td><td>Design/operations paradigm</td></tr>
+            <tr><td>D4</td><td>There is no concept of "runoff generation" or hydrology</td><td>Out of scope for EPANET</td></tr>
+            <tr><td>D5</td><td>Water quality = tracer/reaction in a known, solved flow field</td><td>Decoupled WQ</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="color:var(--epanet-amber);font-size:0.95rem;margin:20px 0 10px;">Category E: Design Philosophy / Workflow</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>#</th><th>Inherited Assumption</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>E1</td><td>Design = size pipes to meet pressure requirements at nodes</td><td>Engineering convention</td></tr>
+            <tr><td>E2</td><td>The "answer" is pressure at demand nodes</td><td>DDA output</td></tr>
+            <tr><td>E3</td><td>Calibration = match pressures and maybe tank levels</td><td>Monitoring data available</td></tr>
+            <tr><td>E4</td><td>Model complexity scales linearly with network size</td><td>Well-behaved linear algebra</td></tr>
+            <tr><td>E5</td><td>Failure mode = low pressure, not flooding</td><td>Pressurized system</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PART 2 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;">
+      <h3 style="color:var(--accent-cyan);font-size:1.15rem;margin-bottom:20px;">PART 2: Bedrock Truths — What Is Actually, Provably True</h3>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin:16px 0 8px;">Physics Layer (Non-Negotiable)</h4>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 1: Conservation of Mass (Continuity)</strong>
+        <div class="ref-eq" style="margin:8px 0;">∂A/∂t + ∂Q/∂x = q<sub>lateral</sub></div>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>In a conduit of cross-section A, flow Q, with possible lateral inflow q.</li>
+          <li>EPANET sets ∂A/∂t = 0 (steady) and q = 0. Both are wrong for drainage.</li>
+          <li><strong style="color:var(--text-bright);">In SWMM's world, ∂A/∂t is the entire game.</strong> The pipe fills and drains. Water depth changes continuously. Lateral inflows from subcatchments are the primary driver.</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 2: Conservation of Momentum (St. Venant / Shallow Water)</strong>
+        <div class="ref-eq" style="margin:8px 0;">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x + gA·S<sub>f</sub> − gA·S₀ = 0</div>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li><code style="color:var(--accent-cyan);">∂Q/∂t</code> = local acceleration (absent in EPANET entirely)</li>
+          <li><code style="color:var(--accent-cyan);">∂(Q²/A)/∂x</code> = convective acceleration (absent in EPANET)</li>
+          <li><code style="color:var(--accent-cyan);">gA·∂y/∂x</code> = pressure gradient from depth variation</li>
+          <li><code style="color:var(--accent-cyan);">gA·S<sub>f</sub></code> = friction slope (the ONLY term EPANET uses, via H-W or D-W)</li>
+          <li><code style="color:var(--accent-cyan);">gA·S₀</code> = gravity (bed slope — the primary driver in open channels)</li>
+        </ul>
+        <p style="margin-top:10px;font-size:0.85rem;color:var(--epanet-amber);font-weight:500;">This is the fundamental equation. EPANET solves a degenerate, zero-inertia, full-pipe special case. SWMM5 dynamic wave solves the complete set.</p>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 3: Free Surface Exists Until It Doesn't</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>Water in a gravity drain has a free surface. Depth varies in space and time.</li>
+          <li>Cross-sectional area A = f(y) is nonlinear for circular pipes.</li>
+          <li>When y → D (pipe diameter), the system transitions to pressurized (surcharge).</li>
+          <li>This transition is <strong style="color:var(--text-bright);">the single hardest numerical problem in computational hydraulics</strong> — the Preissmann slot or similar artifice is required.</li>
+          <li>EPANET never faces this because it starts and stays pressurized. SWMM5 modelers must live at this boundary.</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 4: Gravity Is the Engine, Not Pumps</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>In drainage: S₀ (bed slope) provides the energy. Pumps are exceptions, not the rule.</li>
+          <li>In EPANET: pumps and reservoir head provide the energy. Gravity is secondary.</li>
+          <li>This inverts the entire energy mental model.</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 5: The Catchment Is the Boundary Condition</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>Rainfall → infiltration → depression storage → overland flow → inlet → pipe</li>
+          <li>This chain is the "reservoir" equivalent. It is nonlinear, hysteretic, spatially distributed, and time-varying.</li>
+          <li>There is no equivalent in EPANET. You cannot skip it. It is not a "nice to have."</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 6: Flow Can Reverse. Routinely.</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>Backwater from a downstream boundary (tailwater, tide, surcharge) propagates upstream.</li>
+          <li>Flow direction in a link can change sign within a single event.</li>
+          <li>EPANET's mental model of "flow goes from high pressure to low pressure in a fixed pattern" breaks completely.</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 7: Dry Elements Are Normal</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>Pipes can be empty. Nodes can be dry. Zero depth, zero flow is a valid state.</li>
+          <li>EPANET never deals with this. SWMM5 must handle wetting and drying fronts.</li>
+          <li>This introduces discontinuities that wreck naive solvers.</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 8: Time Step Size Has Physical Meaning</strong>
+        <div class="ref-eq" style="margin:8px 0;">Courant Number: Cr = (V + c) · Δt / Δx ≤ 1</div>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>Where V = velocity, c = gravity wave speed √(gA/T), Δt = time step, Δx = conduit length.</li>
+          <li>Violating this causes numerical instability or diffusion (smeared hydrographs).</li>
+          <li>EPANET has no equivalent constraint. An EPANET modeler picking Δt = 5 min "because it worked before" can blow up a SWMM5 dynamic wave model or silently attenuate every peak.</li>
+        </ul>
+      </div>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin:24px 0 8px;">Mathematical Layer</h4>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 9: The System Is a DAE, Not Just Algebraic</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>EPANET solves: <code style="color:var(--accent-cyan);">F(H, Q) = 0</code> — nonlinear algebraic equations at each time step.</li>
+          <li>SWMM5 dynamic wave solves: <code style="color:var(--accent-cyan);">dY/dt = G(Y, Q, t)</code> — coupled ODEs for node depths and conduit flows, with algebraic constraints at boundaries.</li>
+          <li>Newton-Raphson on an algebraic system vs. a time-marching scheme for a hyperbolic PDE system.</li>
+        </ul>
+      </div>
+
+      <div class="ref-note" style="margin-bottom:16px;">
+        <strong style="color:var(--text-bright);">Truth 10: Manning's n Is Not Hazen-Williams C</strong>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li>Manning: <code style="color:var(--accent-cyan);">Q = (1/n) · A · R^(2/3) · S^(1/2)</code> — open channel and partially full pipe.</li>
+          <li>Hazen-Williams: <code style="color:var(--accent-cyan);">V = k · C · R^0.63 · S^0.54</code> — empirical, pressurized pipe only, limited velocity range.</li>
+          <li>The EPANET modeler's muscle memory of "C = 130 for new pipe" is useless. The equivalent instinct is "n = 0.013 for PVC, 0.024 for corrugated metal."</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PART 3 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;">
+      <h3 style="color:var(--accent-cyan);font-size:1.15rem;margin-bottom:20px;">PART 3: Rebuilt Mental Model — From Bedrock Up</h3>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin-bottom:12px;">The Minimal Viable SWMM5 Mental Model</h4>
+      <div class="ref-code" style="font-size:0.72rem;line-height:1.5;margin-bottom:20px;overflow-x:auto;white-space:pre;">┌─────────────────────────────────────────────────────────────┐
+│                    ATMOSPHERE (Rain, Evap)                   │
+│                         ↓ rainfall                          │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              SUBCATCHMENT LAYER                      │    │
+│  │  Rainfall → Losses(infiltration, depression) →       │    │
+│  │     Overland flow (nonlinear reservoir) → Q_runoff   │    │
+│  └──────────────────────┬──────────────────────────────┘    │
+│                         ↓ lateral inflow                    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              NODE LAYER (Junctions, Outfalls)        │    │
+│  │  Nodes HAVE STORAGE: dV/dt = ΣQ_in - ΣQ_out         │    │
+│  │  Head = f(stored volume, node geometry)              │    │
+│  │  Can pond. Can flood. Can go dry.                    │    │
+│  └──────────┬───────────────────────────┬──────────────┘    │
+│             ↓ ΔH drives Q              ↑ Q delivers/removes│
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              LINK LAYER (Conduits, Pumps, Weirs)     │    │
+│  │  St. Venant: ∂Q/∂t + ... = 0                        │    │
+│  │  A = f(depth), depth = f(upstream/downstream heads)  │    │
+│  │  Flow CAN REVERSE. Pipes CAN surcharge or go dry.   │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                         ↓                                   │
+│              OUTFALL BOUNDARY CONDITION                      │
+│              (free, fixed, tidal, time series)               │
+└─────────────────────────────────────────────────────────────┘</div>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin:20px 0 12px;">Key Invariants of the Rebuilt Model</h4>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="ref-note"><strong style="color:var(--text-bright);">1. The subcatchment is not optional.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">It is the equivalent of EPANET's reservoir + demand pattern, but it computes inflow from first principles (rainfall, infiltration, routing).</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">2. Nodes have volume.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">Every junction has a depth, a surface area, and stores water. <code style="color:var(--accent-cyan);">dH/dt = (ΣQ_in - ΣQ_out) / A_surface</code>. This is the state variable the solver marches forward.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">3. Links have inertia.</strong> <span style="color:var(--text-muted);font-size:0.85rem;"><code style="color:var(--accent-cyan);">dQ/dt ≠ 0</code>. Flow does not instantly adjust. Transient waves propagate. This is why dynamic wave routing exists and why kinematic wave is a lossy approximation (no backwater).</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">4. The flow regime can change within a single conduit.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">Subcritical → critical → supercritical → hydraulic jump → surcharge. All in one pipe, one time step.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">5. The system clock is physics, not convenience.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">Δt is constrained by Courant, not by "how often do I want output." Routing Δt and reporting Δt are decoupled. The SWMM5 default wet-weather Δt of 30 seconds exists for a reason.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">6. Boundary conditions define the problem.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">The outfall condition (free discharge, tidal, fixed stage) propagates upstream through the entire system via backwater. An EPANET modeler setting a "free outfall" and expecting no consequences is making a physics choice, not an administrative one.</span></div>
+      </div>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin:24px 0 12px;">Necessary Trade-offs</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>Trade-off</th><th>EPANET Expectation</th><th>SWMM5 Reality</th></tr></thead>
+          <tbody>
+            <tr><td>Speed vs. accuracy</td><td>Seconds to solve</td><td>Minutes to hours for dynamic wave; Courant-limited Δt</td></tr>
+            <tr><td>Simplicity vs. physics</td><td>One equation type</td><td>Three coupled layers (hydrology + hydraulics + WQ)</td></tr>
+            <tr><td>Determinism vs. sensitivity</td><td>Change a demand, get proportional result</td><td>Change imperviousness by 5%, get nonlinear cascade</td></tr>
+            <tr><td>Convergence reliability</td><td>Almost always converges</td><td>Surcharging, ponding, dry nodes → solver stress</td></tr>
+            <tr><td>Debugging</td><td>Check pressures at nodes</td><td>Check depths, velocities, Froude numbers, continuity errors, CFL everywhere</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PART 4 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;">
+      <h3 style="color:var(--accent-cyan);font-size:1.15rem;margin-bottom:20px;">PART 4: What Changes, What Breaks, What Becomes Possible</h3>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin-bottom:12px;">What the Rebuilt Model Changes</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>Inherited Idea</th><th>Rebuilt Understanding</th></tr></thead>
+          <tbody>
+            <tr><td>"Pipe = just L, D, C"</td><td>Pipe = L, D, n, slope, upstream invert, downstream invert, cross-section shape, initial depth</td></tr>
+            <tr><td>"Node = dimensionless"</td><td>Node = invert elevation + max depth + surcharge depth + ponded area + surface area curve</td></tr>
+            <tr><td>"Demand drives flow"</td><td>Rainfall → subcatchment hydrology drives flow. There are no "demands."</td></tr>
+            <tr><td>"Pressure is the answer"</td><td><strong style="color:var(--epanet-amber);">Depth</strong> (and whether it exceeds pipe crown or ground surface) is the answer</td></tr>
+            <tr><td>"Head loss = H-W or D-W"</td><td>Friction = Manning's for open channel; Preissmann slot for surcharge transition</td></tr>
+            <tr><td>"Steady-state per time step"</td><td>Fully unsteady. Every time step is a transient.</td></tr>
+            <tr><td>"Model the network, done"</td><td>Model the <strong>watershed</strong> (subcatchments + conveyance + boundaries)</td></tr>
+            <tr><td>"Calibrate to pressure"</td><td>Calibrate to <strong>flow and depth hydrographs</strong> at monitoring points</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin:24px 0 12px;">What Becomes Optional or Obsolete</h4>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="ref-note"><strong style="color:var(--text-bright);">1. The "loop equation" mental model.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">EPANET solves energy loops (Kirchhoff's voltage law analog). SWMM5 dynamic wave doesn't use loop equations at all — it solves node continuity + link momentum as a coupled marching system.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">2. Demand patterns as a primary concept.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">There is no demand. There is rainfall, and there is dry weather flow (DWF), which is conceptually similar but mechanically different.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">3. The idea that negative pressure = model error.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">In SWMM5, negative depth is the error condition. But "surcharging" (pressure > atmospheric in a pipe) is a normal, expected, physically correct state.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">4. Pipe sizing by pressure requirement.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">In drainage, pipe sizing is by: capacity at design flow (Manning's at some target d/D ratio, often 0.8), min/max velocity, minimum slope, downstream invert connectivity. Pressure is not a design variable.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">5. The assumption that model complexity scales linearly.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">SWMM5 nonlinearity means adding one surcharging pipe or one undersized inlet can cause cascading instability in the solver.</span></div>
+      </div>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin:24px 0 12px;">Surprising New Capabilities</h4>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="ref-note"><strong style="color:var(--text-bright);">1. You can model flooding explicitly.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">When the system surcharges beyond the ground surface, SWMM5 can pond water above the node, route it back into the system when capacity returns, or lose it as surface flooding.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">2. You can model storage at any scale.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">Detention ponds, bioretention cells, green roofs, permeable pavement — all are "storage nodes" or "LID controls" in SWMM5.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">3. You can model the rainfall-to-outfall chain in a single model.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">SWMM5 integrates Horton/Green-Ampt/CN infiltration, NRCS/SCS unit hydrograph routing, and St. Venant conduit routing in one executable.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">4. Kinematic wave as a deliberate simplification.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">SWMM5 offers KW routing as a choice — dropping the ∂Q/∂t and backwater terms for speed. The SWMM5 modeler can consciously choose their physics fidelity level.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">5. Real-time control (RTC).</strong> <span style="color:var(--text-muted);font-size:0.85rem;">SWMM5 can model gates, weirs, pumps, and orifices with control rules that respond to simulated depths, flows, or times. This makes it a dynamic process simulator, not just a design checker.</span></div>
+        <div class="ref-note"><strong style="color:var(--text-bright);">6. LID/GI/SUDS process chains.</strong> <span style="color:var(--text-muted);font-size:0.85rem;">Low Impact Development controls (green roofs, rain gardens, permeable pavement, rain barrels, bioretention, infiltration trenches, rooftop disconnection, vegetative swales) can be modeled as multi-layer soil column processes within subcatchments.</span></div>
+      </div>
+    </div>
+
+    <!-- PART 5 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;">
+      <h3 style="color:var(--accent-cyan);font-size:1.15rem;margin-bottom:20px;">PART 5: The Translation Table — Sacred vs. Arbitrary</h3>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin-bottom:12px;">Genuinely Fundamental (Keep These)</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>Principle</th><th>Why It's Bedrock</th></tr></thead>
+          <tbody>
+            <tr><td>Conservation of mass</td><td>Continuity equation — universal</td></tr>
+            <tr><td>Conservation of momentum</td><td>Newton's 2nd law applied to fluid — universal</td></tr>
+            <tr><td>Energy dissipation through friction</td><td>2nd law of thermodynamics — entropy production</td></tr>
+            <tr><td>Manning's equation for open-channel friction</td><td>Empirical, but validated over 150+ years for turbulent open-channel flow</td></tr>
+            <tr><td>The Courant condition for explicit schemes</td><td>Mathematical stability requirement for hyperbolic PDEs — provable</td></tr>
+            <tr><td>Nonlinear A(y) for partially full pipes</td><td>Geometry — the circle's area as a function of depth is what it is</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="color:var(--epanet-amber);font-size:0.95rem;margin:24px 0 12px;">Sacred But Actually Arbitrary (Question These)</h4>
+      <div style="overflow-x:auto;">
+        <table class="ref-table" style="width:100%;font-size:0.82rem;">
+          <thead><tr><th>Convention</th><th>Why It's Arbitrary</th><th>What Could Replace It</th></tr></thead>
+          <tbody>
+            <tr><td>Subcatchment = single nonlinear reservoir</td><td>SWMM's 1971 choice. No physical law mandates it.</td><td>Multi-reservoir cascades, distributed grid cells, HNRA hybrid approaches</td></tr>
+            <tr><td>Horton / Green-Ampt / CN as only infiltration options</td><td>Historical convenience. All simplify Richards' equation.</td><td>Direct Richards' equation solve (computationally expensive but increasingly feasible)</td></tr>
+            <tr><td>Preissmann slot for surcharge transition</td><td>Numerical convenience to avoid equation switching</td><td>Shock-capturing Godunov schemes, TPA, finite volume methods (SWMM5+ direction)</td></tr>
+            <tr><td>Node storage as a lumped volume</td><td>Discretization convenience</td><td>Distributed storage along conduit lengths</td></tr>
+            <tr><td>Manning's n as a single constant per conduit</td><td>Simplification. n varies with depth, velocity, and Re in reality.</td><td>Depth-dependent roughness, Colebrook-White for surcharge transition</td></tr>
+            <tr><td>The .INP file format</td><td>1990s text format. No schema, no validation, fragile parsing.</td><td>JSON/YAML/protobuf with schema validation. The .INP format is legacy debt, not physics.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ref-note" style="margin-top:20px;border-left:3px solid var(--epanet-amber);">
+        <strong style="color:var(--epanet-amber);font-size:0.95rem;">The Deepest Trap: Treating SWMM5 as "EPANET with Rain"</strong>
+        <ul style="margin:10px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
+          <li><strong style="color:var(--text-bright);">Setting routing Δt too large</strong> (because EPANET trained you that Δt doesn't matter)</li>
+          <li><strong style="color:var(--text-bright);">Ignoring subcatchment parameterization</strong> (because EPANET had no equivalent)</li>
+          <li><strong style="color:var(--text-bright);">Expecting instant convergence</strong> (because EPANET spoiled you)</li>
+          <li><strong style="color:var(--text-bright);">Not checking Froude numbers or flow regime</strong> (because EPANET has no concept of supercritical flow)</li>
+          <li><strong style="color:var(--text-bright);">Missing surcharge/flooding</strong> (because you're looking for "pressure" output that doesn't exist)</li>
+          <li><strong style="color:var(--text-bright);">Underestimating calibration difficulty</strong> (because EPANET calibration is comparatively trivial)</li>
+        </ul>
+        <p style="margin-top:12px;font-size:0.9rem;color:var(--text-bright);font-weight:600;">SWMM5 is not EPANET with rain. It is a rainfall-runoff + unsteady open-channel flow + water quality simulator. EPANET is a steady-state pressurized network solver. They share the word "pipe" and approximately nothing else at the physics level.</p>
+      </div>
+    </div>
+
+    <!-- PART 6 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;">
+      <h3 style="color:var(--accent-cyan);font-size:1.15rem;margin-bottom:20px;">PART 6: The Cleanest Expression</h3>
+
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px;">If you had to tattoo the mental model transition onto one page:</p>
+
+      <div class="ref-code" style="font-size:0.78rem;line-height:1.7;margin-bottom:24px;overflow-x:auto;white-space:pre;"><span style="color:var(--swmm-glow);font-weight:600;">EPANET World</span>                          <span style="color:var(--epanet-amber);font-weight:600;">SWMM5 World</span>
+<span style="color:var(--text-dim);">─────────────                         ───────────</span>
+Pressure-driven          →            Gravity-driven
+Full pipes               →            Partially full pipes (mostly)
+Steady-state             →            Fully unsteady
+Demands = inputs         →            Rainfall = input, runoff = computed
+Nodes = dimensionless    →            Nodes = storage elements
+Pipes = resistance only  →            Pipes = resistance + inertia + storage
+Solver = algebraic NR    →            Solver = time-marching ODE/PDE
+Δt = convenience         →            Δt = physics (Courant)
+Output = pressure        →            Output = depth, flow, velocity, flooding
+Failure = low pressure   →            Failure = flooding, surcharging, CSO
+Design = size for P      →            Design = size for Q at target d/D
+No hydrology             →            Hydrology IS the model driver
+Simple WQ (tracer)       →            WQ = buildup, washoff, treatment, transport</div>
+
+      <h4 style="color:var(--accent-green);font-size:0.95rem;margin-bottom:12px;">The One Equation That Captures Everything</h4>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;">
+        <div class="ref-note" style="text-align:center;">
+          <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--swmm-glow);margin-bottom:8px;">EPANET's World</div>
+          <div class="ref-eq" style="font-size:0.85rem;">H<sub>i</sub> − H<sub>j</sub> = f(Q) · L / D</div>
+          <div style="font-size:0.78rem;color:var(--text-dim);margin-top:6px;">[algebraic, per link, per time step]</div>
+        </div>
+        <div class="ref-note" style="text-align:center;">
+          <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--epanet-amber);margin-bottom:8px;">SWMM5's World</div>
+          <div class="ref-eq" style="font-size:0.85rem;">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x = gA·(S₀ − S<sub>f</sub>)</div>
+          <div style="font-size:0.78rem;color:var(--text-dim);margin-top:6px;">[PDE, continuous in x and t]</div>
+        </div>
+      </div>
+
+      <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">Coupled with continuity including lateral inflow from catchments:</p>
+      <div class="ref-eq" style="margin-bottom:16px;">∂A/∂t + ∂Q/∂x = q(x,t)</div>
+
+      <p style="color:var(--text-bright);font-size:0.9rem;font-weight:500;margin-bottom:8px;"><strong>Everything</strong> — the unsteadiness, the free surface, the surcharge transition, the backwater, the reverse flow, the Courant constraint, the solver complexity — follows from the difference between these two mathematical statements.</p>
+
+      <p style="color:var(--epanet-amber);font-size:0.88rem;font-weight:500;">The EPANET equation is a special case (steady, full, no lateral inflow, no inertia, no wave propagation) of the SWMM5 equations. Not the other way around.</p>
+    </div>
+
+    <!-- CLOSING -->
+    <div style="background:linear-gradient(135deg, rgba(6,182,212,0.08), rgba(245,158,11,0.08));border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center;">
+      <p style="color:var(--text-bright);font-size:1rem;font-style:italic;max-width:700px;margin:0 auto;line-height:1.7;">The transition is not about learning new software buttons. It is about replacing an algebraic, pressurized, demand-driven worldview with a differential, open-channel, rainfall-driven worldview. The physics doesn't care which tool you learned first.</p>
+    </div>
+
     </div>
   </div>
 

@@ -62,7 +62,7 @@ The `index.html` file contains everything: all CSS, all HTML, and all JavaScript
 
 ## 4. Tabs — Complete Inventory
 
-The app has 14 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. The original release had 11 tabs; Force Mains, First Principles, and Reference were added subsequently.
+The app has 14 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. (The original v1.0 release had 11 tabs; Force Mains was part of v1.0 as tab 12, then First Principles and Reference were added post-release, bringing the total to 14. Earlier task documentation referencing "13 tabs" reflects a mid-development snapshot.)
 
 | # | Tab Label | `data-tab` | Section ID | Description |
 |---|---|---|---|---|

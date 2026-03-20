@@ -949,9 +949,9 @@
         </select>
       </div>
       <div class="legend-item" style="margin-left:10px;border-left:1px solid var(--border);padding-left:20px;position:relative;">
-        <button id="docsBtn" onclick="generateDocs()" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.25s;letter-spacing:0.5px;" onmouseenter="showDocsTip(true)" onmouseleave="showDocsTip(false)">📄 <span style="border-bottom:1px dashed var(--text-dim);">Docs</span></button>
+        <button id="docsBtn" onclick="var t=document.querySelector('[data-tab=&quot;docs&quot;]');if(t)activateTab(t);" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.25s;letter-spacing:0.5px;" onmouseenter="showDocsTip(true)" onmouseleave="showDocsTip(false)">📄 <span style="border-bottom:1px dashed var(--text-dim);">Docs</span></button>
         <div id="docsTip" style="display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:0.72rem;color:var(--text-muted);white-space:nowrap;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);pointer-events:none;">
-          Download all equations, code &amp; formulas as a printable reference
+          View all equations, code &amp; formulas in the Reference tab
           <div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;background:var(--bg-card);border-right:1px solid var(--border);border-bottom:1px solid var(--border);"></div>
         </div>
       </div>

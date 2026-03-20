@@ -13,7 +13,7 @@ The app is pure HTML/CSS/JS — no React, no build-time framework. It is served 
 
 **Key stats (as of March 2026):**
 - ~6,409 lines in a single `index.html`
-- 15 interactive tabs
+- 14 interactive tabs
 - 3 animated `<canvas>` elements
 - 17+ interactive range sliders
 - 2 calculators (pipe head loss, force main n↔C)
@@ -48,10 +48,12 @@ The app is pure HTML/CSS/JS — no React, no build-time framework. It is served 
 
 ```
 artifacts/epanet-swmm/
-├── index.html          # The entire application (~6,409 lines)
-├── vite.config.ts      # Vite configuration (reads PORT and BASE_PATH env vars)
-├── package.json        # Package config (@workspace/epanet-swmm)
-└── tsconfig.json       # TypeScript config (for Vite config only)
+├── index.html                    # The entire application (~6,409 lines)
+├── vite.config.ts                # Vite configuration (reads PORT and BASE_PATH env vars)
+├── package.json                  # Package config (@workspace/epanet-swmm)
+├── tsconfig.json                 # TypeScript config (for Vite config only)
+└── .replit-artifact/
+    └── artifact.toml             # Replit artifact config (ports, build, deploy, preview path)
 ```
 
 The `index.html` file contains everything: all CSS, all HTML, and all JavaScript. This is intentional — it makes the app fully self-contained and trivially portable.
@@ -60,7 +62,7 @@ The `index.html` file contains everything: all CSS, all HTML, and all JavaScript
 
 ## 4. Tabs — Complete Inventory
 
-The app has 15 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs.
+The app has 14 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. The original release had 11 tabs; Force Mains, First Principles, and Reference were added subsequently.
 
 | # | Tab Label | `data-tab` | Section ID | Description |
 |---|---|---|---|---|
@@ -365,9 +367,52 @@ The footer (line ~4074) contains a dedication to Dr. Lewis A. Rossman, creator o
 
 ## 13. Build / Deployment Configuration
 
+### Artifact Config (`artifacts/epanet-swmm/.replit-artifact/artifact.toml`)
+
+This TOML file defines how Replit discovers, runs, and deploys the artifact:
+
+```toml
+kind = "web"                    # Artifact type — web application
+previewPath = "/"               # URL path in the dev preview pane
+title = "EPANET for SWMM5 Experts"
+version = "1.0.0"
+id = "artifacts/epanet-swmm"   # Unique artifact identifier
+router = "path"                 # Path-based routing (vs. subdomain)
+
+[[integratedSkills]]
+name = "react-vite"             # Scaffold skill used (despite being pure HTML)
+version = "1.0.0"
+
+[[services]]
+localPort = 23741               # Port assigned to this artifact
+name = "web"
+paths = ["/"]                   # Served at root path
+
+[services.development]
+run = "pnpm --filter @workspace/epanet-swmm run dev"
+
+[services.env]
+PORT = "23741"                  # Passed to Vite config
+BASE_PATH = "/"                 # Passed to Vite config as base
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/epanet-swmm", "run", "build"]
+publicDir = "artifacts/epanet-swmm/dist/public"   # Static files served in production
+serve = "static"                # No server process — static file serving
+
+[[services.production.rewrites]]
+from = "/*"                     # SPA fallback rewrite
+to = "/index.html"
+```
+
+**Key points:**
+- In production, the app is served as static files from `dist/public/` — no Node.js server needed.
+- The `serve = "static"` directive means Replit's built-in static server handles the files.
+- The SPA rewrite (`/* → /index.html`) ensures all paths serve the single HTML file.
+
 ### Vite Config (`vite.config.ts`)
 
-- Reads `PORT` and `BASE_PATH` from environment variables (required)
+- Reads `PORT` and `BASE_PATH` from environment variables (required, set by artifact.toml)
 - Uses `@replit/vite-plugin-cartographer` and `@replit/vite-plugin-dev-banner` in development
 - Build output: `dist/public/`
 - Server: binds to `0.0.0.0`, allows all hosts
@@ -391,6 +436,8 @@ The app runs as a Replit workflow named `artifacts/epanet-swmm: web` with comman
 ```
 pnpm --filter @workspace/epanet-swmm run dev
 ```
+
+This workflow is auto-generated from the `artifact.toml` `[services.development].run` field.
 
 Preview path: `/`
 
@@ -443,11 +490,9 @@ On page load, the app runs 10 equation verification tests via an IIFE `runTests(
 
 ### Known Issues
 
-1. **Test failure on large-diameter SWMM5 conversion:** `cToN_swmm(130, 2.0)` returns 0.00846 but test expects ~0.0109. This is a test calibration issue, not an app bug.
+1. **Test failure on large-diameter SWMM5 conversion:** The console test at line ~5976 reports `FAIL: cToN_swmm(130, 2.0) = 0.00846 should be ~0.0109`. This fires every page load. The expected value in the assertion may need recalibration — the computed value matches the actual SWMM5 `forcemain_getEquivN()` formula. This does NOT affect simulation accuracy as SWMM5 uses H-W directly during force main routing.
 
-2. **Theme dropdown sync on hash restore:** When loading directly via URL hash (e.g., `#theme=uf`), the theme visuals apply correctly but the dropdown selector may not always sync on initial load due to timing. The `setTheme()` function guards against this but edge cases in `restoreStateFromHash` ordering exist.
-
-3. **Unused React/Radix devDependencies:** The `package.json` lists many Radix UI and React packages as devDependencies. These are leftover from the monorepo scaffold and are not used by the app. They can be safely removed to reduce `node_modules` size.
+2. **Unused React/Radix devDependencies:** The `package.json` lists ~30 Radix UI and React packages as devDependencies (lines 13–75). These are leftover from the monorepo scaffold template and are not imported anywhere in `index.html`. They can be safely removed to reduce `node_modules` size.
 
 ### Future Considerations
 

@@ -6617,7 +6617,7 @@ Daily  0.6 0.5</div>
       },
       addCustom: function() {
         var nameEl = document.getElementById('txCustomName');
-        var name = nameEl.value.trim();
+        var name = sanitizeName(nameEl.value.trim());
         if (!name || pollutants.find(function(p){ return p.name === name; })) return;
         pollutants.push({ name: name, units: 'mg/L', C_in: 100, expr: 'C = C_IN * EXP(-0.5 * HRT)', color: '#607D8B' });
         activeIdx = pollutants.length - 1;

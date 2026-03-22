@@ -94,7 +94,7 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 ### `artifacts/epanet-swmm` (`@workspace/epanet-swmm`)
 
-EPANET for SWMM5 Experts — "The Rosetta Stone." A self-contained single-page HTML application with 13 tabs (including Reference docs), 3 animated canvases, 17 interactive sliders, force main calculators, US/SI unit toggle, and 5 color themes (Dark, UF Gators, Ohio State, Auburn, EPA). Served as a static HTML file by Vite (no React — the app is pure HTML/CSS/JS). The main content is in `index.html`. Themes are implemented via CSS custom properties on `data-theme` attribute and persist via URL hash.
+EPANET for SWMM5 Experts — "The Rosetta Stone." A self-contained single-page HTML application with 16 tabs (including Treatment Editor, First Principles, and Reference docs), 3 animated canvases, 17+ interactive sliders, force main calculators, SWMM5 treatment expression builder with live Chart.js simulation, US/SI unit toggle, and 5 color themes (Dark, UF Gators, Ohio State, Auburn, EPA). Served as a static HTML file by Vite (no React — the app is pure HTML/CSS/JS). The main content is in `index.html`. Themes are implemented via CSS custom properties on `data-theme` attribute and persist via URL hash. The Treatment tab uses a `TX` namespace (IIFE module) with sanitized expression evaluation (blocked tokens, character validation) and DOM-safe rendering (no innerHTML with user data).
 
 - Preview path: `/`
 - Dev: `pnpm --filter @workspace/epanet-swmm run dev`

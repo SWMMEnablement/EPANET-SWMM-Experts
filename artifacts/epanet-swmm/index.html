@@ -3238,6 +3238,208 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
     </div>
   </div>
 
+  <!-- ===== SECTION: TREATMENT EDITOR ===== -->
+  <div class="section" id="sec-treatment">
+    <h2 class="section-title">SWMM5 Treatment Expression Editor</h2>
+    <p class="section-intro">Visual expression builder with live simulation. SWMM5 treatment expressions set effluent concentration (<code style="color:var(--accent-green)">C = f(...)</code>) or fractional removal (<code style="color:var(--accent-green)">R = f(...)</code>) at any node. Build, test, and export expressions with instant feedback.</p>
+
+    <!-- Pollutant Tabs -->
+    <div class="tx-poll-tabs" id="txPollTabs"></div>
+
+    <!-- Add Pollutant Panel (hidden by default) -->
+    <div class="tx-add-panel" id="txAddPanel" style="display:none;">
+      <div style="font-size:0.72rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;font-family:var(--font-body);">Common Pollutants</div>
+      <div class="tx-preset-grid" id="txPresetGrid"></div>
+      <div class="tx-custom-row">
+        <input class="tx-custom-input" id="txCustomName" placeholder="Custom pollutant name..." onkeydown="if(event.key==='Enter')txAddCustom()">
+        <button class="tx-custom-add-btn" onclick="txAddCustom()">Add</button>
+      </div>
+    </div>
+
+    <!-- Expression Editor Panel -->
+    <div class="tx-panel">
+      <div class="tx-panel-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="tx-panel-title">Treatment Expression</span>
+          <span class="tx-poll-dot" id="txExprDot"></span>
+          <span style="font-size:0.75rem;color:var(--text-dim);" id="txExprPollLabel"></span>
+        </div>
+        <span id="txValidBadge"></span>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <textarea class="tx-expr-area" id="txExprInput" rows="2" spellcheck="false" oninput="txOnExprChange()" placeholder="C = C_IN * EXP(-0.5 * HRT)"></textarea>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:0.78rem;color:var(--text-dim);font-family:var(--font-body);">C_IN =</span>
+        <input class="tx-num-input" id="txCinInput" type="number" value="150" oninput="txOnCinChange()">
+        <span style="font-size:0.75rem;color:var(--text-dim);" id="txCinUnit"></span>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="tx-insert-btn" onclick="txToggleTemplates()" style="background:rgba(139,92,246,0.08);border-color:rgba(139,92,246,0.3);color:var(--gravity-purple);">Templates</button>
+          <button class="tx-insert-btn" onclick="txToggleRef()" style="background:rgba(255,255,255,0.03);">Reference</button>
+        </div>
+      </div>
+
+      <!-- Quick-insert palette -->
+      <div>
+        <div class="tx-insert-row">
+          <span class="tx-insert-label">Vars</span>
+          <button class="tx-insert-btn" onclick="txInsert('C_IN')">C_IN</button>
+          <button class="tx-insert-btn" onclick="txInsert('HRT')" title="Hydraulic Residence Time (hours)">HRT</button>
+          <button class="tx-insert-btn" onclick="txInsert('DT')" title="Time step (seconds)">DT</button>
+          <button class="tx-insert-btn" onclick="txInsert('FLOW')" title="Flow rate into node">FLOW</button>
+          <button class="tx-insert-btn" onclick="txInsert('DEPTH')" title="Water depth above node invert">DEPTH</button>
+          <button class="tx-insert-btn" onclick="txInsert('AREA')" title="Node surface area">AREA</button>
+          <span id="txLinkedVarBtns"></span>
+        </div>
+        <div class="tx-insert-row">
+          <span class="tx-insert-label">Funcs</span>
+          <button class="tx-insert-btn" onclick="txInsert('EXP()')" title="Exponential e^x">EXP</button>
+          <button class="tx-insert-btn" onclick="txInsert('LOG()')" title="Natural logarithm">LOG</button>
+          <button class="tx-insert-btn" onclick="txInsert('LOG10()')" title="Base-10 logarithm">LOG10</button>
+          <button class="tx-insert-btn" onclick="txInsert('SQRT()')" title="Square root">SQRT</button>
+          <button class="tx-insert-btn" onclick="txInsert('ABS()')" title="Absolute value">ABS</button>
+          <button class="tx-insert-btn" onclick="txInsert('STEP()')" title="0 if x<=0, else 1">STEP</button>
+          <button class="tx-insert-btn" onclick="txInsert('SIGN()')" title="-1, 0, or +1">SIGN</button>
+          <button class="tx-insert-btn" onclick="txInsert('MIN(,)')" title="Minimum of x and y">MIN</button>
+          <button class="tx-insert-btn" onclick="txInsert('MAX(,)')" title="Maximum of x and y">MAX</button>
+        </div>
+        <div class="tx-insert-row">
+          <span class="tx-insert-label">Ops</span>
+          <button class="tx-insert-btn" onclick="txInsert(' + ')">+</button>
+          <button class="tx-insert-btn" onclick="txInsert(' - ')">-</button>
+          <button class="tx-insert-btn" onclick="txInsert(' * ')">*</button>
+          <button class="tx-insert-btn" onclick="txInsert(' / ')">/</button>
+          <button class="tx-insert-btn" onclick="txInsert('^')">^</button>
+          <button class="tx-insert-btn" onclick="txInsert('(')">(</button>
+          <button class="tx-insert-btn" onclick="txInsert(')')">)</button>
+          <button class="tx-insert-btn" onclick="txInsert(', ')">,</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Templates Panel (hidden) -->
+    <div class="tx-panel" id="txTemplatesPanel" style="display:none;border-color:rgba(139,92,246,0.3);">
+      <div class="tx-panel-header">
+        <span class="tx-panel-title" style="color:var(--gravity-purple);">Treatment Templates</span>
+        <div class="tx-tpl-filters" id="txTplFilters"></div>
+      </div>
+      <div class="tx-tpl-grid" id="txTplGrid"></div>
+    </div>
+
+    <!-- Reference Panel (hidden) -->
+    <div class="tx-panel" id="txRefPanel" style="display:none;">
+      <div class="tx-panel-header">
+        <span class="tx-panel-title">SWMM5 Treatment Reference</span>
+        <button class="tx-insert-btn" onclick="txToggleRef()">Close</button>
+      </div>
+      <div class="tx-ref-section">
+        <div class="tx-ref-title">Expression Forms</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">C = f(...)</code> &#8212; Set effluent concentration directly</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">R = f(...)</code> &#8212; Set fractional removal (0&#8211;100%)</div>
+      </div>
+      <div class="tx-ref-section">
+        <div class="tx-ref-title">Process Variables</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">HRT</code> &#8212; Hydraulic Residence Time (hours)</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">DT</code> &#8212; Time step (seconds)</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">FLOW</code> &#8212; Flow rate into node (CFS/CMS)</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">DEPTH</code> &#8212; Water depth above node invert (ft/m)</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">AREA</code> &#8212; Node surface area (ft&#178;/m&#178;)</div>
+      </div>
+      <div class="tx-ref-section">
+        <div class="tx-ref-title">Cross-References</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">R_pollutant</code> &#8212; Removal % of another pollutant</div>
+        <div class="tx-ref-line"><code class="tx-ref-code">C_pollutant</code> &#8212; Concentration of another pollutant</div>
+      </div>
+      <div class="tx-ref-section">
+        <div class="tx-ref-title">Key Notes</div>
+        <div class="tx-ref-line">&#8226; Treatment expressions are evaluated at each computational time step</div>
+        <div class="tx-ref-line">&#8226; C_IN is the mixture concentration from all inflows to the node</div>
+        <div class="tx-ref-line">&#8226; HRT is cumulative residence time, reset when node goes dry</div>
+        <div class="tx-ref-line">&#8226; Removal R is capped at 0% (no removal) to 100% (complete removal)</div>
+        <div class="tx-ref-line">&#8226; Expressions for linked pollutants are evaluated in order listed</div>
+      </div>
+    </div>
+
+    <!-- Simulation Parameters -->
+    <div class="tx-panel">
+      <span class="tx-panel-title">Simulation Parameters</span>
+      <div class="tx-sim-grid" style="margin-top:12px;">
+        <div>
+          <label class="tx-sim-label">HRT Range (hrs)</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input class="tx-sim-input" id="txHrtMin" type="number" value="0" step="0.5" min="0" oninput="txSimulate()">
+            <span style="color:var(--text-dim);">&#8594;</span>
+            <input class="tx-sim-input" id="txHrtMax" type="number" value="24" step="1" min="0.5" oninput="txSimulate()">
+          </div>
+        </div>
+        <div>
+          <label class="tx-sim-label">Flow (CFS)</label>
+          <input class="tx-sim-input" id="txSimFlow" type="number" value="10" step="1" min="0.1" oninput="txSimulate()">
+        </div>
+        <div>
+          <label class="tx-sim-label">Depth (ft)</label>
+          <input class="tx-sim-input" id="txSimDepth" type="number" value="3" step="0.5" min="0" oninput="txSimulate()">
+        </div>
+        <div>
+          <label class="tx-sim-label">Area (ft&#178;)</label>
+          <input class="tx-sim-input" id="txSimArea" type="number" value="500" step="100" min="1" oninput="txSimulate()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Views -->
+    <div class="tx-panel">
+      <div class="tx-view-tabs">
+        <button class="tx-view-tab active" data-txview="curve" onclick="txSetView('curve')">Treatment Curve</button>
+        <button class="tx-view-tab" data-txview="removal" onclick="txSetView('removal')">Removal Overlay</button>
+        <button class="tx-view-tab" data-txview="table" onclick="txSetView('table')">Data Table</button>
+        <button class="tx-view-tab" data-txview="swmm" onclick="txSetView('swmm')">SWMM5 Export</button>
+      </div>
+
+      <!-- Curve View -->
+      <div class="tx-view-pane active" id="txViewCurve">
+        <div style="display:flex;gap:16px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:24px;height:2px;border-top:2px dashed var(--text-dim);display:inline-block;"></span>
+            <span style="font-size:0.75rem;color:var(--text-dim);font-family:var(--font-body);">Influent (C_IN)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:24px;height:2px;display:inline-block;" id="txCurveLegendLine"></span>
+            <span style="font-size:0.75rem;color:var(--text-dim);font-family:var(--font-body);" id="txCurveLegendLabel">Effluent</span>
+          </div>
+        </div>
+        <canvas id="txCurveChart" height="280"></canvas>
+        <div class="tx-stats-grid" id="txStatsGrid"></div>
+      </div>
+
+      <!-- Removal Overlay View -->
+      <div class="tx-view-pane" id="txViewRemoval">
+        <div id="txRemovalMsg" style="text-align:center;padding:40px 0;color:var(--text-dim);font-family:var(--font-body);font-size:0.88rem;">Add more pollutants to see removal comparison overlay</div>
+        <canvas id="txRemovalChart" height="300" style="display:none;"></canvas>
+      </div>
+
+      <!-- Table View -->
+      <div class="tx-view-pane" id="txViewTable">
+        <div style="max-height:320px;overflow:auto;border-radius:8px;">
+          <table class="tx-data-table" id="txDataTable">
+            <thead><tr><th style="text-align:left;">HRT (hrs)</th><th>C_IN</th><th>C_OUT</th><th>Removal (%)</th></tr></thead>
+            <tbody id="txDataBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SWMM Export View -->
+      <div class="tx-view-pane" id="txViewSwmm">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <button class="tx-copy-btn" onclick="txCopyExport()">Copy to Clipboard</button>
+        </div>
+        <pre class="tx-export-pre" id="txExportPre"></pre>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== SECTION: FIRST PRINCIPLES ===== -->
   <div class="section" id="sec-firstprinciples">
     <h2 class="section-title">First-Principles Deconstruction: EPANET → SWMM5</h2>
@@ -5932,6 +6134,594 @@ Daily  0.6 0.5</div>
     URL.revokeObjectURL(url);
 
   }
+
+  // =====================================================
+  // === TREATMENT EDITOR ===
+  // =====================================================
+  var TX = (function() {
+    var pollutants = [
+      { name: 'TSS', units: 'mg/L', C_in: 150, expr: 'C = C_IN * EXP(-0.5 * HRT)', color: '#8B4513' }
+    ];
+    var activeIdx = 0;
+    var curveChart = null;
+    var removalChart = null;
+    var showAddPanel = false;
+    var showTemplates = false;
+    var showRef = false;
+    var tplFilter = 'all';
+    var curView = 'curve';
+
+    var PRESETS = [
+      { name: 'TSS', units: 'mg/L', typical_in: 150, color: '#8B4513' },
+      { name: 'BOD', units: 'mg/L', typical_in: 120, color: '#228B22' },
+      { name: 'COD', units: 'mg/L', typical_in: 250, color: '#2E8B57' },
+      { name: 'TN', units: 'mg/L', typical_in: 8, color: '#4169E1' },
+      { name: 'TP', units: 'mg/L', typical_in: 2.5, color: '#9932CC' },
+      { name: 'Zn', units: '\u03BCg/L', typical_in: 200, color: '#708090' },
+      { name: 'Cu', units: '\u03BCg/L', typical_in: 50, color: '#B87333' },
+      { name: 'Pb', units: '\u03BCg/L', typical_in: 80, color: '#36454F' },
+      { name: 'E.coli', units: 'MPN/100mL', typical_in: 50000, color: '#DC143C' },
+      { name: 'Fecal Coliform', units: 'MPN/100mL', typical_in: 100000, color: '#FF4500' }
+    ];
+
+    var TEMPLATES = [
+      { name: 'Exponential Decay (1st Order)', cat: 'kinetic', expr: 'C = C_IN * EXP(-k * HRT)', desc: 'First-order decay based on residence time. k is the decay rate constant (1/hr).', icon: '\u{1F4C9}' },
+      { name: 'Constant Removal %', cat: 'simple', expr: 'R = removal_pct', desc: 'Removes a fixed percentage of influent concentration.', icon: '\u2702\uFE0F' },
+      { name: 'Concentration Cap', cat: 'simple', expr: 'C = MIN(C_IN, max_conc)', desc: 'Caps effluent at a maximum concentration.', icon: '\u{1F512}' },
+      { name: 'Kadlec-Knight (Wetland k-C*)', cat: 'kinetic', expr: 'C = C_star + (C_IN - C_star) * EXP(-k * HRT)', desc: 'Wetland treatment with background concentration C*. Common for TSS, BOD, nutrients.', icon: '\u{1F33F}' },
+      { name: 'Settling (Overflow Rate)', cat: 'physical', expr: 'C = C_IN * EXP(-vs * AREA / FLOW)', desc: 'Particle settling based on surface overflow rate. vs = settling velocity.', icon: '\u2B07\uFE0F' },
+      { name: 'Depth-Dependent Removal', cat: 'physical', expr: 'R = k * DEPTH * STEP(DEPTH - d_min)', desc: 'Removal increases with depth above a minimum threshold.', icon: '\u{1F4D0}' },
+      { name: 'Co-Removal (Linked Pollutant)', cat: 'linked', expr: 'R = f * R_TSS', desc: 'Removal fraction linked to TSS removal. Common for metals, phosphorus.', icon: '\u{1F517}' },
+      { name: 'Two-Stage (Fast + Slow)', cat: 'kinetic', expr: 'C = C_IN * (a * EXP(-k1 * HRT) + (1 - a) * EXP(-k2 * HRT))', desc: 'Bi-exponential: fast-settling + slow-settling fractions.', icon: '\u26A1' }
+    ];
+
+    var BLOCKED_TOKENS = /\b(window|document|globalThis|self|top|parent|frames|constructor|prototype|__proto__|eval|Function|fetch|XMLHttpRequest|import|require|module|exports|process|setTimeout|setInterval|alert|confirm|prompt|location|navigator|cookie|localStorage|sessionStorage)\b/i;
+    var ALLOWED_CHARS = /^[a-zA-Z0-9_\s\.\+\-\*\/\^\(\)\,]+$/;
+
+    function sanitizeName(s) {
+      return s.replace(/[<>&"'\/\\]/g, '');
+    }
+
+    function evalTreatment(expr, vars) {
+      try {
+        var e = expr.trim();
+        var isRemoval = false;
+        var formula = e;
+        if (/^R\s*=/i.test(e)) { isRemoval = true; formula = e.replace(/^R\s*=\s*/i, ''); }
+        else if (/^C\s*=/i.test(e)) { formula = e.replace(/^C\s*=\s*/i, ''); }
+        if (BLOCKED_TOKENS.test(formula)) return { value: NaN, isRemoval: false, raw: NaN, error: 'Forbidden token' };
+        if (/[\[\]{};`'"\\]/.test(formula)) return { value: NaN, isRemoval: false, raw: NaN, error: 'Invalid characters' };
+        if (/\.\s*[a-zA-Z]/.test(formula)) return { value: NaN, isRemoval: false, raw: NaN, error: 'Property access not allowed' };
+        var js = formula
+          .replace(/\bEXP\b/gi, 'Math.exp')
+          .replace(/\bLOG10\b/gi, 'Math.log10')
+          .replace(/\bLOG\b/gi, 'Math.log')
+          .replace(/\bSQRT\b/gi, 'Math.sqrt')
+          .replace(/\bABS\b/gi, 'Math.abs')
+          .replace(/\bMIN\b/gi, 'Math.min')
+          .replace(/\bMAX\b/gi, 'Math.max')
+          .replace(/\bSTEP\b/gi, '((function(x){return x>0?1:0}))')
+          .replace(/\bSIGN\b/gi, 'Math.sign')
+          .replace(/\bSGN\b/gi, 'Math.sign')
+          .replace(/\bPI\b/gi, 'Math.PI');
+        var keys = Object.keys(vars);
+        keys.sort(function(a,b){ return b.length - a.length; });
+        for (var ki = 0; ki < keys.length; ki++) {
+          var k = keys[ki];
+          var re = new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+          js = js.replace(re, '(' + vars[k] + ')');
+        }
+        var remaining = js.replace(/Math\.(exp|log10|log|sqrt|abs|min|max|sign|PI)/g, '0').replace(/\(function\(x\)\{return x>0\?1:0\}\)/g, '0');
+        if (/[a-zA-Z_]\w*/.test(remaining.replace(/\b\d+\.?\d*\b/g, ''))) {
+          var unknowns = remaining.replace(/\b\d+\.?\d*\b/g, '').match(/[a-zA-Z_]\w*/g);
+          if (unknowns) return { value: NaN, isRemoval: false, raw: NaN, error: 'Unknown: ' + unknowns[0] };
+        }
+        var val = Function('"use strict"; return (' + js + ')')();
+        return { value: val, isRemoval: isRemoval, raw: val };
+      } catch (err) {
+        return { value: NaN, isRemoval: false, raw: NaN, error: err.message };
+      }
+    }
+
+    function validate(expr) {
+      if (!expr.trim()) return { valid: false, msg: 'Expression is empty' };
+      if (!/^(C|R)\s*=/i.test(expr.trim())) return { valid: false, msg: 'Must start with C = or R =' };
+      var test = evalTreatment(expr, {
+        C_IN: 100, HRT: 1, DT: 300, FLOW: 10, DEPTH: 3, AREA: 500,
+        R_TSS: 80, C_TSS: 30, k: 1, vs: 0.01, removal_pct: 75,
+        C_star: 5, d_min: 0.5, f: 0.6, a: 0.6, k1: 2, k2: 0.2, max_conc: 20
+      });
+      if (isNaN(test.raw)) return { valid: false, msg: test.error || 'Cannot evaluate' };
+      if (!isFinite(test.raw)) return { valid: false, msg: 'Result is infinite' };
+      return { valid: true, msg: 'Valid expression' };
+    }
+
+    function getActive() { return pollutants[activeIdx] || pollutants[0]; }
+
+    function simulate() {
+      var p = getActive();
+      var hMin = parseFloat(document.getElementById('txHrtMin').value) || 0;
+      var hMax = parseFloat(document.getElementById('txHrtMax').value) || 24;
+      var flow = parseFloat(document.getElementById('txSimFlow').value) || 10;
+      var depth = parseFloat(document.getElementById('txSimDepth').value) || 3;
+      var area = parseFloat(document.getElementById('txSimArea').value) || 500;
+      var steps = 100;
+      var dt = (hMax - hMin) / steps;
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var hrt = hMin + i * dt;
+        var vars = {
+          C_IN: p.C_in, HRT: hrt, DT: dt * 3600, FLOW: flow, DEPTH: depth, AREA: area,
+          R_TSS: 80, C_TSS: 30, k: 0.5, vs: 0.01, removal_pct: 75,
+          C_star: 5, d_min: 0.5, f: 0.6, a: 0.6, k1: 2.0, k2: 0.2, max_conc: 20
+        };
+        var result = evalTreatment(p.expr, vars);
+        var C_out, removal;
+        if (result.isRemoval) {
+          removal = Math.max(0, Math.min(100, result.raw));
+          C_out = p.C_in * (1 - removal / 100);
+        } else {
+          C_out = Math.max(0, result.raw);
+          removal = p.C_in > 0 ? ((p.C_in - C_out) / p.C_in) * 100 : 0;
+        }
+        pts.push({ hrt: +hrt.toFixed(3), C_in: p.C_in, C_out: +C_out.toFixed(3), removal: +removal.toFixed(1) });
+      }
+      return pts;
+    }
+
+    function simulateAll() {
+      if (pollutants.length < 2) return null;
+      var hMin = parseFloat(document.getElementById('txHrtMin').value) || 0;
+      var hMax = parseFloat(document.getElementById('txHrtMax').value) || 24;
+      var flow = parseFloat(document.getElementById('txSimFlow').value) || 10;
+      var depth = parseFloat(document.getElementById('txSimDepth').value) || 3;
+      var area = parseFloat(document.getElementById('txSimArea').value) || 500;
+      var steps = 100;
+      var dt = (hMax - hMin) / steps;
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var hrt = hMin + i * dt;
+        var row = { hrt: +hrt.toFixed(3) };
+        for (var pi = 0; pi < pollutants.length; pi++) {
+          var pp = pollutants[pi];
+          var vars = {
+            C_IN: pp.C_in, HRT: hrt, DT: dt * 3600, FLOW: flow, DEPTH: depth, AREA: area,
+            R_TSS: 80, C_TSS: 30, k: 0.5, vs: 0.01, removal_pct: 75,
+            C_star: 5, d_min: 0.5, f: 0.6, a: 0.6, k1: 2, k2: 0.2, max_conc: 20
+          };
+          var r = evalTreatment(pp.expr, vars);
+          var rem;
+          if (r.isRemoval) { rem = Math.max(0, Math.min(100, r.raw)); }
+          else { var co = Math.max(0, r.raw); rem = pp.C_in > 0 ? ((pp.C_in - co) / pp.C_in) * 100 : 0; }
+          row[pp.name] = +rem.toFixed(1);
+        }
+        pts.push(row);
+      }
+      return pts;
+    }
+
+    function renderPollTabs() {
+      var c = document.getElementById('txPollTabs');
+      c.innerHTML = '';
+      for (var i = 0; i < pollutants.length; i++) {
+        (function(idx) {
+          var p = pollutants[idx];
+          var sn = sanitizeName(p.name);
+          var tab = document.createElement('div');
+          tab.className = 'tx-poll-tab' + (idx === activeIdx ? ' active' : '');
+          tab.addEventListener('click', function(){ TX.setActive(idx); });
+          var dot = document.createElement('span');
+          dot.className = 'tx-poll-dot';
+          dot.style.background = p.color;
+          tab.appendChild(dot);
+          var nm = document.createElement('span');
+          nm.textContent = sn;
+          tab.appendChild(nm);
+          if (pollutants.length > 1) {
+            var rm = document.createElement('span');
+            rm.className = 'tx-poll-remove';
+            rm.textContent = '\u2715';
+            rm.addEventListener('click', function(ev){ ev.stopPropagation(); TX.removePoll(idx); });
+            tab.appendChild(rm);
+          }
+          c.appendChild(tab);
+        })(i);
+      }
+      var addBtn = document.createElement('div');
+      addBtn.className = 'tx-poll-tab tx-poll-add';
+      addBtn.textContent = '+ Add';
+      addBtn.addEventListener('click', function(){ TX.toggleAdd(); });
+      c.appendChild(addBtn);
+
+      var linkedContainer = document.getElementById('txLinkedVarBtns');
+      linkedContainer.innerHTML = '';
+      for (var j = 0; j < pollutants.length; j++) {
+        if (j !== activeIdx) {
+          (function(jj) {
+            var sn = sanitizeName(pollutants[jj].name);
+            var btn = document.createElement('button');
+            btn.className = 'tx-insert-btn';
+            btn.textContent = 'R_' + sn;
+            btn.title = 'Removal % of ' + sn;
+            btn.addEventListener('click', function(){ txInsert('R_' + sn); });
+            linkedContainer.appendChild(btn);
+          })(j);
+        }
+      }
+    }
+
+    function renderPresets() {
+      var c = document.getElementById('txPresetGrid');
+      c.innerHTML = '';
+      for (var i = 0; i < PRESETS.length; i++) {
+        (function(pi) {
+          var pp = PRESETS[pi];
+          if (pollutants.find(function(p){ return p.name === pp.name; })) return;
+          var btn = document.createElement('button');
+          btn.className = 'tx-preset-btn';
+          btn.addEventListener('click', function(){ TX.addPreset(pi); });
+          var dot = document.createElement('span');
+          dot.className = 'tx-poll-dot';
+          dot.style.cssText = 'background:' + pp.color + ';display:inline-block;width:6px;height:6px;vertical-align:middle;margin-right:4px;';
+          btn.appendChild(dot);
+          btn.appendChild(document.createTextNode(pp.name + ' '));
+          var info = document.createElement('span');
+          info.style.cssText = 'color:var(--text-dim);margin-left:4px;';
+          info.textContent = pp.typical_in + ' ' + pp.units;
+          btn.appendChild(info);
+          c.appendChild(btn);
+        })(i);
+      }
+    }
+
+    function renderTemplates() {
+      var fDiv = document.getElementById('txTplFilters');
+      var cats = ['all', 'simple', 'kinetic', 'physical', 'linked'];
+      var fHtml = '';
+      for (var ci = 0; ci < cats.length; ci++) {
+        fHtml += '<button class="tx-tpl-filter' + (tplFilter === cats[ci] ? ' active' : '') + '" onclick="TX.setTplFilter(\'' + cats[ci] + '\')">' + cats[ci] + '</button>';
+      }
+      fDiv.innerHTML = fHtml;
+
+      var g = document.getElementById('txTplGrid');
+      var html = '';
+      for (var i = 0; i < TEMPLATES.length; i++) {
+        var t = TEMPLATES[i];
+        if (tplFilter !== 'all' && t.cat !== tplFilter) continue;
+        html += '<div class="tx-tpl-card" onclick="TX.applyTemplate(' + i + ')">';
+        html += '<div class="tx-tpl-name">' + t.icon + ' ' + t.name + '</div>';
+        html += '<div class="tx-tpl-expr">' + t.expr + '</div>';
+        html += '<div class="tx-tpl-desc">' + t.desc + '</div>';
+        html += '</div>';
+      }
+      g.innerHTML = html;
+    }
+
+    function updateExprUI() {
+      var p = getActive();
+      document.getElementById('txExprInput').value = p.expr;
+      document.getElementById('txCinInput').value = p.C_in;
+      document.getElementById('txCinUnit').textContent = p.units;
+      document.getElementById('txExprDot').style.background = p.color;
+      document.getElementById('txExprPollLabel').textContent = p.name + ' (' + p.units + ')';
+      var v = validate(p.expr);
+      var badge = document.getElementById('txValidBadge');
+      if (v.valid) {
+        badge.innerHTML = '<span class="tx-badge tx-badge-ok">\u2713 Valid</span>';
+      } else {
+        badge.innerHTML = '<span class="tx-badge tx-badge-err">\u2717 ' + v.msg + '</span>';
+      }
+    }
+
+    function updateCurveChart(data) {
+      var p = getActive();
+      var ctx = document.getElementById('txCurveChart').getContext('2d');
+      var gridColor = 'rgba(148,163,184,0.1)';
+      var tickColor = '#64748b';
+      if (curveChart) curveChart.destroy();
+      curveChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(function(d){ return d.hrt; }),
+          datasets: [
+            {
+              label: 'Influent (C_IN)',
+              data: data.map(function(d){ return d.C_in; }),
+              borderColor: '#94a3b8',
+              borderDash: [6, 4],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Effluent (' + p.name + ')',
+              data: data.map(function(d){ return d.C_out; }),
+              borderColor: p.color,
+              borderWidth: 2.5,
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 300 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              borderColor: '#334155',
+              borderWidth: 1,
+              titleColor: '#94a3b8',
+              bodyColor: '#e2e8f0',
+              callbacks: {
+                title: function(items) { return 'HRT: ' + items[0].label + ' hrs'; }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'HRT (hours)', color: tickColor, font: { size: 11 } },
+              ticks: { color: tickColor, font: { size: 11 }, maxTicksLimit: 12 },
+              grid: { color: gridColor }
+            },
+            y: {
+              title: { display: true, text: 'Conc (' + p.units + ')', color: tickColor, font: { size: 11 } },
+              ticks: { color: tickColor, font: { size: 11 } },
+              grid: { color: gridColor },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+      document.getElementById('txCurveLegendLine').style.background = p.color;
+      document.getElementById('txCurveLegendLabel').textContent = 'Effluent (' + p.name + ')';
+
+      var sg = document.getElementById('txStatsGrid');
+      var mid = data[Math.floor(data.length / 2)];
+      var last = data[data.length - 1];
+      var maxR = 0;
+      for (var i = 0; i < data.length; i++) { if (data[i].removal > maxR) maxR = data[i].removal; }
+      sg.innerHTML =
+        '<div class="tx-stat-card"><div class="tx-stat-label">C_IN</div><div class="tx-stat-val" style="color:var(--text-primary);">' + p.C_in.toFixed(1) + '</div><div class="tx-stat-unit">' + p.units + '</div></div>' +
+        '<div class="tx-stat-card"><div class="tx-stat-label">C_OUT @ mid</div><div class="tx-stat-val" style="color:var(--accent-cyan);">' + (mid ? mid.C_out.toFixed(1) : '\u2014') + '</div><div class="tx-stat-unit">' + p.units + '</div></div>' +
+        '<div class="tx-stat-card"><div class="tx-stat-label">C_OUT @ end</div><div class="tx-stat-val" style="color:var(--accent-green);">' + (last ? last.C_out.toFixed(1) : '\u2014') + '</div><div class="tx-stat-unit">' + p.units + '</div></div>' +
+        '<div class="tx-stat-card"><div class="tx-stat-label">Max Removal</div><div class="tx-stat-val" style="color:var(--epanet-glow);">' + maxR.toFixed(1) + '</div><div class="tx-stat-unit">%</div></div>';
+    }
+
+    function updateRemovalChart() {
+      if (pollutants.length < 2) {
+        document.getElementById('txRemovalMsg').style.display = 'block';
+        document.getElementById('txRemovalChart').style.display = 'none';
+        return;
+      }
+      document.getElementById('txRemovalMsg').style.display = 'none';
+      document.getElementById('txRemovalChart').style.display = 'block';
+      var allData = simulateAll();
+      if (!allData) return;
+      var ctx = document.getElementById('txRemovalChart').getContext('2d');
+      var gridColor = 'rgba(148,163,184,0.1)';
+      var tickColor = '#64748b';
+      if (removalChart) removalChart.destroy();
+      var datasets = [];
+      for (var pi = 0; pi < pollutants.length; pi++) {
+        var pp = pollutants[pi];
+        datasets.push({
+          label: pp.name,
+          data: allData.map(function(d){ return d[pp.name]; }),
+          borderColor: pp.color,
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false
+        });
+      }
+      removalChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: allData.map(function(d){ return d.hrt; }), datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 300 },
+          plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              borderColor: '#334155',
+              borderWidth: 1,
+              titleColor: '#94a3b8',
+              bodyColor: '#e2e8f0',
+              callbacks: { title: function(items) { return 'HRT: ' + items[0].label + ' hrs'; } }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'HRT (hours)', color: tickColor, font: { size: 11 } },
+              ticks: { color: tickColor, font: { size: 11 }, maxTicksLimit: 12 },
+              grid: { color: gridColor }
+            },
+            y: {
+              title: { display: true, text: 'Removal %', color: tickColor, font: { size: 11 } },
+              ticks: { color: tickColor, font: { size: 11 } },
+              grid: { color: gridColor },
+              min: 0, max: 100
+            }
+          }
+        }
+      });
+    }
+
+    function updateDataTable(data) {
+      var p = getActive();
+      var body = document.getElementById('txDataBody');
+      var step = Math.max(1, Math.floor(data.length / 25));
+      var html = '';
+      for (var i = 0; i < data.length; i++) {
+        if (i % step !== 0 && i !== data.length - 1) continue;
+        var d = data[i];
+        html += '<tr><td>' + d.hrt.toFixed(2) + '</td><td>' + d.C_in.toFixed(1) + '</td><td>' + d.C_out.toFixed(2) + '</td><td>' + d.removal.toFixed(1) + '</td></tr>';
+      }
+      body.innerHTML = html;
+    }
+
+    function updateExport() {
+      var lines = '[TREATMENT]\n;;Node           Pollutant        Expression\n;;-------------- ---------------- ----------\n';
+      for (var i = 0; i < pollutants.length; i++) {
+        var p = pollutants[i];
+        lines += 'Node1            ' + (p.name + '                ').slice(0, 16) + ' ' + p.expr + '\n';
+      }
+      document.getElementById('txExportPre').textContent = lines;
+    }
+
+    function fullUpdate() {
+      renderPollTabs();
+      updateExprUI();
+      var data = simulate();
+      if (curView === 'curve') updateCurveChart(data);
+      if (curView === 'removal') updateRemovalChart();
+      if (curView === 'table') updateDataTable(data);
+      if (curView === 'swmm') updateExport();
+    }
+
+    return {
+      init: function() {
+        renderPresets();
+        renderTemplates();
+        fullUpdate();
+      },
+      setActive: function(idx) {
+        activeIdx = idx;
+        fullUpdate();
+      },
+      removePoll: function(idx) {
+        if (pollutants.length <= 1) return;
+        pollutants.splice(idx, 1);
+        if (activeIdx >= pollutants.length) activeIdx = pollutants.length - 1;
+        else if (idx < activeIdx) activeIdx--;
+        fullUpdate();
+        renderPresets();
+      },
+      toggleAdd: function() {
+        showAddPanel = !showAddPanel;
+        document.getElementById('txAddPanel').style.display = showAddPanel ? 'block' : 'none';
+      },
+      addPreset: function(pi) {
+        var pp = PRESETS[pi];
+        if (pollutants.find(function(p){ return p.name === pp.name; })) return;
+        pollutants.push({ name: pp.name, units: pp.units, C_in: pp.typical_in, expr: 'C = C_IN * EXP(-0.5 * HRT)', color: pp.color });
+        activeIdx = pollutants.length - 1;
+        showAddPanel = false;
+        document.getElementById('txAddPanel').style.display = 'none';
+        renderPresets();
+        fullUpdate();
+      },
+      addCustom: function() {
+        var nameEl = document.getElementById('txCustomName');
+        var name = nameEl.value.trim();
+        if (!name || pollutants.find(function(p){ return p.name === name; })) return;
+        pollutants.push({ name: name, units: 'mg/L', C_in: 100, expr: 'C = C_IN * EXP(-0.5 * HRT)', color: '#607D8B' });
+        activeIdx = pollutants.length - 1;
+        nameEl.value = '';
+        showAddPanel = false;
+        document.getElementById('txAddPanel').style.display = 'none';
+        renderPresets();
+        fullUpdate();
+      },
+      toggleTemplates: function() {
+        showTemplates = !showTemplates;
+        document.getElementById('txTemplatesPanel').style.display = showTemplates ? 'block' : 'none';
+        if (showTemplates) renderTemplates();
+      },
+      toggleRef: function() {
+        showRef = !showRef;
+        document.getElementById('txRefPanel').style.display = showRef ? 'block' : 'none';
+      },
+      setTplFilter: function(f) {
+        tplFilter = f;
+        renderTemplates();
+      },
+      applyTemplate: function(ti) {
+        pollutants[activeIdx].expr = TEMPLATES[ti].expr;
+        showTemplates = false;
+        document.getElementById('txTemplatesPanel').style.display = 'none';
+        fullUpdate();
+      },
+      onExprChange: function() {
+        pollutants[activeIdx].expr = document.getElementById('txExprInput').value;
+        updateExprUI();
+        var data = simulate();
+        if (curView === 'curve') updateCurveChart(data);
+        if (curView === 'removal') updateRemovalChart();
+        if (curView === 'table') updateDataTable(data);
+        if (curView === 'swmm') updateExport();
+      },
+      onCinChange: function() {
+        pollutants[activeIdx].C_in = parseFloat(document.getElementById('txCinInput').value) || 0;
+        var data = simulate();
+        if (curView === 'curve') updateCurveChart(data);
+        if (curView === 'removal') updateRemovalChart();
+        if (curView === 'table') updateDataTable(data);
+      },
+      setView: function(v) {
+        curView = v;
+        var tabs = document.querySelectorAll('.tx-view-tab');
+        tabs.forEach(function(t){ t.classList.toggle('active', t.getAttribute('data-txview') === v); });
+        var panes = document.querySelectorAll('.tx-view-pane');
+        panes.forEach(function(p){ p.classList.remove('active'); });
+        document.getElementById('txView' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
+        var data = simulate();
+        if (v === 'curve') updateCurveChart(data);
+        if (v === 'removal') updateRemovalChart();
+        if (v === 'table') updateDataTable(data);
+        if (v === 'swmm') updateExport();
+      },
+      simulate: function() {
+        var data = simulate();
+        if (curView === 'curve') updateCurveChart(data);
+        if (curView === 'removal') updateRemovalChart();
+        if (curView === 'table') updateDataTable(data);
+      },
+      insert: function(text) {
+        var el = document.getElementById('txExprInput');
+        el.focus();
+        var start = el.selectionStart;
+        var end = el.selectionEnd;
+        var val = el.value;
+        var newVal = val.substring(0, start) + text + val.substring(end);
+        el.value = newVal;
+        pollutants[activeIdx].expr = newVal;
+        var cursorPos = start + text.length;
+        if (text.indexOf('(') > -1 && text.indexOf(')') > -1 && text.indexOf('()') > -1) {
+          cursorPos = start + text.indexOf('(') + 1;
+        }
+        el.selectionStart = el.selectionEnd = cursorPos;
+        updateExprUI();
+        var data = simulate();
+        if (curView === 'curve') updateCurveChart(data);
+        if (curView === 'table') updateDataTable(data);
+      },
+      copyExport: function() {
+        var text = document.getElementById('txExportPre').textContent;
+        navigator.clipboard.writeText(text).then(function(){
+          var btn = document.querySelector('.tx-copy-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(function(){ btn.textContent = 'Copy to Clipboard'; }, 1500);
+        });
+      }
+    };
+  })();
+
+  function txInsert(t) { TX.insert(t); }
+  function txOnExprChange() { TX.onExprChange(); }
+  function txOnCinChange() { TX.onCinChange(); }
+  function txToggleTemplates() { TX.toggleTemplates(); }
+  function txToggleRef() { TX.toggleRef(); }
+  function txSetView(v) { TX.setView(v); }
+  function txSimulate() { TX.simulate(); }
+  function txAddCustom() { TX.addCustom(); }
+  function txCopyExport() { TX.copyExport(); }
+
+  TX.init();
 
   // =====================================================
   // === URL HASH STATE — Persistence & Restore ===

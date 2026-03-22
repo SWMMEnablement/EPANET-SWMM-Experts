@@ -12,11 +12,11 @@ A self-contained, single-page interactive web application that maps every SWMM5 
 The app is pure HTML/CSS/JS — no React, no build-time framework. It is served as a static `index.html` by Vite in development and deployed as a static site.
 
 **Key stats (as of March 2026):**
-- ~6,409 lines in a single `index.html`
-- 14 interactive tabs
-- 3 animated `<canvas>` elements
-- 17+ interactive range sliders
-- 2 calculators (pipe head loss, force main n↔C)
+- ~7,800+ lines in a single `index.html`
+- 18 interactive tabs
+- 3 animated `<canvas>` elements + 1 Chart.js chart (fire flow)
+- 30+ interactive range sliders
+- 5 calculators (pipe head loss, force main n↔C, treatment editor, fire flow, pump energy)
 - US/SI unit toggle
 - 5 color themes
 - URL hash state persistence
@@ -62,7 +62,7 @@ The `index.html` file contains everything: all CSS, all HTML, and all JavaScript
 
 ## 4. Tabs — Complete Inventory
 
-The app has 14 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. (The original v1.0 release had 11 tabs; Force Mains was part of v1.0 as tab 12, then First Principles and Reference were added post-release, bringing the total to 14. Earlier task documentation referencing "13 tabs" reflects a mid-development snapshot.)
+The app has 18 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. (The original v1.0 release had 11 tabs; Force Mains was part of v1.0 as tab 12, then First Principles and Reference were added post-release (14 tabs), then Treatment Editor (15 tabs), and finally Valves, Fire Flow, and Pump Energy (18 tabs).)
 
 | # | Tab Label | `data-tab` | Section ID | Description |
 |---|---|---|---|---|
@@ -79,7 +79,11 @@ The app has 14 tabs, controlled by `data-tab` attributes on nav buttons and matc
 | 11 | Which Tool? | `whichtool` | `sec-whichtool` | Decision flowchart: when to use SWMM5 vs. EPANET. SVG flowchart with decision nodes. |
 | 12 | Force Mains | `forcemains` | `sec-forcemains` | Force Main Converter v2.0. Dual-mode n↔C conversion (SWMM5 source code vs. reference manual). Darcy-Weisbach. Batch chart. Setup checklist. |
 | 13 | First Principles | `firstprinciples` | `sec-firstprinciples` | First-principles deconstruction: 25 inherited EPANET assumptions, 10 bedrock truths, rebuilt SWMM5 mental model, sacred vs. arbitrary conventions. |
-| 14 | Reference | `docs` | `sec-docs` | All 16 reference sections displayed inline with a 2-column TOC. Also contains link to downloadable printable document. |
+| 14 | Treatment | `treatment` | `sec-treatment` | Treatment expression editor with real-time validation, 10 pollutant presets, 8 templates, live simulation with Chart.js visualization, SWMM5 export. TX IIFE namespace. |
+| 15 | Valves | `valves` | `sec-valves` | EPANET valve types deep dive (PRV, PSV, PBV, FCV, TCV, GPV). Interactive valve simulator with type-specific equations, sliders, and SWMM5 comparison notes. |
+| 16 | Fire Flow | `fireflow` | `sec-fireflow` | Fire flow analysis calculator. Available fire flow from hydrant test data using Q_avail = Q_test × ((P_static - P_min) / (P_static - P_residual))^0.54. ISO rating. Chart.js visualization. |
+| 17 | Pump Energy | `pumpenergy` | `sec-pumpenergy` | Pump energy & cost calculator. WHP, BHP, kW, daily/annual cost. Affinity laws. SWMM5 pump type comparison. EPANET [ENERGY] section explained. |
+| 18 | Reference | `docs` | `sec-docs` | All 16 reference sections displayed inline with a 2-column TOC. Also contains link to downloadable printable document. |
 
 ---
 

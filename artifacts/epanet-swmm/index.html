@@ -994,6 +994,35 @@
   .tx-custom-add-btn:hover { background: rgba(6,182,212,0.25); }
   .tx-copy-btn { padding: 5px 12px; border-radius: 6px; font-size: 0.75rem; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); color: var(--accent-cyan); cursor: pointer; font-family: var(--font-mono); transition: all 0.15s; }
   .tx-copy-btn:hover { background: rgba(6,182,212,0.2); }
+
+  /* ===== VALVES / FIRE FLOW / PUMP ENERGY SHARED ===== */
+  .vf-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .vf-card-title { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; font-family: var(--font-body); }
+  .vf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .vf-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .vf-grid-2, .vf-grid-3 { grid-template-columns: 1fr; } }
+  .vf-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+  .vf-table th { text-align: left; padding: 10px 14px; color: var(--text-muted); border-bottom: 1px solid var(--border); font-size: 0.75rem; font-family: var(--font-body); font-weight: 600; }
+  .vf-table td { padding: 10px 14px; border-bottom: 1px solid rgba(30,45,74,0.25); color: var(--text-primary); font-size: 0.82rem; }
+  .vf-table tr:hover td { background: var(--bg-card-hover); }
+  .vf-valve-btn { padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); cursor: pointer; font-family: var(--font-body); font-size: 0.82rem; transition: all 0.15s; text-align: left; width: 100%; }
+  .vf-valve-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .vf-valve-btn.active { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(245,158,11,0.08)); border-color: var(--swmm-glow); color: var(--text-primary); }
+  .vf-valve-type { font-weight: 700; font-family: var(--font-mono); font-size: 0.9rem; color: var(--epanet-glow); }
+  .vf-valve-desc { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+  .vf-detail { padding: 20px; background: rgba(0,0,0,0.15); border-radius: 10px; border: 1px solid var(--border); }
+  .vf-detail-title { font-size: 1rem; font-weight: 700; color: var(--epanet-glow); margin-bottom: 6px; }
+  .vf-detail-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.6; }
+  .vf-eq { font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-green); background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px; margin: 10px 0; display: inline-block; }
+  .vf-slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .vf-slider-label { font-size: 0.78rem; color: var(--text-dim); min-width: 160px; font-family: var(--font-body); }
+  .vf-slider-val { font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan); min-width: 80px; text-align: right; }
+  .vf-stat-row { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .vf-stat { flex: 1; min-width: 120px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+  .vf-stat-lbl { font-size: 0.7rem; color: var(--text-dim); font-family: var(--font-body); }
+  .vf-stat-num { font-size: 1.1rem; font-weight: 700; font-family: var(--font-mono); }
+  .vf-stat-unit { font-size: 0.7rem; color: var(--text-dim); }
+  .vf-note { font-size: 0.78rem; color: var(--text-dim); font-family: var(--font-body); background: rgba(59,130,246,0.05); border-left: 3px solid var(--swmm-glow); padding: 10px 14px; border-radius: 0 6px 6px 0; margin-top: 12px; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -1044,6 +1073,9 @@
     <button class="nav-tab" data-tab="whichtool">Which Tool?</button>
     <button class="nav-tab" data-tab="forcemains">Force Mains</button>
     <button class="nav-tab" data-tab="treatment">Treatment</button>
+    <button class="nav-tab" data-tab="valves">Valves</button>
+    <button class="nav-tab" data-tab="fireflow">Fire Flow</button>
+    <button class="nav-tab" data-tab="pumpenergy">Pump Energy</button>
     <button class="nav-tab" data-tab="firstprinciples">First Principles</button>
     <button class="nav-tab" data-tab="docs">Reference</button>
   </div>
@@ -3440,6 +3472,331 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
     </div>
   </div>
 
+  <!-- ===== SECTION: VALVE TYPES ===== -->
+  <div class="section" id="sec-valves">
+    <h2 class="section-title">EPANET Valve Types — The Missing Deep Dive</h2>
+    <p class="section-intro">SWMM5 models flow control with <strong>orifices and weirs</strong> — simple Q = f(H) relationships. EPANET has <strong>six specialized valve types</strong> that operate on the <em>pressure domain</em>, each enforcing a different hydraulic constraint. This is the biggest conceptual gap for SWMM5 modelers.</p>
+
+    <!-- Valve Comparison Table -->
+    <div class="vf-card">
+      <div class="vf-card-title">EPANET Valve Types vs. SWMM5 Analogs</div>
+      <div style="overflow-x:auto;">
+        <table class="vf-table">
+          <thead><tr><th>EPANET Valve</th><th>What It Does</th><th>SWMM5 Nearest Analog</th><th>Key Equation</th></tr></thead>
+          <tbody>
+            <tr><td><span class="vf-valve-type">PRV</span></td><td>Limits downstream pressure to a set value</td><td>No direct equivalent — like a weir that caps HGL</td><td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent-green);">H_ds &#8804; H_set</td></tr>
+            <tr><td><span class="vf-valve-type">PSV</span></td><td>Maintains minimum upstream pressure</td><td>No equivalent</td><td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent-green);">H_us &#8805; H_set</td></tr>
+            <tr><td><span class="vf-valve-type">PBV</span></td><td>Forces a fixed pressure drop across the valve</td><td>No equivalent</td><td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent-green);">&#916;H = H_set</td></tr>
+            <tr><td><span class="vf-valve-type">FCV</span></td><td>Limits flow to a set maximum</td><td>Closest to a SWMM5 orifice with a fixed opening</td><td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent-green);">Q &#8804; Q_set</td></tr>
+            <tr><td><span class="vf-valve-type">TCV</span></td><td>Variable minor loss coefficient (K)</td><td>Like a partially open SWMM5 orifice</td><td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent-green);">h_L = K&#183;v&#178;/(2g)</td></tr>
+            <tr><td><span class="vf-valve-type">GPV</span></td><td>User-defined headloss vs. flow curve</td><td>Most flexible — like a custom SWMM5 rating curve</td><td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent-green);">h_L = f(Q)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Interactive Valve Selector -->
+    <div class="vf-card">
+      <div class="vf-card-title">Interactive Valve Simulator</div>
+      <div class="vf-grid-2">
+        <div>
+          <button class="vf-valve-btn active" onclick="valveSelect('PRV',this)"><div class="vf-valve-type">PRV</div><div class="vf-valve-desc">Pressure Reducing Valve</div></button>
+          <button class="vf-valve-btn" onclick="valveSelect('PSV',this)" style="margin-top:6px;"><div class="vf-valve-type">PSV</div><div class="vf-valve-desc">Pressure Sustaining Valve</div></button>
+          <button class="vf-valve-btn" onclick="valveSelect('PBV',this)" style="margin-top:6px;"><div class="vf-valve-type">PBV</div><div class="vf-valve-desc">Pressure Breaker Valve</div></button>
+          <button class="vf-valve-btn" onclick="valveSelect('FCV',this)" style="margin-top:6px;"><div class="vf-valve-type">FCV</div><div class="vf-valve-desc">Flow Control Valve</div></button>
+          <button class="vf-valve-btn" onclick="valveSelect('TCV',this)" style="margin-top:6px;"><div class="vf-valve-type">TCV</div><div class="vf-valve-desc">Throttle Control Valve</div></button>
+          <button class="vf-valve-btn" onclick="valveSelect('GPV',this)" style="margin-top:6px;"><div class="vf-valve-type">GPV</div><div class="vf-valve-desc">General Purpose Valve</div></button>
+        </div>
+        <div>
+          <div class="vf-detail" id="valveDetail">
+            <div class="vf-detail-title" id="valveDetailTitle">PRV — Pressure Reducing Valve</div>
+            <div class="vf-detail-sub" id="valveDetailDesc">Prevents downstream pressure from exceeding a set value. When upstream pressure exceeds the setting, the valve partially closes to maintain the set downstream pressure. If upstream pressure is below the setting, the valve is fully open. If downstream pressure exceeds upstream, the valve closes completely (acts as a check valve).</div>
+            <div class="vf-eq" id="valveDetailEq">If H_us > H_set: H_ds = H_set (valve active)<br>If H_us &#8804; H_set: H_ds = H_us (valve open)<br>If H_ds > H_us: Q = 0 (check valve)</div>
+
+            <div class="vf-slider-row">
+              <span class="vf-slider-label" id="lblValveSetting">PRV Setting (psi):</span>
+              <input type="range" id="valveSettingSlider" min="10" max="120" value="50" step="1" oninput="updateValveSim()" style="flex:1;">
+              <span class="vf-slider-val" id="valValveSetting">50 psi</span>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Upstream Pressure (psi):</span>
+              <input type="range" id="valveUpPressure" min="10" max="150" value="80" step="1" oninput="updateValveSim()" style="flex:1;">
+              <span class="vf-slider-val" id="valUpPressure">80 psi</span>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Flow (GPM):</span>
+              <input type="range" id="valveFlowSlider" min="10" max="2000" value="500" step="10" oninput="updateValveSim()" style="flex:1;">
+              <span class="vf-slider-val" id="valValveFlow">500 GPM</span>
+            </div>
+
+            <div class="vf-stat-row" id="valveStats">
+              <div class="vf-stat"><div class="vf-stat-lbl">Downstream P</div><div class="vf-stat-num" id="valveDsP" style="color:var(--accent-cyan);">50</div><div class="vf-stat-unit">psi</div></div>
+              <div class="vf-stat"><div class="vf-stat-lbl">Pressure Drop</div><div class="vf-stat-num" id="valvePDrop" style="color:var(--epanet-glow);">30</div><div class="vf-stat-unit">psi</div></div>
+              <div class="vf-stat"><div class="vf-stat-lbl">Valve Status</div><div class="vf-stat-num" id="valveStatus" style="color:var(--accent-green);">Active</div><div class="vf-stat-unit">&nbsp;</div></div>
+              <div class="vf-stat"><div class="vf-stat-lbl">Head Loss</div><div class="vf-stat-num" id="valveHL" style="color:var(--accent-red);">69.3</div><div class="vf-stat-unit">ft</div></div>
+            </div>
+
+            <div class="vf-note" id="valveSwmmNote"><strong>SWMM5 perspective:</strong> A PRV has no direct SWMM5 equivalent. In SWMM5, you might approximate this with a weir that limits the HGL at a junction, but SWMM5 lacks the pressure-domain control logic. EPANET models the valve as a link that adjusts its own resistance to enforce the pressure constraint — a fundamentally different approach from SWMM5's Q = f(H) paradigm.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EPANET INP Syntax -->
+    <div class="vf-card">
+      <div class="vf-card-title">EPANET .INP File Syntax: [VALVES]</div>
+      <pre style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:var(--font-mono);font-size:0.8rem;color:var(--accent-green);overflow-x:auto;line-height:1.7;">[VALVES]
+;;ID    Node1    Node2    Diameter  Type  Setting  MinorLoss
+;;----- -------- -------- --------- ----- -------- ---------
+V1      N12      N13      12        PRV   50       0.0
+V2      N20      N21      8         PSV   40       0.0
+V3      N30      N31      10        FCV   200      0.0
+V4      N40      N41      6         TCV   5.0      0.0
+V5      N50      N51      12        GPV   Curve1   0.0</pre>
+      <div class="vf-note" style="margin-top:12px;"><strong>Key difference from SWMM5:</strong> Valves in EPANET are <em>links</em> with two nodes (upstream and downstream). The "Setting" field means different things for each valve type: pressure for PRV/PSV/PBV, flow for FCV, loss coefficient for TCV, and a curve ID for GPV.</div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: FIRE FLOW ===== -->
+  <div class="section" id="sec-fireflow">
+    <h2 class="section-title">Fire Flow Analysis</h2>
+    <p class="section-intro">Fire flow analysis is one of EPANET's most common practical applications and has <strong>zero SWMM5 equivalent</strong>. The question is simple: can the water system deliver enough flow at adequate pressure for firefighting? The answer requires pressure-domain analysis that only EPANET can provide.</p>
+
+    <!-- Concepts -->
+    <div class="vf-card">
+      <div class="vf-card-title">Key Concepts</div>
+      <div class="vf-grid-3">
+        <div style="padding:14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--epanet-glow);margin-bottom:6px;">Required Fire Flow</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">The flow needed for firefighting, typically 500&#8211;3,500 GPM depending on building size, construction type, and proximity to neighbors. Set by the local fire code or ISO guidelines.</div>
+        </div>
+        <div style="padding:14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--epanet-glow);margin-bottom:6px;">Residual Pressure</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">The pressure remaining at the fire hydrant while delivering fire flow. Must stay above 20 psi (typical minimum). Below 20 psi risks collapsing the pipe, drawing in contamination, and losing supply to other customers.</div>
+        </div>
+        <div style="padding:14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--epanet-glow);margin-bottom:6px;">Available Fire Flow</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">The maximum flow a hydrant can deliver while maintaining the minimum residual pressure. This is what the model calculates. Higher available fire flow = better fire protection = lower insurance premiums.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Calculator -->
+    <div class="vf-card">
+      <div class="vf-card-title">Interactive Fire Flow Calculator</div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">This calculator estimates available fire flow at a hydrant using the simplified approach: measure static pressure (no flow), then residual pressure at a known test flow. The available fire flow at 20 psi residual is calculated from these two points.</p>
+
+      <div class="vf-grid-2">
+        <div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Static Pressure (psi):</span>
+            <input type="range" id="ffStaticP" min="30" max="120" value="65" step="1" oninput="updateFireFlow()" style="flex:1;">
+            <span class="vf-slider-val" id="valFFStatic">65 psi</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Test Flow (GPM):</span>
+            <input type="range" id="ffTestFlow" min="100" max="3000" value="1000" step="50" oninput="updateFireFlow()" style="flex:1;">
+            <span class="vf-slider-val" id="valFFTestFlow">1000 GPM</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Residual at Test Flow (psi):</span>
+            <input type="range" id="ffResidualP" min="10" max="100" value="45" step="1" oninput="updateFireFlow()" style="flex:1;">
+            <span class="vf-slider-val" id="valFFResidual">45 psi</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Min Residual Required (psi):</span>
+            <input type="range" id="ffMinResidual" min="10" max="40" value="20" step="1" oninput="updateFireFlow()" style="flex:1;">
+            <span class="vf-slider-val" id="valFFMinRes">20 psi</span>
+          </div>
+
+          <div class="vf-eq" style="margin-top:14px;">Q_avail = Q_test &#215; ((P_static - P_min) / (P_static - P_residual))^0.54</div>
+        </div>
+
+        <div>
+          <div class="vf-stat-row" style="flex-direction:column;gap:12px;margin-top:0;">
+            <div class="vf-stat" style="flex:none;padding:16px;">
+              <div class="vf-stat-lbl">Available Fire Flow</div>
+              <div class="vf-stat-num" id="ffAvailFlow" style="color:var(--epanet-glow);font-size:1.6rem;">1,565</div>
+              <div class="vf-stat-unit">GPM</div>
+            </div>
+            <div class="vf-stat" style="flex:none;padding:16px;">
+              <div class="vf-stat-lbl">Pressure Drop at Fire Flow</div>
+              <div class="vf-stat-num" id="ffPDrop" style="color:var(--accent-cyan);">45.0</div>
+              <div class="vf-stat-unit">psi</div>
+            </div>
+            <div class="vf-stat" style="flex:none;padding:16px;">
+              <div class="vf-stat-lbl">ISO Rating Class</div>
+              <div class="vf-stat-num" id="ffISOClass" style="color:var(--accent-green);">&#8212;</div>
+              <div class="vf-stat-unit">&nbsp;</div>
+            </div>
+          </div>
+          <canvas id="ffChart" height="200" style="margin-top:14px;"></canvas>
+        </div>
+      </div>
+
+      <div class="vf-note" style="margin-top:14px;"><strong>SWMM5 perspective:</strong> Fire flow analysis is impossible in SWMM5. SWMM5 models gravity systems where pressure is not tracked at individual nodes. You cannot ask "what is the pressure at this junction if I add 1,500 GPM of demand?" — that question only makes sense in a pressurized EPANET network.</div>
+    </div>
+
+    <!-- Fire Flow Duration & Design Criteria -->
+    <div class="vf-card">
+      <div class="vf-card-title">Fire Flow Duration Requirements</div>
+      <div style="overflow-x:auto;">
+        <table class="vf-table">
+          <thead><tr><th>Required Fire Flow (GPM)</th><th>Duration (hours)</th><th>Total Volume (gallons)</th><th>Typical Building Type</th></tr></thead>
+          <tbody>
+            <tr><td>500&#8211;1,000</td><td>2</td><td>60,000&#8211;120,000</td><td>Single-family residential</td></tr>
+            <tr><td>1,500&#8211;2,000</td><td>2&#8211;3</td><td>180,000&#8211;360,000</td><td>Multi-family, small commercial</td></tr>
+            <tr><td>2,500&#8211;3,000</td><td>3&#8211;4</td><td>450,000&#8211;720,000</td><td>Large commercial, light industrial</td></tr>
+            <tr><td>3,500+</td><td>4+</td><td>840,000+</td><td>Heavy industrial, high-hazard</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="vf-note"><strong>Storage implication:</strong> Your EPANET model must verify that tanks/reservoirs can sustain fire flow for the required duration while also serving normal demands. This means running a time-extended simulation with the fire flow added at the critical node during peak demand hour.</div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: PUMP ENERGY ===== -->
+  <div class="section" id="sec-pumpenergy">
+    <h2 class="section-title">Pump Energy & Cost Analysis</h2>
+    <p class="section-intro">EPANET tracks pump energy consumption and cost in detail — a capability <strong>completely absent from SWMM5</strong>. Understanding pump curves, efficiency, and energy cost analysis is essential for EPANET modeling and water utility operations.</p>
+
+    <!-- Pump Curve Comparison -->
+    <div class="vf-card">
+      <div class="vf-card-title">SWMM5 Pump Types vs. EPANET Pump Curves</div>
+      <div style="overflow-x:auto;">
+        <table class="vf-table">
+          <thead><tr><th>SWMM5 Pump Type</th><th>Curve Relationship</th><th>EPANET Equivalent</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td style="font-family:var(--font-mono);color:var(--swmm-glow);">Type 1</td><td>Volume vs. Depth (wet well)</td><td>No direct equivalent</td><td>SWMM5 unique — on/off based on wet well volume</td></tr>
+            <tr><td style="font-family:var(--font-mono);color:var(--swmm-glow);">Type 2</td><td>Flow vs. Head (H-Q curve)</td><td style="color:var(--epanet-glow);font-family:var(--font-mono);">Multi-point pump curve</td><td>The direct mapping — same H-Q concept</td></tr>
+            <tr><td style="font-family:var(--font-mono);color:var(--swmm-glow);">Type 3</td><td>Flow vs. Depth (inlet node)</td><td>No direct equivalent</td><td>Depth-dependent, gravity-domain concept</td></tr>
+            <tr><td style="font-family:var(--font-mono);color:var(--swmm-glow);">Type 4</td><td>Constant flow (ideal pump)</td><td style="color:var(--epanet-glow);font-family:var(--font-mono);">Single-point pump curve</td><td>EPANET uses 1 design point; software generates full curve</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Interactive Pump Calculator -->
+    <div class="vf-card">
+      <div class="vf-card-title">Interactive Pump Energy Calculator</div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">Calculate pump power, energy consumption, and cost. Adjust operating parameters to see how efficiency, speed ratio, and runtime affect total cost.</p>
+
+      <div class="vf-grid-2">
+        <div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Flow (GPM):</span>
+            <input type="range" id="peFlow" min="50" max="5000" value="1000" step="50" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPEFlow">1000 GPM</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Total Dynamic Head (ft):</span>
+            <input type="range" id="peTDH" min="10" max="500" value="150" step="5" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPETDH">150 ft</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Pump Efficiency (%):</span>
+            <input type="range" id="pePumpEff" min="40" max="92" value="75" step="1" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPEPumpEff">75%</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Motor Efficiency (%):</span>
+            <input type="range" id="peMotorEff" min="80" max="98" value="93" step="1" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPEMotorEff">93%</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Speed Ratio (N/N&#8320;):</span>
+            <input type="range" id="peSpeedRatio" min="0.5" max="1.2" value="1.0" step="0.05" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPESpeed">1.00</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Daily Runtime (hrs):</span>
+            <input type="range" id="peRuntime" min="1" max="24" value="16" step="1" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPERuntime">16 hrs</span>
+          </div>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Energy Cost ($/kWh):</span>
+            <input type="range" id="peCost" min="0.03" max="0.30" value="0.10" step="0.01" oninput="updatePumpEnergy()" style="flex:1;">
+            <span class="vf-slider-val" id="valPECost">$0.10</span>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div class="vf-eq">WHP = Q &#215; H &#215; &#947; / 33000 [HP]</div>
+            <div class="vf-eq" style="margin-left:0;">BHP = WHP / &#951;_pump [HP]</div>
+            <div class="vf-eq" style="margin-left:0;">kW = BHP &#215; 0.7457 / &#951;_motor</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="vf-stat" style="padding:16px;">
+              <div class="vf-stat-lbl">Water Horsepower</div>
+              <div class="vf-stat-num" id="peWHP" style="color:var(--accent-cyan);font-size:1.4rem;">37.9</div>
+              <div class="vf-stat-unit">HP (water)</div>
+            </div>
+            <div class="vf-stat" style="padding:16px;">
+              <div class="vf-stat-lbl">Brake Horsepower</div>
+              <div class="vf-stat-num" id="peBHP" style="color:var(--epanet-glow);font-size:1.4rem;">54.3</div>
+              <div class="vf-stat-unit">HP (shaft)</div>
+            </div>
+            <div class="vf-stat" style="padding:16px;">
+              <div class="vf-stat-lbl">Electrical Power</div>
+              <div class="vf-stat-num" id="peKW" style="color:var(--accent-green);font-size:1.4rem;">43.5</div>
+              <div class="vf-stat-unit">kW</div>
+            </div>
+          </div>
+          <div class="vf-stat-row">
+            <div class="vf-stat"><div class="vf-stat-lbl">Daily Energy</div><div class="vf-stat-num" id="peDailyKWh" style="color:var(--accent-cyan);">696</div><div class="vf-stat-unit">kWh/day</div></div>
+            <div class="vf-stat"><div class="vf-stat-lbl">Daily Cost</div><div class="vf-stat-num" id="peDailyCost" style="color:var(--epanet-glow);">$69.60</div><div class="vf-stat-unit">per day</div></div>
+            <div class="vf-stat"><div class="vf-stat-lbl">Annual Cost</div><div class="vf-stat-num" id="peAnnualCost" style="color:var(--accent-red);">$25,404</div><div class="vf-stat-unit">per year</div></div>
+          </div>
+          <div class="vf-stat-row">
+            <div class="vf-stat"><div class="vf-stat-lbl">Wire-to-Water</div><div class="vf-stat-num" id="peWTW" style="color:var(--gravity-purple);">69.8%</div><div class="vf-stat-unit">overall efficiency</div></div>
+            <div class="vf-stat"><div class="vf-stat-lbl">Specific Energy</div><div class="vf-stat-num" id="peSE" style="color:var(--text-muted);">0.696</div><div class="vf-stat-unit">kWh/kgal</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-note" style="margin-top:14px;"><strong>SWMM5 perspective:</strong> SWMM5 has no energy tracking. Pumps in SWMM5 simply move water based on their curve — there's no concept of efficiency, motor power, or cost. When a SWMM5 modeler transitions to EPANET, pump energy analysis is often the single most important new capability they discover, because water utilities spend 30&#8211;40% of their operating budget on pumping energy.</div>
+    </div>
+
+    <!-- Affinity Laws -->
+    <div class="vf-card">
+      <div class="vf-card-title">Pump Affinity Laws (Variable Speed Pumps)</div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">EPANET models variable-speed pumps using affinity laws. The speed ratio N/N&#8320; shifts the entire pump curve. SWMM5 has no equivalent — pumps are either on or off at a fixed speed.</p>
+      <div class="vf-grid-3">
+        <div style="padding:14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--epanet-glow);margin-bottom:6px;">Flow</div>
+          <div class="vf-eq">Q&#8322; = Q&#8321; &#215; (N&#8322;/N&#8321;)</div>
+          <div style="font-size:0.75rem;color:var(--text-dim);margin-top:6px;">Flow scales linearly with speed</div>
+        </div>
+        <div style="padding:14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--epanet-glow);margin-bottom:6px;">Head</div>
+          <div class="vf-eq">H&#8322; = H&#8321; &#215; (N&#8322;/N&#8321;)&#178;</div>
+          <div style="font-size:0.75rem;color:var(--text-dim);margin-top:6px;">Head scales with speed squared</div>
+        </div>
+        <div style="padding:14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--epanet-glow);margin-bottom:6px;">Power</div>
+          <div class="vf-eq">P&#8322; = P&#8321; &#215; (N&#8322;/N&#8321;)&#179;</div>
+          <div style="font-size:0.75rem;color:var(--text-dim);margin-top:6px;">Power scales with speed cubed!</div>
+        </div>
+      </div>
+      <div class="vf-note"><strong>Why this matters:</strong> Reducing pump speed by just 20% (N/N&#8320; = 0.80) reduces power by 49% (0.8&#179; = 0.512). This is why variable frequency drives (VFDs) are the single most cost-effective energy savings measure for water utilities, and why EPANET's VFD modeling capability is so valuable.</div>
+    </div>
+
+    <!-- EPANET Energy Section -->
+    <div class="vf-card">
+      <div class="vf-card-title">EPANET [ENERGY] Section Explained</div>
+      <pre style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:var(--font-mono);font-size:0.8rem;color:var(--accent-green);overflow-x:auto;line-height:1.7;">[ENERGY]
+Global Efficiency     75          ;; Default pump efficiency (%)
+Global Price          0.10        ;; Default energy price ($/kWh)
+Demand Charge         50          ;; Monthly demand charge ($/kW peak)
+Pump P1  Efficiency   Curve1      ;; Per-pump efficiency curve
+Pump P1  Price        Pattern1    ;; Time-varying energy price
+Pump P1  Pattern      Pattern2    ;; Time-varying speed pattern</pre>
+      <div class="vf-note"><strong>SWMM5 comparison:</strong> SWMM5's [PUMPS] section defines only the pump curve and on/off control. There is no efficiency, no energy price, no demand charge. The entire [ENERGY] section — and the detailed energy report EPANET produces — has no SWMM5 equivalent whatsoever.</div>
+    </div>
+  </div>
+
   <!-- ===== SECTION: FIRST PRINCIPLES ===== -->
   <div class="section" id="sec-firstprinciples">
     <h2 class="section-title">First-Principles Deconstruction: EPANET → SWMM5</h2>
@@ -4472,6 +4829,7 @@ Daily  0.6 0.5</div>
     document.getElementById('sec-' + target).classList.add('active');
     // Auto-scroll active tab into view (mobile horizontal scroll)
     tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    if (target === 'fireflow' && typeof updateFireFlow === 'function') { setTimeout(updateFireFlow, 50); }
     // Update URL hash with full state
     saveStateToHash();
     window.scrollTo({top: 200, behavior: 'smooth'});
@@ -6722,6 +7080,278 @@ Daily  0.6 0.5</div>
   function txCopyExport() { TX.copyExport(); }
 
   TX.init();
+
+  // =====================================================
+  // === VALVE SIMULATOR ===
+  // =====================================================
+  const VALVE_DATA = {
+    PRV: {
+      title: 'PRV — Pressure Reducing Valve',
+      desc: 'Prevents downstream pressure from exceeding a set value. When upstream pressure exceeds the setting, the valve partially closes to maintain the set downstream pressure. If upstream pressure is below the setting, the valve is fully open. If downstream pressure exceeds upstream, the valve closes completely (acts as a check valve).',
+      eq: 'If H_us > H_set: H_ds = H_set (valve active)\nIf H_us \u2264 H_set: H_ds = H_us (valve open)\nIf H_ds > H_us: Q = 0 (check valve)',
+      settingLabel: 'PRV Setting (psi):',
+      swmmNote: '<strong>SWMM5 perspective:</strong> A PRV has no direct SWMM5 equivalent. In SWMM5, you might approximate this with a weir that limits the HGL at a junction, but SWMM5 lacks the pressure-domain control logic. EPANET models the valve as a link that adjusts its own resistance to enforce the pressure constraint \u2014 a fundamentally different approach from SWMM5\u2019s Q = f(H) paradigm.'
+    },
+    PSV: {
+      title: 'PSV — Pressure Sustaining Valve',
+      desc: 'Maintains a minimum pressure on the upstream side. When downstream demand would pull upstream pressure below the setting, the valve partially closes to sustain the set upstream pressure. Used to protect upstream zones from being drained by high-demand downstream areas.',
+      eq: 'If H_us < H_set: H_us = H_set (valve active)\nIf H_us \u2265 H_set: valve fully open\nIf H_ds > H_us: Q = 0 (check valve)',
+      settingLabel: 'PSV Setting (psi):',
+      swmmNote: '<strong>SWMM5 perspective:</strong> PSVs have no SWMM5 equivalent at all. The concept of sustaining upstream pressure doesn\u2019t exist in gravity systems. This is uniquely a pressure-system concern \u2014 preventing high-elevation zones from losing service when low-elevation zones draw heavily.'
+    },
+    PBV: {
+      title: 'PBV — Pressure Breaker Valve',
+      desc: 'Forces a fixed pressure drop across the valve regardless of flow. Unlike PRV/PSV which target an absolute pressure, the PBV enforces a relative pressure difference. Useful for modeling pressure zones where you need a known \u0394P.',
+      eq: '\u0394P = P_us - P_ds = Setting (always)\nHead loss = Setting \u00d7 2.31 ft (constant)',
+      settingLabel: 'PBV Pressure Drop (psi):',
+      swmmNote: '<strong>SWMM5 perspective:</strong> No SWMM5 equivalent. In gravity systems, head loss depends on flow (Manning\u2019s equation). A device that forces a constant pressure drop regardless of flow is a purely pressurized-system concept.'
+    },
+    FCV: {
+      title: 'FCV — Flow Control Valve',
+      desc: 'Limits flow through the valve to a maximum set value. If system conditions would drive more flow through the valve, it partially closes to cap the flow. If demand is less than the setting, the valve is fully open and flow is less than the setting.',
+      eq: 'If Q_natural > Q_set: Q = Q_set (valve active)\nIf Q_natural \u2264 Q_set: Q = Q_natural (valve open)',
+      settingLabel: 'FCV Flow Setting (GPM):',
+      swmmNote: '<strong>SWMM5 perspective:</strong> An FCV is closest to a SWMM5 orifice with a fixed opening \u2014 both limit flow. But an FCV targets a specific flow value regardless of pressure differential, while a SWMM5 orifice flow varies with head. The FCV is "smarter" \u2014 it adjusts its own resistance.'
+    },
+    TCV: {
+      title: 'TCV — Throttle Control Valve',
+      desc: 'Simulates a partially open valve by applying a variable minor loss coefficient (K). The setting is the K value itself. Higher K = more restriction = more head loss. This is the simplest valve type \u2014 it\u2019s just a controllable K factor.',
+      eq: 'h_L = K \u00b7 v\u00b2 / (2g)\nwhere K = valve setting\nHigher K = more closed',
+      settingLabel: 'TCV Loss Coeff (K):',
+      swmmNote: '<strong>SWMM5 perspective:</strong> A TCV is conceptually similar to a partially open SWMM5 orifice. Both create head loss that increases with flow. The difference is that EPANET\u2019s TCV K value can be changed by rules/controls during simulation, making it useful for modeling automated control valves.'
+    },
+    GPV: {
+      title: 'GPV — General Purpose Valve',
+      desc: 'Uses a user-defined curve of head loss vs. flow. The "setting" is a curve ID from the [CURVES] section. This is the most flexible valve type \u2014 it can model any device with a known head loss-flow relationship: check valves, turbines, partially blocked pipes, etc.',
+      eq: 'h_L = f(Q) from user-defined curve\nCurve points: (Q\u2081,hL\u2081), (Q\u2082,hL\u2082), ...',
+      settingLabel: 'GPV Curve (demo):',
+      swmmNote: '<strong>SWMM5 perspective:</strong> A GPV is most like a SWMM5 rating curve (used for outlets). Both define a custom Q vs. H relationship. The difference: SWMM5 rating curves relate flow to depth/head; GPV curves relate head <em>loss</em> to flow. Same concept, different domain.'
+    }
+  };
+
+  let currentValveType = 'PRV';
+
+  function valveSelect(type, btn) {
+    currentValveType = type;
+    document.querySelectorAll('.vf-valve-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    var d = VALVE_DATA[type];
+    document.getElementById('valveDetailTitle').textContent = d.title;
+    document.getElementById('valveDetailDesc').textContent = d.desc;
+    document.getElementById('valveDetailEq').textContent = d.eq;
+    document.getElementById('lblValveSetting').textContent = d.settingLabel;
+    document.getElementById('valveSwmmNote').innerHTML = d.swmmNote;
+
+    var slider = document.getElementById('valveSettingSlider');
+    if (type === 'FCV') {
+      slider.min = 50; slider.max = 3000; slider.step = 50; slider.value = 500;
+    } else if (type === 'TCV') {
+      slider.min = 0.1; slider.max = 50; slider.step = 0.1; slider.value = 5;
+    } else if (type === 'GPV') {
+      slider.min = 0; slider.max = 100; slider.step = 1; slider.value = 50;
+    } else {
+      slider.min = 10; slider.max = 120; slider.step = 1; slider.value = 50;
+    }
+    updateValveSim();
+  }
+
+  function updateValveSim() {
+    var setting = parseFloat(document.getElementById('valveSettingSlider').value);
+    var upP = parseFloat(document.getElementById('valveUpPressure').value);
+    var flow = parseFloat(document.getElementById('valveFlowSlider').value);
+    var type = currentValveType;
+    var dsP, pDrop, status, headLoss;
+
+    document.getElementById('valUpPressure').textContent = upP + ' psi';
+    document.getElementById('valValveFlow').textContent = flow + ' GPM';
+
+    if (type === 'PRV') {
+      document.getElementById('valValveSetting').textContent = setting + ' psi';
+      if (upP > setting) { dsP = setting; status = 'Active'; }
+      else { dsP = upP; status = 'Open'; }
+      pDrop = upP - dsP;
+      headLoss = pDrop * 2.31;
+    } else if (type === 'PSV') {
+      document.getElementById('valValveSetting').textContent = setting + ' psi';
+      if (upP < setting) { dsP = upP - (setting - upP) * 0.3; status = 'Active'; pDrop = upP - dsP; }
+      else { dsP = upP - 5; status = 'Open'; pDrop = 5; }
+      headLoss = pDrop * 2.31;
+    } else if (type === 'PBV') {
+      document.getElementById('valValveSetting').textContent = setting + ' psi';
+      pDrop = setting;
+      dsP = upP - pDrop;
+      status = dsP > 0 ? 'Active' : 'Closed';
+      headLoss = pDrop * 2.31;
+    } else if (type === 'FCV') {
+      document.getElementById('valValveSetting').textContent = setting + ' GPM';
+      if (flow > setting) { status = 'Active'; pDrop = (flow - setting) * 0.02; }
+      else { status = 'Open'; pDrop = 0; }
+      dsP = upP - pDrop;
+      headLoss = pDrop * 2.31;
+    } else if (type === 'TCV') {
+      document.getElementById('valValveSetting').textContent = 'K = ' + setting;
+      var pipeArea = Math.PI * Math.pow(6 / 12, 2) / 4;
+      var vel = (flow / 448.83) / pipeArea;
+      headLoss = setting * vel * vel / (2 * 32.174);
+      pDrop = headLoss / 2.31;
+      dsP = upP - pDrop;
+      status = setting > 0 ? 'Active' : 'Open';
+    } else {
+      document.getElementById('valValveSetting').textContent = setting + '%';
+      headLoss = setting * 0.5;
+      pDrop = headLoss / 2.31;
+      dsP = upP - pDrop;
+      status = 'Active';
+    }
+
+    if (dsP < 0) dsP = 0;
+    document.getElementById('valveDsP').textContent = dsP.toFixed(1);
+    document.getElementById('valvePDrop').textContent = pDrop.toFixed(1);
+    document.getElementById('valveStatus').textContent = status;
+    document.getElementById('valveStatus').style.color = status === 'Active' ? 'var(--accent-green)' : (status === 'Closed' ? 'var(--accent-red)' : 'var(--accent-cyan)');
+    document.getElementById('valveHL').textContent = headLoss.toFixed(1);
+  }
+
+  // =====================================================
+  // === FIRE FLOW CALCULATOR ===
+  // =====================================================
+  var ffChartInstance = null;
+
+  function updateFireFlow() {
+    var Ps = parseFloat(document.getElementById('ffStaticP').value);
+    var Qt = parseFloat(document.getElementById('ffTestFlow').value);
+    var Pr = parseFloat(document.getElementById('ffResidualP').value);
+    var Pmin = parseFloat(document.getElementById('ffMinResidual').value);
+
+    if (Pr >= Ps) Pr = Ps - 1;
+    if (Pmin >= Ps) Pmin = Ps - 1;
+
+    document.getElementById('valFFStatic').textContent = Ps + ' psi';
+    document.getElementById('valFFTestFlow').textContent = Qt + ' GPM';
+    document.getElementById('valFFResidual').textContent = Pr + ' psi';
+    document.getElementById('valFFMinRes').textContent = Pmin + ' psi';
+
+    var Qavail = Qt * Math.pow((Ps - Pmin) / (Ps - Pr), 0.54);
+    var pDrop = Ps - Pmin;
+
+    document.getElementById('ffAvailFlow').textContent = Math.round(Qavail).toLocaleString();
+    document.getElementById('ffPDrop').textContent = pDrop.toFixed(1);
+
+    var isoClass;
+    if (Qavail >= 3500) isoClass = 'Class 1 (Excellent)';
+    else if (Qavail >= 2500) isoClass = 'Class 2 (Very Good)';
+    else if (Qavail >= 1500) isoClass = 'Class 3 (Good)';
+    else if (Qavail >= 1000) isoClass = 'Class 4 (Adequate)';
+    else if (Qavail >= 500) isoClass = 'Class 5 (Marginal)';
+    else isoClass = 'Deficient';
+
+    var isoEl = document.getElementById('ffISOClass');
+    isoEl.textContent = isoClass;
+    isoEl.style.color = Qavail >= 1500 ? 'var(--accent-green)' : (Qavail >= 500 ? 'var(--epanet-glow)' : 'var(--accent-red)');
+
+    var ctx = document.getElementById('ffChart').getContext('2d');
+    var flows = [];
+    var pressures = [];
+    for (var q = 0; q <= 4000; q += 100) {
+      flows.push(q);
+      var p;
+      if (q === 0) { p = Ps; }
+      else { p = Ps - (Ps - Pr) * Math.pow(q / Qt, 1 / 0.54); }
+      if (p < 0) p = 0;
+      pressures.push(p);
+    }
+
+    if (ffChartInstance) ffChartInstance.destroy();
+    ffChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: flows,
+        datasets: [
+          {
+            label: 'System Pressure (psi)',
+            data: pressures,
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6,182,212,0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0
+          },
+          {
+            label: 'Min Residual (' + Pmin + ' psi)',
+            data: flows.map(function() { return Pmin; }),
+            borderColor: '#ef4444',
+            borderDash: [6, 4],
+            pointRadius: 0
+          },
+          {
+            label: 'Available Fire Flow',
+            data: flows.map(function(q) { return Math.abs(q - Math.round(Qavail)) < 100 ? Pmin : null; }),
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b',
+            pointRadius: flows.map(function(q) { return Math.abs(q - Math.round(Qavail)) < 100 ? 8 : 0; }),
+            showLine: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 10 } } }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Flow (GPM)', color: '#94a3b8' }, ticks: { color: '#64748b', maxTicksLimit: 10 }, grid: { color: 'rgba(30,45,74,0.3)' } },
+          y: { title: { display: true, text: 'Pressure (psi)', color: '#94a3b8' }, ticks: { color: '#64748b' }, grid: { color: 'rgba(30,45,74,0.3)' }, min: 0 }
+        }
+      }
+    });
+  }
+
+  // =====================================================
+  // === PUMP ENERGY CALCULATOR ===
+  // =====================================================
+  function updatePumpEnergy() {
+    var Q = parseFloat(document.getElementById('peFlow').value);
+    var H = parseFloat(document.getElementById('peTDH').value);
+    var ePump = parseFloat(document.getElementById('pePumpEff').value) / 100;
+    var eMotor = parseFloat(document.getElementById('peMotorEff').value) / 100;
+    var speed = parseFloat(document.getElementById('peSpeedRatio').value);
+    var runtime = parseFloat(document.getElementById('peRuntime').value);
+    var cost = parseFloat(document.getElementById('peCost').value);
+
+    document.getElementById('valPEFlow').textContent = Q + ' GPM';
+    document.getElementById('valPETDH').textContent = H + ' ft';
+    document.getElementById('valPEPumpEff').textContent = Math.round(ePump * 100) + '%';
+    document.getElementById('valPEMotorEff').textContent = Math.round(eMotor * 100) + '%';
+    document.getElementById('valPESpeed').textContent = speed.toFixed(2);
+    document.getElementById('valPERuntime').textContent = runtime + ' hrs';
+    document.getElementById('valPECost').textContent = '$' + cost.toFixed(2);
+
+    var Qa = Q * speed;
+    var Ha = H * speed * speed;
+
+    var whp = (Qa * Ha * 8.34) / (33000);
+    var bhp = whp / ePump;
+    var kw = (bhp * 0.7457) / eMotor;
+    var dailyKWh = kw * runtime;
+    var dailyCost = dailyKWh * cost;
+    var annualCost = dailyCost * 365;
+    var wtw = ePump * eMotor * 100;
+    var se = (Q > 0) ? (dailyKWh / ((Qa * runtime * 60) / 1000)) : 0;
+
+    document.getElementById('peWHP').textContent = whp.toFixed(1);
+    document.getElementById('peBHP').textContent = bhp.toFixed(1);
+    document.getElementById('peKW').textContent = kw.toFixed(1);
+    document.getElementById('peDailyKWh').textContent = Math.round(dailyKWh).toLocaleString();
+    document.getElementById('peDailyCost').textContent = '$' + dailyCost.toFixed(2);
+    document.getElementById('peAnnualCost').textContent = '$' + Math.round(annualCost).toLocaleString();
+    document.getElementById('peWTW').textContent = wtw.toFixed(1) + '%';
+    document.getElementById('peSE').textContent = se.toFixed(3);
+  }
+
+  updateValveSim();
+  updateFireFlow();
+  updatePumpEnergy();
 
   // =====================================================
   // === URL HASH STATE — Persistence & Restore ===

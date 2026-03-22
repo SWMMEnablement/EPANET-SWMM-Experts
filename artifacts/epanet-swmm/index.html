@@ -748,8 +748,8 @@
     .hero { padding: 20px 0; border-bottom: 2px solid #000; }
     .hero h1 { background: none; -webkit-text-fill-color: #000; color: #000; font-size: 22px; }
     .hero .subtitle, .hero .legend { color: #333; }
-    #unitToggle, #themeSelect, #docsBtn, #docsTip, .nav-tabs, canvas, .fm-preset, input[type="range"],
-    #flipStatus, #fmDirection, #fmTooltip, #fmSlopeWarning, #docsBtn { display: none !important; }
+    #unitToggle, #themeSelect, .nav-tabs, canvas, .fm-preset, input[type="range"],
+    #flipStatus, #fmDirection, #fmTooltip, #fmSlopeWarning { display: none !important; }
     .section { display: block !important; page-break-inside: avoid; margin-bottom: 20px; border-top: 1px solid #ccc; padding-top: 12px; }
     .section-title { color: #000; font-size: 16px; }
     .compare-grid { border: 1px solid #ccc; }
@@ -948,13 +948,6 @@
           <option value="epa">EPA</option>
         </select>
       </div>
-      <div class="legend-item" style="margin-left:10px;border-left:1px solid var(--border);padding-left:20px;position:relative;">
-        <button id="docsBtn" onclick="var t=document.querySelector('[data-tab=&quot;docs&quot;]');if(t)activateTab(t);" style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.25s;letter-spacing:0.5px;" onmouseenter="showDocsTip(true)" onmouseleave="showDocsTip(false)">📄 <span style="border-bottom:1px dashed var(--text-dim);">Docs</span></button>
-        <div id="docsTip" style="display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:0.72rem;color:var(--text-muted);white-space:nowrap;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);pointer-events:none;">
-          View all equations, code &amp; formulas in the Reference tab
-          <div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;background:var(--bg-card);border-right:1px solid var(--border);border-bottom:1px solid var(--border);"></div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -972,6 +965,7 @@
     <button class="nav-tab" data-tab="gotchas">Gotchas</button>
     <button class="nav-tab" data-tab="whichtool">Which Tool?</button>
     <button class="nav-tab" data-tab="forcemains">Force Mains</button>
+    <button class="nav-tab" data-tab="treatment">Treatment</button>
     <button class="nav-tab" data-tab="firstprinciples">First Principles</button>
     <button class="nav-tab" data-tab="docs">Reference</button>
   </div>
@@ -5328,12 +5322,6 @@ Daily  0.6 0.5</div>
   fmUpdateFromC();
 
   // =====================================================
-  // === DOCS BUTTON TOOLTIP ===
-  // =====================================================
-  function showDocsTip(show) {
-    document.getElementById('docsTip').style.display = show ? 'block' : 'none';
-  }
-
   // =====================================================
   // === DARCY-WEISBACH CONVERTER ===
   // =====================================================
@@ -5865,13 +5853,6 @@ Daily  0.6 0.5</div>
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    // Brief visual feedback
-    const btn = document.getElementById('docsBtn');
-    btn.innerHTML = '✅ <span>Downloaded</span>';
-    btn.style.background = 'rgba(16,185,129,0.15)';
-    btn.style.borderColor = '#10b981';
-    btn.style.color = '#10b981';
-    setTimeout(() => { btn.innerHTML = '📄 <span style="border-bottom:1px dashed var(--text-dim);">Docs</span>'; btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = ''; }, 2000);
   }
 
   // =====================================================

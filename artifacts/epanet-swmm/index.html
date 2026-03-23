@@ -1020,6 +1020,7 @@
   .vf-stat-num { font-size: 1.1rem; font-weight: 700; font-family: var(--font-mono); }
   .vf-stat-unit { font-size: 0.7rem; color: var(--text-dim); }
   .vf-note { font-size: 0.78rem; color: var(--text-dim); font-family: var(--font-body); background: rgba(59,130,246,0.05); border-left: 3px solid var(--swmm-glow); padding: 10px 14px; border-radius: 0 6px 6px 0; margin-top: 12px; line-height: 1.6; }
+  .vf-callout { font-size: 0.82rem; color: var(--text-muted); font-family: var(--font-body); background: rgba(6,182,212,0.06); border-left: 4px solid var(--accent-cyan); padding: 14px 18px; border-radius: 0 8px 8px 0; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -1840,6 +1841,113 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
       <div class="insight-label">💡 Aha Moment</div>
       <h3>No Courant condition. No instabilities. No tiny timesteps.</h3>
       <p>You know SWMM's dynamic wave solver can blow up with a bad Courant number. EPANET's solver is inherently stable because it finds equilibrium at each step — there's no wave propagation to track. A 1-hour hydraulic timestep is perfectly fine for most analyses. The Gradient Algorithm typically converges in 5–10 iterations per timestep, even for networks with thousands of pipes. Contrast that with SWMM needing to march through 3,600 one-second timesteps to cover a single EPANET hour.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-amber);">CFL Condition Worked Example</div>
+        <pre style="font-family:var(--font-mono);font-size:0.68rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">PHYSICAL WAVE IN A PIPE:
+
+Time t:    ───────╱╲──────────── (wave at position x)
+
+Time t+Δt: ────────────╱╲────── (wave moved to x + c·Δt)
+
+If c·Δt > Δx (the pipe length), the wave has traveled
+PAST the downstream node in one timestep.
+The solver never "saw" it arrive → INSTABILITY.
+
+CFL CONDITION: Δt ≤ Δx / (V + c)
+
+EXAMPLE:
+  Pipe length (Δx): 200 ft
+  Velocity (V):       5 ft/s
+  Wave speed (c):    15 ft/s
+  Maximum Δt: 200/(5+15) = 10 seconds
+
+  If you use Δt = 30 seconds, the wave travels
+  (5+15)×30 = 600 ft — THREE pipe lengths in one step.
+  The solver WILL oscillate and blow up.</pre>
+      </div>
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Why EPANET Has No CFL Condition</div>
+        <pre style="font-family:var(--font-mono);font-size:0.68rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">EPANET'S IMPLICIT ASSUMPTION:
+
+In a full pipe, there is no free surface and no gravity
+wave. Changes in head propagate at the ACOUSTIC wave
+speed (~4,000 ft/s in water).
+
+  Acoustic wave speed:     ~4,000 ft/s
+  Typical network diameter: ~10 miles = 53,000 ft
+  Time to traverse network: 53,000/4,000 = 13 seconds
+
+  EPANET hydraulic timestep: 3,600 seconds (1 hour)
+
+  The pressure wave traverses the network ~277 TIMES
+  per timestep.
+
+  Equilibrium is FULLY established.
+  No wave-tracking needed.
+  No CFL condition.
+  No timestep stability constraint.
+  (Convergence can still fail for poorly conditioned
+   networks or extreme control settings — but this is
+   a convergence issue, not a stability issue.)</pre>
+      </div>
+    </div>
+
+    <div class="vf-card">
+      <div class="vf-card-title">The Global Gradient Algorithm: Why Loops Demand It</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+        <p>In a tree network, you can solve pipe-by-pipe from upstream to downstream &mdash; each pipe&rsquo;s flow is known from mass balance. In a <strong>looped</strong> network, multiple paths exist between source and demand, and you must solve for all flows simultaneously. This is what Todini &amp; Pilati&rsquo;s 1988 Global Gradient Algorithm does.</p>
+        <pre style="font-family:var(--font-mono);font-size:0.68rem;color:var(--accent-cyan);background:rgba(15,23,42,0.5);padding:12px;border-radius:6px;white-space:pre;overflow-x:auto;">For each pipe connecting nodes i and j:
+  Q_ij = f(H_i - H_j)    [flow is a function of head difference]
+
+For each node i:
+  Σ_j Q_ij = Demand_i     [mass balance]
+
+Substitute the first into the second:
+  Σ_j f(H_i - H_j) = Demand_i    [N equations in N unknowns: H₁...Hₙ]
+
+Linearize f(ΔH) ≈ f(ΔH⁰) + f'(ΔH⁰)·(ΔH - ΔH⁰):
+  This gives: [A]{ΔH} = {b}   where A is a sparse N×N matrix
+
+The sparsity pattern of A mirrors the network topology:
+  A_ii ≠ 0 for all i (diagonal — always present)
+  A_ij ≠ 0 only if nodes i and j are connected by a pipe
+
+In a LOOPED network, each node connects to 3-6 others →
+  A has 3-6 non-zeros per row → SPARSE matrix
+
+Solve using sparse Cholesky factorization →
+  O(N^1.1 to N^1.3) operations
+  MUCH faster than dense matrix solution O(N³)</pre>
+        <p>This is why EPANET can solve 100,000+ node networks in seconds. The sparsity is a gift from the network topology: most nodes connect to only 3&ndash;6 neighbors.</p>
+      </div>
+    </div>
+
+    <div class="vf-card">
+      <div class="vf-card-title">Comprehensive Solver Comparison</div>
+      <div style="overflow-x:auto;">
+        <table class="vf-table">
+          <thead><tr><th>Aspect</th><th style="color:var(--epanet-amber);">SWMM5 Dynamic Wave</th><th style="color:var(--epanet-blue);">EPANET Gradient Algorithm</th></tr></thead>
+          <tbody>
+            <tr><td>Equation type</td><td>Hyperbolic PDEs (Saint-Venant)</td><td>Nonlinear algebraic (energy + continuity)</td></tr>
+            <tr><td>Solution method</td><td>Explicit time-marching, staggered FD</td><td>Implicit Newton-Raphson, sparse matrix</td></tr>
+            <tr><td>Timestep</td><td>1&ndash;30 seconds typical, Courant-limited</td><td>1 hour typical, unconditionally stable</td></tr>
+            <tr><td>Per-timestep work</td><td>Update Q for each link, H for each node</td><td>5&ndash;15 N-R iterations, each: sparse solve</td></tr>
+            <tr><td>Total timesteps (24 hr)</td><td>86,400 (at &Delta;t = 1 s)</td><td>24 (at &Delta;t = 1 hr)</td></tr>
+            <tr><td>Handles loops?</td><td>Yes (but slower)</td><td>Yes (designed for it)</td></tr>
+            <tr><td>Handles free surface?</td><td>Yes (fundamental)</td><td>No (always full)</td></tr>
+            <tr><td>Handles surcharge?</td><td>Yes (Preissmann slot)</td><td>N/A (always pressurized)</td></tr>
+            <tr><td>Handles backwater?</td><td>Yes (full momentum)</td><td>N/A (quasi-steady)</td></tr>
+            <tr><td>CFL condition</td><td>CRITICAL &mdash; governs stability</td><td>NONE &mdash; unconditionally stable</td></tr>
+            <tr><td>Stability risk</td><td>Moderate &mdash; Courant violation causes oscillation</td><td>Low &mdash; either converges or doesn&rsquo;t</td></tr>
+            <tr><td>Scaling</td><td>O(N &times; T/&Delta;t) total</td><td>O(N<sup>1.2</sup> &times; T/&Delta;T) total</td></tr>
+            <tr><td>Practical limit</td><td>10,000&ndash;50,000 links</td><td>100,000+ nodes</td></tr>
+            <tr><td>Runtime (24 hr, 10K elements)</td><td>Minutes to hours</td><td>Seconds to minutes</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="accordion" id="solverCompareAccordion">
@@ -3991,6 +4099,88 @@ Pump P1  Pattern      Pattern2    ;; Time-varying speed pattern</pre>
         </div>
       </div>
 
+      <div class="vf-callout" style="margin-bottom:0;">
+        <strong style="color:var(--accent-cyan);">The Core Insight:</strong> Every difference between SWMM5 and EPANET &mdash; equations, solver design, calibration method, failure mode, design criterion &mdash; traces back to one physical fact: <strong>Gravity pulls water in one direction. Pressure can push water in any direction.</strong> This asymmetry determines everything.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-amber);">Why Gravity Makes Trees</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+            <p>Gravity is <strong>unidirectional, passive, and inexhaustible</strong>. Water on a hillside has one option: flow downhill. The engineered collection system mirrors the natural watershed because both solve the same physical problem: move water from high ground to low ground.</p>
+            <pre style="font-family:var(--font-mono);font-size:0.68rem;color:var(--epanet-amber);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">Rain falls everywhere      &rarr;  Rain falls on subcatchments
+Sheet flow downhill        &rarr;  Overland flow to inlets
+Rivulets merge to streams  &rarr;  8&quot; laterals merge to 12&quot; collectors
+Streams merge to creeks    &rarr;  Collectors merge to 24&quot; trunk sewers
+Creeks merge to rivers     &rarr;  Trunk sewers merge to 48&quot; interceptors
+River reaches the ocean    &rarr;  Interceptor reaches the outfall
+ONE destination            &rarr;  ONE destination
+MANY sources               &rarr;  MANY sources
+TREE shape                 &rarr;  TREE shape</pre>
+            <p><strong>Why true loops are rare in gravity systems:</strong> A hydraulic loop requires flow that can travel in either direction. Under normal gravity flow, water won&rsquo;t flow uphill, making loops uncommon. Exceptions exist (dual drainage, surcharged systems, pumped force mains), but the <em>default topology</em> is tree-shaped. A &ldquo;parallel relief sewer&rdquo; is not a true loop; both pipes slope the same direction.</p>
+            <p><strong>Why loops are economically wasteful:</strong> (1) No reliability benefit &mdash; gravity never fails. (2) Pipe slope consumes precious elevation. (3) Collection systems serve <em>area</em>, not <em>points</em>. (4) The outfall is singular and fixed.</p>
+          </div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-blue);">Why Pressure Makes Loops</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+            <p>Pressure is <strong>omnidirectional, active, and fallible</strong>. Pumps can push water any direction, but they require electricity, have parts that wear out, and can fail. Because sources can fail, the network <em>must</em> loop for reliability.</p>
+            <pre style="font-family:var(--font-mono);font-size:0.68rem;color:var(--epanet-blue);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">DEAD-END FIRE FLOW:
+Source &rarr; 8&quot; pipe (2000 ft) &rarr; Hydrant
+  1,500 GPM through ONE 8&quot; pipe
+  Velocity: 9.6 ft/s (dangerously high!)
+  Headloss: ~95 ft per 1000 ft at C=100
+  Available pressure: probably ZERO &mdash; FAILS
+
+LOOPED FIRE FLOW:
+Source &mdash; 8&quot; pipe &mdash; Node A &mdash; 8&quot; pipe &mdash; Hydrant
+                        |                       |
+Source &mdash; 8&quot; pipe &mdash; Node B &mdash; 8&quot; pipe &mdash;&mdash;&mdash;&rsquo;
+  1,500 GPM split across FOUR 8&quot; pipes
+  Each pipe carries ~375 GPM
+  Velocity: 2.4 ft/s (comfortable)
+  Headloss: ~7 ft per 1000 ft &mdash; WORKS</pre>
+            <p><strong>Headloss reduction is highly nonlinear:</strong> Two parallel paths reduce headloss by ~72%, not 50%. Four paths reduce it by ~93%. This is the H-W exponent (1.85) at work.</p>
+            <p><strong>Economic justification:</strong> (1) A boil-water advisory costs far more than a $10K&ndash;$50K cross-connection. (2) ISO fire insurance ratings require loops. (3) Dead ends cause stagnant water &rarr; chlorine decay &rarr; bacteria. (4) PRVs enable pressure zone management.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Hierarchy of Distribution Network Looping</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);">Transmission (24&ndash;72&Prime;)</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Few large mains following major corridors. <strong>Sparse loops</strong> connecting treatment plant to elevated tanks.</div>
+          </div>
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.25);">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);">Distribution (8&ndash;16&Prime;)</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Follows street grid. Cross-connected at every intersection. <strong>Dense grid</strong> (highly looped). This is the heart of the system.</div>
+          </div>
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.1);">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);">Service (&frac34;&ndash;2&Prime;)</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Individual connections to buildings. <strong>Dead ends</strong> are OK here &mdash; they serve one customer, not a network.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Gravity vs Pressure Energy Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Property</th><th style="color:var(--epanet-amber);">Gravity Energy</th><th style="color:var(--epanet-blue);">Pressure Energy</th></tr></thead>
+            <tbody>
+              <tr><td>Source</td><td>Earth&rsquo;s mass</td><td>Pump motors</td></tr>
+              <tr><td>Direction</td><td>Always downhill</td><td>Any direction</td></tr>
+              <tr><td>Reliability</td><td>Infinite &mdash; cannot fail</td><td>Depends on power, maintenance</td></tr>
+              <tr><td>Cost</td><td>Free</td><td>Electricity (60&ndash;80% of utility budget)</td></tr>
+              <tr><td>Control</td><td>None (always on)</td><td>Full (on/off/variable speed)</td></tr>
+              <tr><td>Failure mode</td><td>Cannot fail</td><td>Power outage, mechanical failure</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="vf-card">
         <div class="vf-card-title">When SWMM5 Networks DO Have Loops (Exceptions)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -4099,8 +4289,86 @@ Pump P1  Pattern      Pattern2    ;; Time-varying speed pattern</pre>
               <tr><td>Failure indicator</td><td>Depth exceeding maximum (binary: flood or not)</td><td>Pressure below minimum (continuous gradient)</td></tr>
               <tr><td>Worst case scenario</td><td>Undersized trunk during extreme storm</td><td>Pipe break during fire during peak demand</td></tr>
               <tr><td>Temporal nature</td><td>Transient &mdash; evolves during storm</td><td>Quasi-steady &mdash; new equilibrium quickly</td></tr>
+              <tr><td>Redundancy</td><td>Low &mdash; one path to outfall, no alternate route</td><td>High &mdash; multiple paths, flow redistributes</td></tr>
+              <tr><td>Severity curve</td><td>Catastrophic &mdash; binary transition (works or floods)</td><td>Graceful &mdash; continuous degradation (pressure drops)</td></tr>
+              <tr><td>Mitigation</td><td>Upsize pipe, add storage, LID, divert flow</td><td>Add loops, upsize mains, add tanks, backup generators</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-amber);">SWMM5 Failure Analysis Workflow</div>
+          <pre style="font-family:var(--font-mono);font-size:0.68rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">1. IDENTIFY: Run design storms (2-yr, 10-yr, 25-yr, 100-yr)
+
+2. LOCATE: Find nodes where max depth &gt; crown (surcharge)
+           or max depth &gt; ground (flooding)
+
+3. DIAGNOSE: For each flooding node:
+   a. Trace DOWNSTREAM along the pipe network
+   b. Find the FIRST pipe where d/D reaches 1.0
+   c. THIS is the bottleneck CAUSING upstream flooding
+   d. Note: bottleneck may be 2, 5, or 10 pipes
+      downstream of the flooding location!
+
+4. QUANTIFY:
+   &bull; Flooding volume (gal or ft&sup3;) at each node
+   &bull; Flooding duration (hours)
+   &bull; Peak flooding rate (CFS)
+   &bull; Max HGL vs ground elevation (freeboard)
+
+5. TRACE IMPACT ZONE:
+   From bottleneck, trace UPSTREAM through all branches
+   Every node with insufficient freeboard is at risk
+
+6. EVALUATE ALTERNATIVES:
+   a. Upsize the bottleneck pipe
+   b. Add parallel relief sewer (creates a loop!)
+   c. Add upstream detention
+   d. Implement LID/green infrastructure
+   e. Divert flow to alternate outfall
+
+NOTE: This is a common diagnostic heuristic.
+Bottlenecks may also be caused by downstream
+boundary conditions (tailwater, tidal), control
+settings, junction losses, or storage interactions.
+Always check these factors as well.</pre>
+          <div class="vf-note" style="margin-top:8px;"><strong>Diagnostic heuristic:</strong> The flooding location may be in Branch A, but the <em>cause</em> is often an undersized trunk downstream. Always trace downstream to identify potential bottlenecks &mdash; but also check boundary conditions, control settings, and tailwater effects.</div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-blue);">EPANET Failure Analysis Workflow</div>
+          <pre style="font-family:var(--font-mono);font-size:0.68rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">1. ESTABLISH BASELINE:
+   Run normal operations (24-hr or 7-day EPS)
+   Verify all pressures above 20 psi minimum
+   Record baseline pressures/flows at all nodes
+
+2. PIPE BREAK ANALYSIS (for each critical pipe):
+   a. Close the pipe (Status = CLOSED)
+   b. Run steady-state or EPS
+   c. Compare pressures to minimum (20 psi)
+   d. Map the &ldquo;impact zone&rdquo; of inadequate pressure
+   e. Quantify: deficit (psi), affected customers
+
+3. FIRE FLOW + BREAK (compound scenario):
+   a. Close pipe + add 1,500 GPM demand at hydrant
+   b. Record pressure at hydrant and neighbors
+   c. This is the DESIGN WORST CASE
+
+4. PEAK DEMAND + BREAK + FIRE (nightmare):
+   a. At maximum day demand hour
+   b. Close one critical main
+   c. Add fire flow demand at most vulnerable hydrant
+   d. Three simultaneous stresses &rarr; design event
+
+5. EVALUATE ALTERNATIVES:
+   a. Add cross-connections (increase loop density)
+   b. Upsize critical mains
+   c. Add emergency interconnections
+   d. Install backup generators at pump stations
+   e. Add storage tanks in vulnerable zones
+   f. Improve valve operations (faster isolation)</pre>
+          <div class="vf-note" style="margin-top:8px;"><strong>Key difference:</strong> EPANET failure is <em>localized</em>. Pipe breaks near dense loops cause small pressure drops. Breaks near dead ends cause total loss. Connectivity determines severity &mdash; the same break has different impacts depending on network structure.</div>
         </div>
       </div>
 
@@ -4244,23 +4512,53 @@ SOLUTION: Minimize Σ(P_model - P_measured)²
       </div>
 
       <div class="vf-card">
-        <div class="vf-card-title">EPANET Calibration Strategies</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
-          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
-            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">Fire Flow Tests</div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Open hydrant, measure Q and pressure drop. Since Q, D, L are known, only unknown is C. Gold standard.</div>
+        <div class="vf-card-title">EPANET Calibration Strategies (5 Methods)</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--epanet-blue);">1. Fire Flow Tests (The Gold Standard)</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;display:flex;flex-direction:column;gap:4px;">
+              <p>Open hydrant, measure flow Q (known). Measure pressure at hydrant and nearby nodes. Since headloss h<sub>f</sub> = f(C, Q, D, L) and Q, D, L are measured, the only unknown is C.</p>
+              <p><strong>Why this is best:</strong> The fire flow (1,000&ndash;2,000 GPM) is so large relative to normal demands that it <em>dominates</em> the headloss &mdash; uncertainty in background demands doesn&rsquo;t matter. You&rsquo;re running a controlled experiment on the real system. Accuracy: C within &plusmn;10.</p>
+              <p>A utility that runs 20 fire flow tests across its system can calibrate the major transmission and distribution mains with reasonable confidence.</p>
+            </div>
           </div>
-          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
-            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">C-Factor Grouping</div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Group pipes by material + age + diameter. Calibrate group C-factors (5-10 unknowns vs hundreds).</div>
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--epanet-blue);">2. C-Factor Grouping</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">Instead of calibrating 5,000 individual pipe roughnesses, group by physical characteristics: <strong>Cast iron pre-1950</strong> &rarr; C=?, <strong>Cast iron 1950&ndash;1980</strong> &rarr; C=?, <strong>Ductile iron post-1980</strong> &rarr; C=?, <strong>PVC all ages</strong> &rarr; C=?, <strong>Concrete transmission</strong> &rarr; C=?. Now 5 unknowns instead of 5,000. The grouping reflects actual physics: pipes of the same material and age experience similar corrosion and tuberculation.</div>
           </div>
-          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
-            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">Tank Level Matching</div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Compare modeled vs measured tank levels over 24-48 hrs. Integrates entire system behavior.</div>
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--epanet-blue);">3. Tank Level Matching</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">Compare modeled vs measured tank levels over 24&ndash;48 hours. Tank level <em>integrates</em> the entire system&rsquo;s behavior: if modeled level drops faster than measured &rarr; demands too high or roughness too high. If slower &rarr; demands too low or roughness too low. This is the <strong>most informative single measurement</strong> for EPANET calibration.</div>
           </div>
-          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
-            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">District Metered Areas</div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Meter all entry/exit points. Net flow = total demand. Nighttime minimum &asymp; leakage.</div>
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--epanet-blue);">4. District Metered Areas (DMAs)</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">Install flow meters at all entry/exit points of an isolated zone. Net inflow = &Sigma;Q<sub>in</sub> &minus; &Sigma;Q<sub>out</sub> = total demand in DMA. Compare to modeled demand &rarr; adjust demand allocation. <strong>Bonus:</strong> Nighttime minimum flow (2&ndash;4 AM) &asymp; leakage. This calibrates emitter coefficients for background leakage.</div>
+          </div>
+          <div style="padding:12px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--epanet-blue);">5. Automated Optimization</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">Formulate as: Minimize &Sigma;w<sub>i</sub>&middot;(P<sub>model,i</sub> &minus; P<sub>measured,i</sub>)&sup2; with decision variables = C-factor per group + demand multiplier per zone. Solve with GA, Levenberg-Marquardt, SCE, or Bayesian methods. <strong>EPANET runs in seconds</strong>, so thousands of iterations in minutes. This is a <em>huge</em> advantage over SWMM5 calibration where each run takes minutes to hours.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-amber);">What Makes Tree Calibration Tractable</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;">
+            <p><strong>Errors are localized.</strong> If Monitor E shows too much flow but Monitor F matches, the problem is ONLY in Subcatchments upstream of E.</p>
+            <p><strong>Small search space per step.</strong> 5&ndash;8 parameters for 1&ndash;2 subcatchments at a time, not 50 parameters for 25 subcatchments simultaneously.</p>
+            <p><strong>Sensitivity is local.</strong> Increasing imperviousness in Subcatchment A has zero effect on flow at Monitor F. The sensitivity matrix is block-diagonal.</p>
+            <p><strong>Order is clear.</strong> Upstream to downstream. Each step benefits from previous steps being correct.</p>
+          </div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-amber);">What Makes Tree Calibration HARD</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;">
+            <p><strong>Nonlinear hydrology.</strong> Infiltration has threshold behavior &mdash; once depression storage fills, runoff begins suddenly. Small parameter changes near thresholds cause large output changes.</p>
+            <p><strong>Equifinality.</strong> High imperviousness + high depression storage mimics low imperviousness + low depression storage. Multiple storms needed to break degeneracy.</p>
+            <p><strong>Limited monitoring.</strong> 3 monitors for 20 subcatchments. Individual errors may cancel within groups.</p>
+            <p><strong>RDII is the wild card.</strong> Rainfall-dependent infiltration/inflow enters through pipe defects. The RTK unit hydrograph has 9 parameters per soil group per gage &mdash; the most challenging calibration component.</p>
+            <p><strong>Temporal variation.</strong> Antecedent moisture conditions dramatically affect infiltration. Model calibrated to a wet event may fail on a dry event.</p>
           </div>
         </div>
       </div>

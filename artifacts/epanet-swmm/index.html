@@ -43,6 +43,18 @@
 <meta name="twitter:description" content="Interactive translation guide: every SWMM5 concept mapped to EPANET. Manning's↔Hazen-Williams, Saint-Venant↔Gradient Algorithm, force main converter, and more.">
 <title>EPANET for SWMM5 Experts — The Rosetta Stone</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+Chart.register({
+  id: 'darkBackground',
+  beforeDraw: function(chart) {
+    var ctx = chart.ctx;
+    ctx.save();
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, chart.width, chart.height);
+    ctx.restore();
+  }
+});
+</script>
 <style>
   /* Fonts: Google Fonts as progressive enhancement, system fonts as fallback.
      If offline or Google unreachable, the app still looks great. */
@@ -3515,7 +3527,7 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
         </div>
       </div>
       <div class="fm-conv-chart-container">
-        <canvas id="fm-slopeChart"></canvas>
+        <canvas id="fm-slopeChart" style="background:#0d1117;border-radius:8px;"></canvas>
       </div>
     </div>
 
@@ -3792,14 +3804,14 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
             <span style="font-size:0.75rem;color:var(--text-dim);font-family:var(--font-body);" id="txCurveLegendLabel">Effluent</span>
           </div>
         </div>
-        <canvas id="txCurveChart" height="280"></canvas>
+        <canvas id="txCurveChart" height="280" style="background:#0d1117;border-radius:8px;"></canvas>
         <div class="tx-stats-grid" id="txStatsGrid"></div>
       </div>
 
       <!-- Removal Overlay View -->
       <div class="tx-view-pane" id="txViewRemoval">
         <div id="txRemovalMsg" style="text-align:center;padding:40px 0;color:var(--text-dim);font-family:var(--font-body);font-size:0.88rem;">Add more pollutants to see removal comparison overlay</div>
-        <canvas id="txRemovalChart" height="300" style="display:none;"></canvas>
+        <canvas id="txRemovalChart" height="300" style="display:none;background:#0d1117;border-radius:8px;"></canvas>
       </div>
 
       <!-- Table View -->
@@ -3980,7 +3992,7 @@ V5      N50      N51      12        GPV   Curve1   0.0</pre>
               <div class="vf-stat-unit">&nbsp;</div>
             </div>
           </div>
-          <canvas id="ffChart" height="200" style="margin-top:14px;"></canvas>
+          <canvas id="ffChart" height="200" style="margin-top:14px;background:#0d1117;border-radius:8px;border:1px solid var(--border);"></canvas>
         </div>
       </div>
 
@@ -4334,7 +4346,7 @@ Pump P1  Pattern      Pattern2    ;; Time-varying speed pattern</pre>
             <input type="range" id="dmNormalP" min="20" max="60" value="40" step="1" oninput="dmUpdatePDA()" style="flex:1;">
             <span class="vf-slider-val" id="valDmNormalP">40</span>
           </div>
-          <canvas id="dmPdaChart" height="220"></canvas>
+          <canvas id="dmPdaChart" height="220" style="background:#0d1117;border-radius:8px;"></canvas>
           <div class="vf-note" style="margin-top:8px;"><strong>SWMM5 parallel:</strong> SWMM5 always computes flow based on hydraulic conditions (depth, slope), so it&rsquo;s inherently &ldquo;pressure-dependent.&rdquo; EPANET&rsquo;s DDA is simpler but can produce unrealistic results during fire flow or pipe breaks.</div>
         </div>
         <div class="vf-card">
@@ -5075,7 +5087,7 @@ Always check these factors as well.</pre>
 
       <div class="vf-card">
         <div class="vf-card-title">24-Hour Multiplier Pattern <span style="font-weight:400;color:var(--text-dim);font-size:0.75rem;">(click a bar to edit)</span></div>
-        <canvas id="patBarChart" height="240"></canvas>
+        <canvas id="patBarChart" height="240" style="background:#0d1117;border-radius:8px;"></canvas>
         <div id="patEditRow" style="display:none;margin-top:8px;align-items:center;gap:10px;padding:4px 8px;">
           <span style="font-size:0.78rem;color:var(--text-muted);" id="patEditLabel">Hour 0:00 =</span>
           <input type="number" id="patEditVal" step="0.05" min="0" max="5" value="0.5" oninput="patEditUpdate()" style="width:70px;padding:4px 8px;border-radius:6px;background:var(--bg-deep);border:1px solid var(--border);color:#fff;font-size:0.85rem;font-family:var(--font-mono);">
@@ -5737,7 +5749,7 @@ THEN PUMP Pump1 STATUS IS OPEN</pre>
 
       <div class="vf-card">
         <div class="vf-card-title">Roughness Degradation Over Time</div>
-        <canvas id="agingChart" height="280"></canvas>
+        <canvas id="agingChart" height="280" style="background:#0d1117;border-radius:8px;"></canvas>
       </div>
 
       <div class="vf-note"><strong>Friction direction confusion:</strong> Manning&rsquo;s n and H-W C move in <strong>opposite directions</strong> for the same physical change (pipe deterioration). As pipes age: n goes UP (higher = rougher), C goes DOWN (lower = rougher). This trips up everyone crossing between the two models.</div>

@@ -1101,9 +1101,11 @@ Chart.register({
   <div class="hero">
 
     <h1>EPANET for SWMM5 Experts</h1>
-    <p class="subtitle">
-      You've spent decades thinking in junctions, conduits, and outfalls.
-      Here's how to translate that mental model to the pressurized world of water distribution.
+    <p class="subtitle" style="font-style:italic;color:var(--text-muted);margin-bottom:6px;">
+      &ldquo;If I know SWMM5, why is EPANET so confusing?&rdquo;
+    </p>
+    <p class="subtitle" style="font-size:0.95rem;margin-top:0;">
+      Because you&rsquo;re looking at a special case of what you already know, but you don&rsquo;t recognize it as such.
     </p>
     <div class="legend">
       <div class="legend-item"><div class="legend-dot swmm"></div> SWMM5 Concept</div>
@@ -3031,6 +3033,27 @@ Pump1   WetWell FM-1    PumpCurve1</div>
       </div>
     </div>
 
+    <!-- Troubleshooting Table -->
+    <h3 style="margin-top:32px;margin-bottom:16px;font-size:1.2rem;">Common EPANET Modeling Errors &amp; Diagnostics</h3>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">A quick-reference table for the practicing engineer. When EPANET misbehaves, check here first.</p>
+    <table class="map-table" style="font-size:0.82rem;">
+      <thead>
+        <tr><th style="color:var(--text-primary);width:28%;">Symptom</th><th style="width:32%;">Likely Cause</th><th style="width:40%;">Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Negative pressure at one or more nodes</td><td>Inadequate source head; demand exceeds supply capacity at that location</td><td>Check reservoir elevation, add pump or booster, reduce local demands, or enable PDA (PRESSURE EXPONENT in [OPTIONS])</td></tr>
+        <tr><td>"System unbalanced" warning at a timestep</td><td>Zero-length pipe, disconnected subnetwork, pump operating off its curve, closed valve isolating demand</td><td>Check pipe lengths (&gt;0), verify pump curve covers operating range, check valve status rules, ensure all demand nodes are reachable from a source</td></tr>
+        <tr><td>System never converges (all timesteps unbalanced)</td><td>Hydraulic impossibility: demands far exceed supply, or network has no source (no reservoir/tank)</td><td>Add a reservoir, check that at least one source node exists, reduce extreme demands, increase MAXITER in [OPTIONS]</td></tr>
+        <tr><td>Continuity error &gt; 1%</td><td>Extremely short pipes causing numerical stiffness, or very large demands relative to pipe capacity</td><td>Merge short pipes (&lt;10 ft), check for unrealistic demands, increase accuracy (ACCURACY in [OPTIONS])</td></tr>
+        <tr><td>Tank never fills or drains to minimum</td><td>Pump rule not triggering, incorrect tank min/max levels, pattern multiplier error</td><td>Check control rules (LEVEL vs PRESSURE), verify tank initial/min/max, inspect demand patterns for magnitude errors</td></tr>
+        <tr><td>Water age unrealistically high (&gt;168 hrs)</td><td>Dead-end pipes with zero or very low demand, tank with poor mixing</td><td>Add looping to eliminate dead ends, increase dead-end demands, consider FIFO/2-compartment mixing model for tanks</td></tr>
+        <tr><td>Chlorine residual drops to zero too quickly</td><td>Bulk decay coefficient too aggressive, wall decay too high, or very long travel times</td><td>Verify Kb against lab jar tests, reduce Kw, check pipe roughness (wall decay scales with C-factor), shorten residence times</td></tr>
+        <tr><td>Pump flow much higher/lower than expected</td><td>Wrong pump curve units (GPM vs LPS), or head difference outside curve range</td><td>Verify pump curve points match flow unit setting, check suction/discharge node elevations, plot pump operating point against system curve</td></tr>
+        <tr><td>Headloss values seem wrong by orders of magnitude</td><td>Unit mismatch: diameter in ft instead of in (US), or roughness type doesn't match headloss formula</td><td>For H-W: diameter in inches (US) or mm (SI), roughness = C. For D-W: roughness = ε in mm or mils. Verify [OPTIONS] HEADLOSS setting.</td></tr>
+        <tr><td>Flow reverses unexpectedly in some pipes</td><td>Normal behavior in looped networks; flow direction depends on relative demands and head distribution</td><td>Not necessarily an error. Check if demands are balanced. If truly wrong, verify source elevations and pump curve direction.</td></tr>
+      </tbody>
+    </table>
+
     <!-- Quick Reference Card -->
     <h3 style="margin-top:32px;margin-bottom:16px;font-size:1.2rem;">Quick Reference Card</h3>
     <table class="map-table">
@@ -3689,7 +3712,8 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
       </div>
     </div>
     <h3 style="font-size:1.05rem;margin-bottom:8px;">SWMM5 Treatment Expression Editor</h3>
-    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">Visual expression builder with live simulation. SWMM5 treatment expressions set effluent concentration (<code style="color:var(--accent-green)">C = f(...)</code>) or fractional removal (<code style="color:var(--accent-green)">R = f(...)</code>) at any node. Build, test, and export expressions with instant feedback.</p>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px;">Visual expression builder with live simulation. SWMM5 treatment expressions set effluent concentration (<code style="color:var(--accent-green)">C = f(...)</code>) or fractional removal (<code style="color:var(--accent-green)">R = f(...)</code>) at any node. Build, test, and export expressions with instant feedback.</p>
+    <p style="font-size:0.82rem;color:var(--accent-yellow);margin-bottom:16px;"><strong>Why is a SWMM5 tool in an EPANET guide?</strong> Because understanding what SWMM5 can do with water quality that EPANET cannot is essential context for the SWMM expert. EPANET&rsquo;s simpler reaction model (bulk/wall decay coefficients) cannot express the node-based, multi-pollutant treatment logic below. Knowing this boundary helps you decide when EPANET-MSX or a different tool is needed.</p>
 
     <!-- Pollutant Tabs -->
     <div class="tx-poll-tabs" id="txPollTabs"></div>
@@ -6293,7 +6317,7 @@ Simple WQ (tracer)       →            WQ = buildup, washoff, treatment, transp
       <a href="#ref-13" onclick="scrollToRef(event,this)">13. Convergence</a>
       <a href="#ref-14" onclick="scrollToRef(event,this)">14. Working Example</a>
       <a href="#ref-15" onclick="scrollToRef(event,this)">15. Transient Checklist</a>
-      <a href="#ref-16" onclick="scrollToRef(event,this)">16. About EPANET</a>
+      <a href="#ref-16" onclick="scrollToRef(event,this)">16. History &amp; Origins</a>
     </div>
 
     <!-- REF 1 -->
@@ -6765,52 +6789,60 @@ Daily  0.6 0.5</div>
     </div>
 
       <h4>14.4 Accuracy Verification — Hand Calculation Cross-Check</h4>
-      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">For the working example above, here is a hand-calculated verification showing that SWMM5 and EPANET produce <strong>equivalent headloss</strong> for the same pipe at the same flow when using equivalent roughness parameters. This is the single most important test: if the numbers don&rsquo;t match, something is configured wrong.</p>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">This is the single most powerful pedagogical device: the moment when the reader sees, with their own eyes, that the translation actually works. If the numbers don&rsquo;t match, something is configured wrong.</p>
 
       <div class="ref-note" style="border-left:3px solid var(--accent-green);margin-bottom:16px;">
         <strong style="color:var(--accent-green);">Verification Problem: Single Pipe, Full Flow, Steady State</strong>
         <div style="font-size:0.82rem;color:var(--text-muted);margin-top:8px;line-height:1.8;">
-          <strong>Given:</strong> 24-inch (2-ft) diameter pipe, 500 ft long, full flow at Q = 1.114 CFS (500 GPM)<br>
-          <strong>SWMM5:</strong> Manning&rsquo;s n = 0.013, full-pipe flow<br>
+          <strong>Given:</strong> 12-inch (1-ft) diameter pipe, 1000 ft long, conveying 500 GPM (1.114 CFS)<br>
+          <strong>SWMM5:</strong> Manning&rsquo;s n = 0.013 (force main, full-pipe flow)<br>
           <strong>EPANET:</strong> Hazen-Williams C = 130
         </div>
       </div>
 
 <div class="ref-eq" style="font-size:0.82rem;line-height:2.0;">
 STEP 1: Common geometry
-  D = 2.0 ft,  A = π·D²/4 = 3.1416 ft²,  R = D/4 = 0.5 ft
-  V = Q/A = 1.114 / 3.1416 = 0.3546 ft/s
+  D = 1.0 ft,  A = π·D²/4 = 0.7854 ft²,  R = D/4 = 0.25 ft
+  V = Q/A = 1.114 / 0.7854 = 1.418 ft/s
+  Re = V·D/ν = 1.418 × 1.0 / 1.217×10⁻⁵ = 116,500  (turbulent)
 
 STEP 2: Manning headloss (SWMM5)
   Sf = (n·Q / (1.49·A·R^⅔))²
-     = (0.013 × 1.114 / (1.49 × 3.1416 × 0.6300))²
-     = (0.01448 / 2.9488)² = (0.004911)² = 2.412 × 10⁻⁵ ft/ft
-  hf = Sf × L = 2.412×10⁻⁵ × 500 = 0.01206 ft
+     = (0.013 × 1.114 / (1.49 × 0.7854 × 0.3969))²
+     = (0.01448 / 0.4644)² = (0.03118)² = 9.724 × 10⁻⁴ ft/ft
+  hf = Sf × L = 9.724×10⁻⁴ × 1000 = 0.972 ft (11.7 in)
 
 STEP 3: Hazen-Williams headloss (EPANET, US-CFS form)
   hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)
-     = 4.727 × 500 × 1.114^1.852 / (130^1.852 × 2.0^4.87)
-     = 4.727 × 500 × 1.2213 / (8222.9 × 29.24)
-     = 2886.6 / 240,458 = 0.01200 ft
+     = 4.727 × 1000 × 1.114^1.852 / (130^1.852 × 1.0^4.87)
+     = 4.727 × 1000 × 1.2213 / (8222.9 × 1.0)
+     = 5773 / 8223 = 0.702 ft (8.4 in)
 
-STEP 4: Compare
-  Manning:  hf = 0.01206 ft (0.145 in)
-  H-W:     hf = 0.01200 ft (0.144 in)
-  Difference: 0.5% ✓
+STEP 4: Compare — they DON'T match!
+  Manning (n=0.013):  hf = 0.972 ft
+  H-W    (C=130):     hf = 0.702 ft
+  Difference: 38.5%  ✗
 
-  At this particular diameter (24") and flow (500 GPM), the common
-  approximation n=0.013 ≈ C=130 gives nearly identical results.
-  The match degrades for smaller pipes (< 6") or larger flows where
-  the empirical fits diverge. The n ↔ C mapping is not a constant —
-  it depends on diameter and friction slope (see converter tool above).
+  This is NOT a bug. It demonstrates that n=0.013 and C=130 are NOT
+  equivalent roughness values at this diameter. The n ↔ C mapping is
+  diameter-dependent.
 
-  For exact agreement, use Darcy-Weisbach in both models with the same
-  ε (roughness height). D-W is the only equation with a theoretical
-  basis, and both EPANET and SWMM5 support it.
+STEP 5: Use Darcy-Weisbach as the gold standard
+  ε = 0.00085 ft (0.26 mm, new cast iron)
+  Colebrook-White:  f = 0.0213
+  hf = f·(L/D)·V²/(2g) = 0.0213 × 1000 × 0.03127 = 0.667 ft (8.0 in)
+
+  The D-W equivalents that reproduce this headloss are:
+    C ≈ 134  (not 130)     ← use in EPANET
+    n ≈ 0.0108 (not 0.013) ← use in SWMM5
+
+STEP 6: Verify the correct equivalents
+  Manning (n=0.0108): hf = 0.672 ft  ← matches D-W to 0.7%  ✓
+  H-W    (C=134):     hf = 0.658 ft  ← matches D-W to 1.3%  ✓
 </div>
 
       <div class="ref-note" style="margin-top:12px;">
-        <strong style="color:var(--text-bright);">Bottom line:</strong> When both models use the <em>same</em> headloss equation (e.g., D-W with ε = 0.5 mm), they produce identical results for full-pipe steady flow. Any discrepancy means a configuration error — check diameter units (in vs ft), roughness type (n vs C vs ε), flow units (CFS vs GPM), and elevation convention.
+        <strong style="color:var(--text-bright);">The lesson:</strong> Textbook equivalences like "n=0.013 ≈ C=130" are approximations that work well for some diameters (24&Prime;: 0.5% error) and poorly for others (12&Prime;: 38% error). For <strong>exact agreement between SWMM5 and EPANET</strong>, use Darcy-Weisbach with the same ε (roughness height) in both models. D-W is the only equation with a theoretical basis, and both programs support it. When both models use the same equation with the same inputs, they produce identical results for full-pipe steady flow. Any remaining discrepancy means a configuration error &mdash; check diameter units (in vs ft), roughness type (n vs C vs ε), flow units (CFS vs GPM), and elevation convention.
       </div>
     </div>
 
@@ -6831,11 +6863,15 @@ STEP 4: Compare
 
     <!-- REF 16 -->
     <div class="ref-section" id="ref-16">
-      <h3>16. About EPANET — Origins & Open Source Transition</h3>
+      <h3>16. Historical Context &amp; EPANET Origins</h3>
 
-      <h4>16.1 Dr. Lewis A. Rossman and EPANET</h4>
-      <p>Dr. Rossman, an environmental engineer at EPA's Water Supply and Water Resources Division in Cincinnati, authored EPANET and the EPANET 2 Users Manual, and is recognized as the program's original creator.</p>
-      <p>EPANET first appeared in the early 1990s as a research tool to understand hydraulic and water-quality behavior in drinking water distribution systems, quickly becoming a de facto global standard.</p>
+      <h4>16.1 A Brief History of Both Tools</h4>
+      <p><strong>SWMM (1971):</strong> The Storm Water Management Model was created at the U.S. EPA in cooperation with Metcalf &amp; Eddy, Inc. and the University of Florida. The original development team included William James, Wayne Huber, Robert Dickinson, and others. SWMM was one of the first computer models for urban drainage, designed to simulate rainfall-runoff processes and route flow through sewer networks. It was placed in the public domain from its inception, enabling decades of academic research and commercial extension. SWMM5, the current version, was released in 2004 as a complete rewrite in C by Lewis Rossman and others at EPA.</p>
+      <p><strong>EPANET (1993):</strong> Lewis Rossman at EPA&rsquo;s Water Supply and Water Resources Division in Cincinnati developed EPANET as a research tool to understand hydraulic and water-quality behavior in drinking water distribution systems. Like SWMM, it was placed in the public domain. EPANET 2.0 (2000) introduced the solver described throughout this document.</p>
+      <p><strong>Why public domain matters:</strong> Both tools were released as public domain software &mdash; not merely &ldquo;open source&rdquo; with a license, but truly unrestricted. This decision, unusual for its era, enabled the global ecosystem of commercial products (WaterGEMS, InfoWater, PCSWMM, XPSWMM, and many others) that embed these engines. Understanding this shared origin helps explain why SWMM and EPANET share design philosophies (section-based .INP files, IF-THEN-ELSE controls, command-line engines with separate GUIs) despite solving fundamentally different physics.</p>
+
+      <h4>16.2 Dr. Lewis A. Rossman</h4>
+      <p>Dr. Rossman authored both EPANET and the current SWMM5 engine &mdash; a fact that underscores the deep connection between these tools. He is recognized as EPANET&rsquo;s original creator.</p>
       <p>His contribution was not merely the writing of EPANET. It was three deliberate decisions that shaped the field:</p>
       <ul style="font-size:0.85rem;color:var(--text-muted);padding-left:20px;margin:8px 0 12px;">
         <li><strong>Public domain release</strong> — placing the code in the public domain rather than licensing it, enabling unrestricted academic and commercial use worldwide.</li>
@@ -6844,12 +6880,12 @@ STEP 4: Compare
       </ul>
       <p>This combination — open code, clear documentation, extensible architecture — is a model of scientific software development that deserves explicit acknowledgment.</p>
 
-      <h4>16.2 Transition to Community Open Source</h4>
+      <h4>16.3 Transition to Community Open Source</h4>
       <p>After more than 30 years of service at EPA, Lew announced his retirement effective April 1, 2014, which the EPANET user community marked as the end of an era for EPA-led development.</p>
       <p>In 2015, the WDSA Standing Committee of ASCE's EWRI initiated an open-source EPANET project, with development coordinated through the Open Water Analytics (OWA) community, enabling volunteers worldwide to maintain and extend the engine and toolkit.</p>
       <p>EPA's later release of EPANET 2.2.0 explicitly recognized this new model as a collaboration between EPA and the community developers organized via OWA.</p>
 
-      <h4>16.3 Legacy</h4>
+      <h4>16.4 Legacy</h4>
       <p>EPANET became the foundation for virtually all subsequent academic and commercial water distribution modeling. Today's open, community-based development flows directly from Lew's original work and his decision to place the code in the public domain.</p>
     </div>
 
@@ -9797,19 +9833,20 @@ Daily  0.6 0.5</div>
 </table>
 <div class="note"><strong>Rule of thumb:</strong> If it happens faster than your EPANET timestep (typically 1 hour), you need a different tool.</div>
 
-<h1>16. About EPANET — Origins & Open Source Transition</h1>
+<h1>16. Historical Context & EPANET Origins</h1>
 
-<h2>16.1 Dr. Lewis A. Rossman and EPANET</h2>
-<p>Dr. Rossman, an environmental engineer at EPA's Water Supply and Water Resources Division in Cincinnati, authored EPANET and the EPANET 2 Users Manual, and is recognized as the program's original creator.</p>
-<p>EPANET first appeared in the early 1990s as a research tool to understand hydraulic and water-quality behavior in drinking water distribution systems, quickly becoming a de facto global standard.</p>
-<p>His contribution was not merely the writing of EPANET. It was three deliberate decisions that shaped the field: placing the code in the public domain rather than licensing it; documenting it thoroughly with worked examples; and building it in a modular, readable structure that permitted subsequent extension and modification. This combination is a model of scientific software development.</p>
+<h2>16.1 A Brief History of Both Tools</h2>
+<p><strong>SWMM (1971):</strong> The Storm Water Management Model was created at the U.S. EPA in cooperation with Metcalf & Eddy, Inc. and the University of Florida. It was one of the first computer models for urban drainage, placed in the public domain from inception. SWMM5 (2004) was a complete rewrite in C by Lewis Rossman and others at EPA.</p>
+<p><strong>EPANET (1993):</strong> Lewis Rossman at EPA's Water Supply and Water Resources Division developed EPANET as a research tool for hydraulic and water-quality behavior in drinking water distribution systems. Like SWMM, it was placed in the public domain. EPANET 2.0 (2000) introduced the Global Gradient Algorithm solver described throughout this document.</p>
+<p><strong>Why public domain matters:</strong> Both tools were released as public domain software — not merely "open source" with a license, but truly unrestricted. This enabled the global ecosystem of commercial products (WaterGEMS, InfoWater, PCSWMM, XPSWMM, and others) that embed these engines.</p>
 
-<h2>16.2 Transition to Community Open Source</h2>
-<p>After more than 30 years of service at EPA, Lew announced his retirement effective April 1, 2014, which the EPANET user community marked as the end of an era for EPA-led development.</p>
-<p>In 2015, the WDSA Standing Committee of ASCE's EWRI initiated an open-source EPANET project, with development coordinated through the Open Water Analytics (OWA) community, enabling volunteers worldwide to maintain and extend the engine and toolkit.</p>
-<p>EPA's later release of EPANET 2.2.0 explicitly recognized this new model as a collaboration between EPA and the community developers organized via OWA.</p>
+<h2>16.2 Dr. Lewis A. Rossman</h2>
+<p>Dr. Rossman authored both EPANET and the current SWMM5 engine. His contribution was three deliberate decisions: placing the code in the public domain; documenting it thoroughly with worked examples; and building it in a modular, readable structure that permitted extension. This combination is a model of scientific software development.</p>
 
-<h2>16.3 Legacy</h2>
+<h2>16.3 Transition to Community Open Source</h2>
+<p>After more than 30 years of service at EPA, Lew announced his retirement effective April 1, 2014. In 2015, the WDSA Standing Committee of ASCE's EWRI initiated an open-source EPANET project through the Open Water Analytics (OWA) community. EPA's later release of EPANET 2.2.0 recognized this collaboration.</p>
+
+<h2>16.4 Legacy</h2>
 <p>EPANET became the foundation for virtually all subsequent academic and commercial water distribution modeling. Today's open, community-based development flows directly from Lew's original work and his decision to place the code in the public domain.</p>
 
 <div class="footer-doc">

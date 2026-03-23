@@ -1463,6 +1463,7 @@ Chart.register({
             <p>• <strong>FIFO (First-In, First-Out)</strong> — plug flow, like a long narrow tank. Water travels through without mixing. Oldest water exits first.</p>
             <p>• <strong>LIFO (Last-In, First-Out)</strong> — newest water exits first, like a tank where inlet and outlet are at the same location. Oldest water stagnates at the bottom.</p>
             <p>These mixing models dramatically affect water age and chlorine residual predictions. SWMM storage nodes use complete mixing only.</p>
+            <p><strong>Key limitation:</strong> All four EPANET mixing models are <strong>zero-dimensional</strong> (lumped volume) — there is no spatial variation within the tank. EPANET tanks also have no horizontal inflow/outflow momentum effects; the tank is purely a level-driven storage element. By contrast, SWMM storage units can capture inflow momentum and irregular geometry effects on routing, which may matter for large basins.</p>
           </div>
         </div>
       </div>
@@ -1572,7 +1573,7 @@ Chart.register({
         <tr>
           <td class="mono">External Inflow<br><span class="note">(constant baseline)</span></td>
           <td class="mono">Negative Demand</td>
-          <td>A little-known trick: you can specify a <strong>negative demand</strong> at an EPANET junction, which means water <em>enters</em> the network there. This is useful for well injection, booster stations, or any point source. It's like a SWMM direct inflow with a constant value.</td>
+          <td>A little-known trick: you can specify a <strong>negative demand</strong> at an EPANET junction, which means water <em>enters</em> the network there. This is useful for well injection, booster stations, or any point source. It's like a SWMM direct inflow with a constant value. <span style="color:var(--accent-yellow);font-size:0.8em;">⚠ Large negative demands can cause convergence issues, especially near tanks — start small and check solver status.</span></td>
         </tr>
         <tr>
           <td class="mono">Groundwater Inflow<br><span class="note">[GROUNDWATER]</span></td>
@@ -2518,7 +2519,7 @@ T1    200   10       0       20      50</div>
         <tr><td>Cast Iron (10+ years)</td><td class="mono">0.015</td><td class="mono">110</td></tr>
         <tr><td>Cast Iron (old / tuberculated)</td><td class="mono">0.016–0.020</td><td class="mono">80–100</td></tr>
         <tr><td>Steel (new)</td><td class="mono">0.015</td><td class="mono">120</td></tr>
-        <tr><td>Brick sewer</td><td class="mono">0.015</td><td class="mono">100</td></tr>
+        <tr><td>Brick / clay (force main)</td><td class="mono">0.015</td><td class="mono">100</td></tr>
         <tr><td>Corrugated Metal Pipe</td><td class="mono">0.024</td><td class="mono">80</td></tr>
         <tr><td>Very rough / deteriorated</td><td class="mono">0.030–0.040</td><td class="mono">60–70</td></tr>
       </tbody>
@@ -3100,8 +3101,8 @@ Pump1   WetWell FM-1    PumpCurve1</div>
         <text x="70" y="245" fill="#10b981" font-family="JetBrains Mono, Consolas, monospace" font-size="9">YES</text>
         <rect x="10" y="260" width="200" height="54" rx="8" fill="rgba(59,130,246,0.1)" stroke="var(--swmm-blue)" stroke-width="1.5"/>
         <text x="110" y="278" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono, Consolas, monospace" font-size="10" font-weight="600">→ SWMM5 + Force Main</text>
-        <text x="110" y="294" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="8">H-W or D-W for pressurized,</text>
-        <text x="110" y="306" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="8">Manning for partial</text>
+        <text x="110" y="294" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="8">or EPANET (FM = pressurized pipe)</text>
+        <text x="110" y="306" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="8">SWMM if gravity transitions exist</text>
 
         <!-- Q4: Water quality in distribution? -->
         <line x1="510" y1="234" x2="510" y2="270" stroke="#64748b" stroke-width="1"/>
@@ -6561,7 +6562,7 @@ Example: 48-inch pipe, c=1000 ft/s
         <tr><td>Cast Iron (10+ years)</td><td>0.015</td><td>110</td><td>Aging effect</td></tr>
         <tr><td>Cast Iron (old)</td><td>0.016–0.020</td><td>80–100</td><td>Tuberculated</td></tr>
         <tr><td>Steel (new)</td><td>0.015</td><td>120</td><td></td></tr>
-        <tr><td>Brick sewer</td><td>0.015</td><td>100</td><td></td></tr>
+        <tr><td>Brick / clay (force main)</td><td>0.015</td><td>100</td><td></td></tr>
         <tr><td>Corrugated Metal</td><td>0.024</td><td>80</td><td></td></tr>
         <tr><td>Very rough</td><td>0.030–0.040</td><td>60–70</td><td></td></tr>
       </table>
@@ -9596,7 +9597,7 @@ Example: 48-inch pipe, c=1000 ft/s
 <tr><td>Cast Iron (10+ years)</td><td>0.015</td><td>110</td><td>Aging effect</td></tr>
 <tr><td>Cast Iron (old)</td><td>0.016–0.020</td><td>80–100</td><td>Tuberculated</td></tr>
 <tr><td>Steel (new)</td><td>0.015</td><td>120</td><td></td></tr>
-<tr><td>Brick sewer</td><td>0.015</td><td>100</td><td></td></tr>
+<tr><td>Brick / clay (force main)</td><td>0.015</td><td>100</td><td></td></tr>
 <tr><td>Corrugated Metal</td><td>0.024</td><td>80</td><td></td></tr>
 <tr><td>Very rough</td><td>0.030–0.040</td><td>60–70</td><td></td></tr>
 </table>

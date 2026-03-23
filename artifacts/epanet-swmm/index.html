@@ -248,10 +248,30 @@
   /* ===== NAV TABS ===== */
   .nav-tabs {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    flex-direction: column;
+    gap: 10px;
     margin-bottom: 32px;
     padding-bottom: 4px;
+  }
+
+  .nav-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .nav-group-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    opacity: 0.6;
+    padding: 4px 8px 4px 2px;
+    white-space: nowrap;
+    min-width: 80px;
+    flex-shrink: 0;
   }
 
   .nav-tab {
@@ -733,7 +753,9 @@
   @media (max-width: 700px) {
     .compare-grid { grid-template-columns: 1fr; }
     .hero .legend { flex-direction: column; align-items: center; gap: 8px; }
-    .nav-tabs { gap: 6px; }
+    .nav-tabs { gap: 8px; }
+    .nav-group { gap: 3px; }
+    .nav-group-label { min-width: unset; width: 100%; font-size: 0.58rem; padding: 2px 2px 0; }
     .nav-tab { font-size: 0.72rem; padding: 8px 12px; }
     .diagram-canvas svg, .section svg { max-width: 100%; height: auto; }
   }
@@ -1058,36 +1080,57 @@
 
   <!-- NAV -->
   <div class="nav-tabs" id="navTabs" role="tablist" aria-label="Content sections">
-    <button class="nav-tab active" data-tab="overview">The Big Flip</button>
-    <button class="nav-tab" data-tab="objects">Objects Map</button>
-    <button class="nav-tab" data-tab="demands">Demands</button>
-    <button class="nav-tab" data-tab="hydraulics">Hydraulics</button>
-    <button class="nav-tab" data-tab="solver">The Solver</button>
-    <button class="nav-tab" data-tab="quality">Water Quality</button>
-    <button class="nav-tab" data-tab="controls">Rules & Controls</button>
-    <button class="nav-tab" data-tab="fileformat">File Format</button>
-    <button class="nav-tab" data-tab="calculator">Calculator</button>
-    <button class="nav-tab" data-tab="gotchas">Gotchas</button>
-    <button class="nav-tab" data-tab="whichtool">Which Tool?</button>
-    <button class="nav-tab" data-tab="forcemains">Force Mains</button>
-    <button class="nav-tab" data-tab="treatment">Treatment</button>
-    <button class="nav-tab" data-tab="valves">Valves</button>
-    <button class="nav-tab" data-tab="fireflow">Fire Flow</button>
-    <button class="nav-tab" data-tab="pumpenergy">Pump Energy</button>
-    <button class="nav-tab" data-tab="demand">Demand Alloc</button>
-    <button class="nav-tab" data-tab="topology">Topology</button>
-    <button class="nav-tab" data-tab="designcrit">Design Criteria</button>
-    <button class="nav-tab" data-tab="patterns">Patterns</button>
-    <button class="nav-tab" data-tab="calibration">Calibration</button>
-    <button class="nav-tab" data-tab="skeleton">Skeletonize</button>
-    <button class="nav-tab" data-tab="scada">SCADA/RT</button>
-    <button class="nav-tab" data-tab="interop">Interop</button>
-    <button class="nav-tab" data-tab="gis">GIS</button>
-    <button class="nav-tab" data-tab="reporting">Reporting</button>
-    <button class="nav-tab" data-tab="aging">Pipe Aging</button>
-    <button class="nav-tab" data-tab="transient">Transients</button>
-    <button class="nav-tab" data-tab="firstprinciples">First Principles</button>
-    <button class="nav-tab" data-tab="docs">Reference</button>
+    <div class="nav-group">
+      <span class="nav-group-label">Start Here</span>
+      <button class="nav-tab active" data-tab="overview">The Big Flip</button>
+      <button class="nav-tab" data-tab="objects">Objects Map</button>
+      <button class="nav-tab" data-tab="topology">Topology</button>
+      <button class="nav-tab" data-tab="firstprinciples">First Principles</button>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Hydraulics</span>
+      <button class="nav-tab" data-tab="demands">Demands</button>
+      <button class="nav-tab" data-tab="demand">Demand Alloc</button>
+      <button class="nav-tab" data-tab="hydraulics">Hydraulics</button>
+      <button class="nav-tab" data-tab="solver">The Solver</button>
+      <button class="nav-tab" data-tab="patterns">Patterns</button>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Components</span>
+      <button class="nav-tab" data-tab="valves">Valves</button>
+      <button class="nav-tab" data-tab="forcemains">Force Mains</button>
+      <button class="nav-tab" data-tab="pumpenergy">Pump Energy</button>
+      <button class="nav-tab" data-tab="fireflow">Fire Flow</button>
+      <button class="nav-tab" data-tab="controls">Rules & Controls</button>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Quality</span>
+      <button class="nav-tab" data-tab="quality">Water Quality</button>
+      <button class="nav-tab" data-tab="treatment">Treatment</button>
+      <button class="nav-tab" data-tab="aging">Pipe Aging</button>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Modeling</span>
+      <button class="nav-tab" data-tab="designcrit">Design Criteria</button>
+      <button class="nav-tab" data-tab="calibration">Calibration</button>
+      <button class="nav-tab" data-tab="skeleton">Skeletonize</button>
+      <button class="nav-tab" data-tab="transient">Transients</button>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Data & Tools</span>
+      <button class="nav-tab" data-tab="fileformat">File Format</button>
+      <button class="nav-tab" data-tab="calculator">Calculator</button>
+      <button class="nav-tab" data-tab="gis">GIS</button>
+      <button class="nav-tab" data-tab="scada">SCADA/RT</button>
+      <button class="nav-tab" data-tab="interop">Interop</button>
+      <button class="nav-tab" data-tab="reporting">Reporting</button>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Reference</span>
+      <button class="nav-tab" data-tab="gotchas">Gotchas</button>
+      <button class="nav-tab" data-tab="whichtool">Which Tool?</button>
+      <button class="nav-tab" data-tab="docs">Reference</button>
+    </div>
   </div>
 
   <!-- ===== SECTION: THE BIG FLIP ===== -->
@@ -1895,6 +1938,57 @@ speed (~4,000 ft/s in water).
       </div>
     </div>
 
+    <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+      <div class="vf-card-title" style="color:var(--epanet-amber);">KW on Trees: The O(N) Single-Pass Solution</div>
+      <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">STEP 1: Collect inflows (upstream &rarr; downstream)
+  Each reach receives runoff from its subcatchment: Q_lateral
+
+STEP 2: Sum flows sequentially (leaf to trunk)
+  Leaf reach: Q = Q_lateral (no upstream)
+  Next reach: Q = upstream Q + Q_lateral  &larr; KNOWN!
+  Next reach: Q = &Sigma; upstream Q&rsquo;s + Q_lateral &larr; STILL KNOWN!
+  Trunk:      Q = &Sigma; ALL upstream = TOTAL. Done.
+
+STEP 3: Solve each reach INDEPENDENTLY
+  Given Q, solve Manning&rsquo;s: depth = f(Q, slope, n, shape)
+  V = Q / A(depth)
+
+THIS WORKS BECAUSE:
+  At every junction, there&rsquo;s only ONE downstream pipe.
+  Continuity uniquely determines every pipe&rsquo;s flow.
+  ZERO simultaneous equations needed.
+  Cost: O(N) &mdash; one pass through the tree. Linear.
+
+Why SWMM5 KW is fast: it&rsquo;s essentially a SPREADSHEET
+walking from leaves to root, filling in each row.</pre>
+    </div>
+
+    <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+      <div class="vf-card-title" style="color:var(--epanet-blue);">Why KW Fails on Loops: The Circular Dependency</div>
+      <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">CONSIDER A SIMPLE LOOP:
+
+  [Source] &mdash; Pipe A &mdash; [Node 1] &mdash; Pipe B &mdash; [Node 2]
+                                |                       |
+                           Pipe C                  Pipe D
+                                |                       |
+                           [Node 3] &mdash; Pipe E &mdash; [Node 4]
+
+  Demand at Node 4: 500 GPM.  Q through Pipe B?
+
+  To know Q_B, you need H at Node 1 and Node 2.
+  To know H at Node 1, you need Q_A and Q_C.
+  To know Q_C, you need H at Node 1 and Node 3.
+  To know H at Node 3, you need Q_C and Q_E.
+  To know Q_E, you need H at Node 3 and Node 4.
+  To know H at Node 4, you need Q_B and Q_E and Q_D.
+  To know Q_B, you need... H at Node 1.  CIRCULAR!
+
+  EVERY unknown depends on EVERY other unknown.
+  No single variable can be solved first.
+  The ONLY option: solve ALL simultaneously.
+  &rarr; This is exactly what GGA does.</pre>
+    </div>
+
     <div class="vf-card">
       <div class="vf-card-title">The Global Gradient Algorithm: Why Loops Demand It</div>
       <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
@@ -1974,6 +2068,38 @@ Solve using sparse Cholesky factorization →
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="vf-card" style="border-color:rgba(16,185,129,0.3);">
+      <div class="vf-card-title" style="color:var(--accent-green);">Solver Choice Summary: 3 Options vs 1</div>
+      <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(16,185,129,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">SWMM5: 3 SOLVER OPTIONS
+  1. Kinematic Wave (KW)
+     Trees only | O(N) per step | CFL-limited | Fast
+     Best for: planning, screening, simple networks
+
+  2. Dynamic Wave (DW)
+     Trees + loops | O(N) per step | CFL-limited | Slow
+     Best for: detailed analysis, flat/tidal, backwater
+
+  3. Steady Flow
+     Trees only | Design-storm peaks only | Instantaneous
+     Best for: preliminary sizing only
+
+EPANET: 1 SOLVER (no choice needed!)
+  Global Gradient Algorithm (GGA)
+     Trees + loops | O(N^1.2) per step | Unconditionally stable
+     Best for: EVERYTHING in pressurized pipe networks
+
+WHY ONLY ONE?
+  Pressure networks are ALWAYS looped and ALWAYS full.
+  There is no &quot;simple case&quot; to optimize for.
+  The GGA handles every topology, every operating condition.
+  No user decision &rarr; no user error.
+
+THE SWMM5 EXPERT&rsquo;S RELIEF:
+  In EPANET, you never need to choose a solver,
+  debug Courant violations, or worry about timestep
+  stability. The one solver just works.</pre>
     </div>
   </div>
 
@@ -4181,26 +4307,135 @@ Source &mdash; 8&quot; pipe &mdash; Node B &mdash; 8&quot; pipe &mdash;&mdash;&m
         </div>
       </div>
 
+      <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-amber);">Proof: Why Gravity Networks Must Be Trees</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+          <p>For a loop (cycle) to exist, water must flow A&rarr;B&rarr;C&rarr;A. But each step must go <strong>downhill</strong>: A&rarr;B means B is lower than A. B&rarr;C means C is lower than B. C&rarr;A means A is lower than C. But A is higher than B, which is higher than C &mdash; so A cannot be lower than C. <strong>Contradiction.</strong> Cycles are impossible under gravity-only flow. QED.</p>
+          <div style="font-size:0.72rem;font-weight:600;color:var(--epanet-amber);margin-top:4px;">Try to Build a Loop &mdash; Every Attempt Fails:</div>
+          <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(245,158,11,0.7);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">ATTEMPT 1: A(100ft) &mdash;Pipe 1&mdash; B(95ft) &mdash;Pipe 2&mdash; A(100ft)
+  Pipe 1: slopes A&rarr;B (downhill) &check;   Pipe 2: slopes A&rarr;B (also downhill)
+  Both flow SAME direction. Parallel pipes, NOT a loop.
+
+ATTEMPT 2: A(100ft) &mdash;&mdash; B(100ft) (equal elevations)
+  Both pipes are FLAT. Zero slope. Zero flow. Stagnant.
+  Violates minimum slope (2 ft/s self-cleansing).
+
+ATTEMPT 3: A(100ft) &mdash; B(90ft) &mdash; C(90ft) &mdash; A???
+  B&rarr;C is flat (no flow). C&rarr;A goes UPHILL. Impossible.
+
+ATTEMPT 4: The ONLY way &mdash; add a PUMP:
+  A(100) &rarr; B(90) by gravity, B &rarr; A by FORCE MAIN + pump.
+  But you&rsquo;ve introduced PRESSURE. The force main is an
+  EPANET pipe inside a SWMM5 model. Gravity alone can&rsquo;t close it.</pre>
+        </div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Flow Reversal: Normal in EPANET, Abnormal in SWMM5</div>
+        <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">MORNING PEAK (7-9 AM):
+  Tank A (full, high head)          Tank B (draining)
+       |                                  |
+  &mdash;&mdash;&mdash;&mdash;=====&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;=====&mdash;&mdash;&mdash;&mdash;
+       Flow LEFT &rarr; RIGHT (Tank A supplies demand zone)
+
+MIDDAY REFILL (10 AM - 2 PM):
+  Tank A (refilling from pump)      Tank B (refilling from pump)
+       |                                  |
+  &mdash;&mdash;&mdash;&mdash;=====&larr;&larr;&larr;&larr;  ||  &rarr;&rarr;&rarr;&rarr;=====&mdash;&mdash;&mdash;&mdash;
+       Flow goes BOTH DIRECTIONS (pumps fill both tanks)
+
+EVENING PEAK (5-8 PM):
+  Tank A (draining)                 Tank B (full, high head)
+       |                                  |
+  &mdash;&mdash;&mdash;&mdash;=====&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;=====&mdash;&mdash;&mdash;&mdash;
+       Flow RIGHT &rarr; LEFT (Tank B now supplies)
+
+THE SAME PIPE reversed direction TWICE in one day.
+This is NORMAL OPERATIONS, not a failure condition.</pre>
+        <div class="vf-note" style="margin-top:8px;">In SWMM5, flow reversal indicates surcharge/backwater (abnormal). In EPANET, flow reversal indicates demand pattern shifts (normal). This fundamental difference is why EPANET&rsquo;s solver handles bidirectional flow naturally while SWMM&rsquo;s Kinematic Wave solver cannot.</div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Pressure Zone Architecture (Unique to EPANET)</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+          <p>Because pressure can be controlled with valves and pumps, EPANET networks are divided into <strong>pressure zones</strong> &mdash; areas at similar elevation served by a common hydraulic grade line. SWMM5 has no equivalent; gravity sewers have drainage basins defined by topography, not by valve settings.</p>
+          <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">HIGH ZONE (Elev 500-600 ft)
+  Elevated Tank (580 ft) &mdash; Looped grid &mdash; P: 40-70 psi
+       |
+  PRV (reduces pressure to 80 psi max)
+       |
+MIDDLE ZONE (Elev 300-400 ft)
+  Ground Tank (380 ft) &mdash; Looped grid &mdash; P: 40-80 psi
+       |
+  PRV (reduces pressure to 80 psi max)
+       |
+LOW ZONE (Elev 100-200 ft)
+  Ground Tank (180 ft) &mdash; Looped grid &mdash; P: 40-80 psi
+
+Without zones: Elev 100 gets (580-100)&times;0.433 = 208 psi (BURST!)
+               Elev 600 gets (580-600)&times;0.433 = -9 psi (NO SERVICE!)
+With zones:    Every customer gets 40-80 psi &mdash; safe and adequate.</pre>
+        </div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Cost-Benefit: Why Loops Pay for Themselves</div>
+        <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">COST: 200 ft of 8&quot; DI cross-connection
+  Materials: $8,000 | Labor: $25,000 | Restoration: $7,000
+  Total: ~$40,000
+
+BENEFITS (over 50-year pipe life):
+  1. Avoided service interruption: ~$27,000/event
+     (emergency repair + boil-water advisory + customer impact)
+  2. Fire insurance savings: 200 properties &times; $50/yr = $500,000
+  3. Eliminated dead-end flushing: 4&times;/yr &times; $200 = $40,000
+  4. Pressure improvement &rarr; possible pump deferral: $100,000+
+
+TOTAL BENEFIT: &gt;&gt;$500,000   COST: $40,000
+Benefit-cost ratio: &gt;12:1  &mdash;  LOOPS PAY FOR THEMSELVES.</pre>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Dead-End Water Quality Problem</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+          <p>Treated drinking water is perishable. Chlorine decays over time. At dead ends, water can sit for <strong>hours to days</strong>:</p>
+          <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;">Dead-end chlorine decay:
+  C(t) = C&sub0; &times; e^(-kb &times; t)
+  If C&sub0; = 2.0 mg/L, kb = 0.5/day, water age = 3 days:
+  C = 2.0 &times; e^(-0.5 &times; 3) = 2.0 &times; 0.22 = 0.45 mg/L
+  Minimum required: 0.2 mg/L &mdash; AT RISK of falling below
+
+Dead-end problems: bacterial regrowth, DBP formation,
+taste/odor complaints, sediment, temperature increase.
+
+Loop fix: cross-connect the dead end &rarr; water flows THROUGH
+continuously. Water age: hours instead of days.
+Chlorine maintained. No stagnation. No complaints.</pre>
+          <p>EPANET&rsquo;s built-in water age analysis directly quantifies this. Utilities use EPANET to identify dead ends and prioritize cross-connections.</p>
+        </div>
+      </div>
+
       <div class="vf-card">
         <div class="vf-card-title">When SWMM5 Networks DO Have Loops (Exceptions)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
             <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Dual Drainage</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">Surface + underground flow paths run parallel and reconnect at inlets/manholes, creating a loop.</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">When pipes surcharge, water escapes to the street and re-enters downstream. The loop forms <strong>because of failure</strong>, not by design. Requires Dynamic Wave routing.</div>
           </div>
           <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
             <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Parallel Relief Sewer</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">New relief sewer built alongside an undersized original &mdash; both carry flow, split by hydraulics.</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Both pipes slope the same direction &mdash; flow is unidirectional through both paths. Technically a loop in graph theory, but not a true hydraulic loop. It&rsquo;s a capacity fix, not a topology choice.</div>
           </div>
           <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
             <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">CSO Regulator</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">Flow can go to interceptor or overflow to river &mdash; diversion creates a loop based on hydraulic conditions.</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Flow goes either to interceptor OR to overflow. Both paths go downhill. In graph theory it&rsquo;s a tree with a branch (Y-junction), not a cycle.</div>
           </div>
           <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
-            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Interconnected Systems</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">Older cities with decades of connections between neighborhoods creating unintentional loops.</div>
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Interconnected / Tidal Systems</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Historical interconnections or tidal boundaries create bidirectional flow &mdash; but these are human decisions or external forcing, not gravity spontaneously forming loops. Require Dynamic Wave routing.</div>
           </div>
         </div>
+        <div class="vf-note" style="margin-top:10px;">Every exception involves <strong>failure</strong> (surcharge), <strong>pressure</strong> (pumps), <strong>external forcing</strong> (tides), or <strong>human intervention</strong> (interconnections). None involves gravity spontaneously creating a loop.</div>
       </div>
 
       <div class="vf-card">
@@ -4294,6 +4529,99 @@ Source &mdash; 8&quot; pipe &mdash; Node B &mdash; 8&quot; pipe &mdash;&mdash;&m
               <tr><td>Mitigation</td><td>Upsize pipe, add storage, LID, divert flow</td><td>Add loops, upsize mains, add tanks, backup generators</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-amber);">Tree Failure: The 5-Phase Upstream Cascade</div>
+          <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">PHASE 1 &mdash; Storm intensifies
+  Branch A: 8 CFS | B: 5 CFS | C: 11 CFS | D: 4 CFS
+  Total: 28 CFS.  Trunk capacity: 20 CFS.
+  TRUNK IS OVERWHELMED.
+
+PHASE 2 &mdash; Trunk surcharges
+  Excess = 28 - 20 = +8 CFS stored in manhole
+  As &asymp; 16 ft&sup2; &rarr; dH/dt = 8/16 = 0.5 ft/s
+  Head rises 30 ft in one minute!
+  (This is why SWMM5 needs tiny timesteps near surcharge.)
+
+PHASE 3 &mdash; Backwater propagates upstream
+  Trunk junction head rises 85 &rarr; 95 ft:
+  Branch A slope: (100-85)/500=3% &rarr; (100-95)/500=1%
+    Flow capacity REDUCED 42%. Branch A backs up.
+  Branch C slope: (97-85)/400=3% &rarr; (97-95)/400=0.5%
+    Flow capacity REDUCED 65%. Branch C backs up rapidly.
+  EVERY branch sees reduced gradient simultaneously.
+
+PHASE 4 &mdash; Flooding at weakest point
+  Branch A, Junct A3: 2 ft freeboard &rarr; FLOODS
+  Branch C, Junct C5: 1 ft freeboard &rarr; FLOODS
+  Cause is the trunk 1,000+ ft DOWNSTREAM.
+
+PHASE 5 &mdash; Surface flow creates dual drainage loops
+  Water from C5 flows along street, re-enters downstream.
+  The tree is temporarily BROKEN by failure.</pre>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div class="vf-card-title" style="color:var(--epanet-blue);">Loop Failure: The 3-Phase Outward Redistribution</div>
+          <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">PHASE 1 &mdash; Pipe C breaks (valves isolate it)
+  Pipe A: 400 &rarr; 500 GPM | Pipe B: 350 &rarr; 550 GPM
+  Pipe D: 280 &rarr; 450 GPM (absorbs Pipe C&rsquo;s flow)
+  Node 1: 60 &rarr; 52 psi | Node 2: 55 &rarr; 50 psi
+  Node 3: 50 &rarr; 35 psi | Node 4: 48 &rarr; 38 psi
+  All pressures still above 20 psi minimum. &check;
+
+PHASE 2 &mdash; Fire breaks out near Node 3 (1,500 GPM)
+  Pipe A: &rarr; 900 GPM | Pipe B: &rarr; 950 GPM (high!)
+  Node 3: 18 psi &mdash; BELOW MINIMUM (20 psi)
+  This is the compound failure: break + fire + peak.
+  Service degraded but NOT zero.
+  Tank drains to help &mdash; buffer of ~4 hours.
+
+PHASE 3 &mdash; Pressure impact zone mapping
+  Adjacent (&le;500 ft): 15-20 psi drop (may be inadequate)
+  Nearby (500-1500 ft): 5-10 psi drop (adequate)
+  Far (&gt;1500 ft): 1-3 psi drop (barely noticeable)
+  Impact ATTENUATES with distance &mdash; alternate paths
+  absorb more flow further from the break.</pre>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card">
+          <div class="vf-card-title" style="color:var(--epanet-amber);">SWMM5 Failure Analysis Metrics</div>
+          <div style="overflow-x:auto;">
+            <table class="vf-table">
+              <thead><tr><th>Metric</th><th>Interpretation</th></tr></thead>
+              <tbody>
+                <tr><td>d/D &gt; 1.0</td><td>Surcharge &mdash; trace downstream for bottleneck</td></tr>
+                <tr><td>Flooding volume (MG)</td><td>Severity of capacity shortfall</td></tr>
+                <tr><td>Flooding duration (hrs)</td><td>Storage deficit indicator</td></tr>
+                <tr><td>Max HGL vs ground</td><td>Freeboard at each junction</td></tr>
+                <tr><td>Q_peak / Q_full &gt; 1.0</td><td>Pipe IS the constraint</td></tr>
+                <tr><td>Continuity error &gt; 1%</td><td>Check Courant, timestep, short pipes</td></tr>
+                <tr><td>Froude &gt; 1</td><td>Supercritical &mdash; check hydraulic jumps</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="vf-card">
+          <div class="vf-card-title" style="color:var(--epanet-blue);">EPANET Failure Analysis Metrics</div>
+          <div style="overflow-x:auto;">
+            <table class="vf-table">
+              <thead><tr><th>Metric</th><th>Interpretation</th></tr></thead>
+              <tbody>
+                <tr><td>Pressure &lt; 20 psi</td><td>Inadequate service / contamination risk</td></tr>
+                <tr><td>Available fire flow</td><td>Max GPM at 20 psi residual vs fire code</td></tr>
+                <tr><td>System head curve</td><td>Intersection with pump curve = operating point</td></tr>
+                <tr><td>Tank drain time</td><td>Hours until empty = response time window</td></tr>
+                <tr><td>Water age &gt; 48 hr</td><td>Flushing or cross-connection needed</td></tr>
+                <tr><td>Velocity &lt; 0.5 ft/s</td><td>Stagnation risk</td></tr>
+                <tr><td>Velocity &gt; 8 ft/s</td><td>Erosion / water hammer risk</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -4539,6 +4867,96 @@ SOLUTION: Minimize Σ(P_model - P_measured)²
             <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">Formulate as: Minimize &Sigma;w<sub>i</sub>&middot;(P<sub>model,i</sub> &minus; P<sub>measured,i</sub>)&sup2; with decision variables = C-factor per group + demand multiplier per zone. Solve with GA, Levenberg-Marquardt, SCE, or Bayesian methods. <strong>EPANET runs in seconds</strong>, so thousands of iterations in minutes. This is a <em>huge</em> advantage over SWMM5 calibration where each run takes minutes to hours.</div>
           </div>
         </div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-amber);">SWMM5 Tree Calibration: The 6-Step Sequential Process</div>
+        <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">STEP 1: Select calibration events
+  3-5 storms: small (tests hydrology), medium (design range),
+  large (surcharge). Split: 2-3 for calibration, 1-2 for validation.
+
+STEP 2: Calibrate DWF first (dry weather baseline)
+  Match 24-hr diurnal pattern shape, average daily volume,
+  weekday vs weekend. Remove baseline uncertainty first.
+
+STEP 3: Calibrate furthest-upstream subcatchments
+  Parameters per subcatchment:
+    %Imperviousness: start from GIS, adjust &plusmn;10-15%
+    Width: start from GIS area/length, adjust &plusmn;25%
+    Depression storage: Imperv 0.05-0.10&quot;, Perv 0.10-0.30&quot;
+    Infiltration: Horton f&sub0;,f&infin;,k or GA Ks,&psi;,&theta;d or CN
+  Target at Monitor 1:
+    Peak flow: within 15-25%  |  Volume: within 10-20%
+    Time to peak: within 15 min  |  Recession: visual match
+
+  INDEPENDENCE GUARANTEE: Adjusting Subcatch A has ZERO
+  effect on Monitor 2 (different branch).
+
+STEP 4: Repeat for each independent branch
+  Branch B &rarr; Monitor 2 | Branch C &rarr; Monitor 3
+  Each is a SEPARATE 5-8 parameter optimization problem.
+
+STEP 5: Calibrate downstream reaches
+  Upstream inflows now KNOWN (correct by calibration).
+  Error MUST come from: trunk Manning&rsquo;s n, unaccounted
+  RDII, cross-section errors, or travel time.
+
+STEP 6: Validate with reserved storm events
+  Run 1-2 storms NOT used in calibration. If match is
+  good &rarr; calibration complete.</pre>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Fire Flow Test: The Gold Standard Worked Example</div>
+        <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">FIRE FLOW TEST PROTOCOL:
+1. Select hydrant in area of interest
+2. Open hydrant fully &rarr; measure flow Q (pitot gauge)
+3. Record pressure:
+   a. Flowing hydrant (residual pressure)
+   b. Nearby hydrant (static before, residual during)
+   c. SCADA points if available
+4. Close hydrant &rarr; record recovery pressure
+
+WORKED EXAMPLE:
+  Static pressure:   65 psi (before opening hydrant)
+  Residual pressure: 38 psi (while flowing 1,200 GPM)
+  Pressure drop:     27 psi = 62 ft of headloss
+
+  Path: 5,000 ft of 12&quot; main from reservoir to hydrant
+
+  Solving Hazen-Williams for C:
+  62 = 4.727 &times; 5,000 &times; Q^1.852 / (C^1.852 &times; 1.0^4.87)
+  &rarr; C &asymp; 95 (moderately corroded)
+
+WHY THIS IS BEST:
+  Fire flow (1,000-2,000 GPM) DOMINATES the headloss.
+  Normal demands (~10-50 GPM/node) are noise.
+  Demand uncertainty DOESN&rsquo;T MATTER.
+  It&rsquo;s a controlled experiment on the real system.
+  Accuracy: C within &plusmn;10.
+
+  20 tests across the system &rarr; well-constrained calibration.</pre>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+        <div class="vf-card-title" style="color:var(--epanet-blue);">Automated Optimization Formulation</div>
+        <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">Minimize:  &Sigma;&sub1; w&sub1; &times; (P_model,i - P_measured,i)&sup2;
+         + &Sigma;j wj &times; (T_model,j - T_measured,j)&sup2;
+         (pressure residuals + tank level residuals)
+
+Decision variables:
+  C&sub1;,C&sub2;,...,C&sub6; (roughness per material/age group)
+  DM&sub1;,DM&sub2;,...,DM_k (demand multiplier per zone)
+
+Constraints:
+  60 &le; C_i &le; 150     (physical bounds on roughness)
+  0.7 &le; DM_j &le; 1.3   (&plusmn;30% demand uncertainty)
+  EPANET equations satisfied at every node
+
+FEASIBILITY:
+  Each EPANET run: ~1 second (for 10,000-node network)
+  5,000 iterations: ~83 minutes  &mdash;  PRACTICAL
+  Compare: SWMM5 at minutes/run &rarr; 5,000 iterations = DAYS</pre>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">

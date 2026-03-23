@@ -1,0 +1,1313 @@
+# Trees for Gravity, Loops for Pressure: The Unified Theory of Urban Water Network Topology
+
+---
+
+## THE CORE INSIGHT
+
+Every difference between SWMM5 and EPANET — every equation, every solver design, every calibration method, every failure mode, every design criterion — traces back to one physical fact:
+
+**Gravity pulls water in one direction. Pressure can push water in any direction.**
+
+This single asymmetry determines everything:
+
+```
+GRAVITY (one-way force)          PRESSURE (omnidirectional force)
+        ↓                                    ↓
+Water converges downhill          Water goes wherever the gradient takes it
+        ↓                                    ↓
+Network MUST converge             Network CAN loop back on itself
+to lowest point                   for redundancy
+        ↓                                    ↓
+TREE topology                     LOOP topology
+(dendritic, branching)            (mesh, grid, interconnected)
+        ↓                                    ↓
+SWMM5                            EPANET
+```
+
+This is not a software design choice. It is not an engineering convention. It is a consequence of physics that determines the shape of every drainage system and every distribution system ever built.
+
+---
+
+## PART 1: WHY GRAVITY MAKES TREES
+
+### 1.1 The Physics of Convergence
+
+Gravity is a **unidirectional, passive, inexhaustible** energy source. Water on a hillside has one option: flow downhill. It cannot choose to flow uphill, sideways (relative to the steepest gradient), or stop. It flows toward the lowest point.
+
+When you pave a hillside and install pipes to replace natural drainage:
+
+```
+NATURAL HILLSIDE                    ENGINEERED COLLECTION SYSTEM
+                                    
+Rain falls everywhere               Rain falls on subcatchments
+    ↓                                    ↓
+Sheet flow downhill                 Overland flow to inlets
+    ↓                                    ↓
+Rivulets merge into streams         8" laterals merge into 12" collectors
+    ↓                                    ↓
+Streams merge into creeks           Collectors merge into 24" trunk sewers
+    ↓                                    ↓
+Creeks merge into rivers            Trunk sewers merge into 48" interceptors
+    ↓                                    ↓
+River reaches the ocean             Interceptor reaches the outfall
+    ↓                                    ↓
+ONE destination                     ONE destination
+MANY sources                        MANY sources
+    ↓                                    ↓
+TREE shape                          TREE shape
+```
+
+The engineered system mirrors the natural watershed because it is solving the same physical problem: move water from high ground to low ground using gravity. The topology is inherited from the terrain.
+
+### 1.2 Why Loops Are Physically Unnecessary in Gravity Systems
+
+Consider whether it would make sense to install a loop in a gravity sewer:
+
+```
+PROPOSED LOOP IN A GRAVITY SEWER:
+
+Junction A (Elev 100) ──── Pipe 1 (slope 1%) ──── Junction B (Elev 95)
+       │                                                  │
+       │                                                  │
+       └──── Pipe 2 (slope ???) ─────────────────────────┘
+
+PROBLEM: 
+Pipe 2 must go from Elev 100 to Elev 95 (downhill) — OK.
+But Pipe 2 runs PARALLEL to Pipe 1.
+Both pipes slope the same direction.
+Both carry flow from A to B.
+
+You've just installed a PARALLEL RELIEF SEWER, not a loop.
+Water doesn't flow from B back to A through Pipe 2 
+because that would be UPHILL.
+
+A true loop requires flow in BOTH directions.
+Gravity doesn't allow this under normal conditions.
+```
+
+The only way to create a gravity loop is to have flow go downhill in one pipe and uphill in another — which requires a pump (converting to a pressurized segment) or backwater from downstream surcharging (an abnormal condition). Under normal gravity flow, loops cannot form because water won't flow uphill.
+
+### 1.3 Why Loops Are Economically Wasteful in Gravity Systems
+
+Even if you could create loops, they wouldn't serve the system's purpose:
+
+1. **No reliability benefit.** Gravity doesn't fail. Unlike a pump that can lose power, gravity is always on. A parallel pipe to the same downstream point provides capacity redundancy (useful if the first pipe is undersized) but not energy redundancy.
+
+2. **Pipe slope consumes elevation.** Every foot of pipe at 1% slope drops 1 foot per 100 feet of length. In a flat city, available elevation (the difference between the upstream subcatchment and the outfall) is precious. Wasting it on a loop that brings water back uphill is wasting the primary resource of a gravity system.
+
+3. **Collection systems serve area, not points.** A distribution system must deliver water to specific customer taps — redundant paths to each tap improve service. A collection system must convey runoff from an area to an outfall — there's no "customer" at a junction who needs service from multiple directions. The junction just needs to pass flow through.
+
+4. **The outfall is singular and fixed.** The receiving water body (river, bay, treatment plant) is at a specific location and elevation. All flow must reach it. Multiple paths to the same outfall just mean you've installed extra pipe for no hydraulic benefit.
+
+### 1.4 The Rare Exceptions (and Why They Prove the Rule)
+
+Loops DO occasionally exist in SWMM5 collection systems, but every case involves either an abnormal condition or a human engineering decision that overrides the natural tree topology:
+
+**Exception 1 — Dual Drainage:**
+```
+Street surface flow path (overland) ────────────────────→
+     ↓ inlet                                    ↓ inlet
+Underground pipe ──────────────────────────────────────→
+     
+These run parallel and reconnect at inlets, creating loops.
+But the loops only carry flow during surface flooding — 
+an ABNORMAL condition. Under normal conditions, all flow 
+is in the underground pipe (tree topology).
+```
+
+**Exception 2 — Combined Sewer Overflow (CSO):**
+```
+Upstream ──→ CSO Regulator ──→ Interceptor ──→ Treatment Plant
+                   │
+                   └──→ Overflow ──→ Receiving Water
+                   
+The diversion creates a Y-junction, not a true loop.
+Flow goes one way OR the other (or splits), but 
+doesn't circulate back. It's a BRANCHING tree, not a loop.
+```
+
+**Exception 3 — Parallel Relief Sewers:**
+```
+Junction A ═══ Original 24" sewer ═══ Junction B
+     │                                      │
+     └═══ New 36" relief sewer ═════════════┘
+     
+This IS a loop — flow splits based on hydraulics.
+But it was built because the original pipe was UNDERSIZED,
+not because the system needed redundancy.
+It's a capacity fix, not a topology choice.
+```
+
+**Exception 4 — Interconnected Legacy Systems:**
+```
+System 1 (built 1920) ──→ Outfall A
+         ↕ connection (added 1960)
+System 2 (built 1940) ──→ Outfall B
+
+The connection creates a loop. But it was usually added 
+for operational flexibility (ability to bypass one outfall 
+during maintenance), not because the physics demanded it.
+```
+
+In every case, the loop is an engineering intervention that complicates the model (requiring dynamic wave routing instead of kinematic wave) and is not demanded by the physics. The natural topology for gravity drainage is a tree.
+
+---
+
+## PART 2: WHY PRESSURE MAKES LOOPS
+
+### 2.1 The Physics of Distribution
+
+Pressure is an **omnidirectional, active, fallible** energy source. A pump can push water in any direction — uphill, downhill, horizontally. But pumps require electricity, have mechanical parts that wear out, and can fail. This fundamental difference from gravity changes everything about network topology.
+
+```
+GRAVITY ENERGY                      PRESSURE ENERGY
+─────────────                       ───────────────
+Source: Earth's mass                Source: Pump motors
+Direction: Always downhill          Direction: Any direction
+Reliability: Infinite               Reliability: Depends on power, maintenance
+Cost: Free                          Cost: Electricity (60-80% of utility budget)
+Control: None (always on)           Control: Full (on/off/variable speed)
+Failure mode: Cannot fail           Failure mode: Power outage, mechanical failure
+```
+
+Because pressure can push water in any direction, the network is free to loop back on itself. Because pressure sources can fail, the network MUST loop back on itself for reliability.
+
+### 2.2 Why Loops Are Physically Necessary in Pressure Systems
+
+**The service obligation demands it.** A water distribution system must deliver potable water at adequate pressure (typically 40–80 psi) to every customer 24 hours a day, 365 days a year. Unlike drainage, where occasional flooding during extreme storms is accepted, water service interruption is not acceptable under any normal circumstance.
+
+This service obligation creates the need for redundancy:
+
+```
+SCENARIO: Dead-End Pipe Failure
+════════════════════════════════
+
+Source ══════ Main ══════ Branch ══════ Dead End
+                              ✕ BREAK HERE
+                              
+Everyone downstream of the break: NO SERVICE
+No alternate path exists.
+Repair time: 4-24 hours.
+During repair: entire dead-end neighborhood without water.
+Fire protection: ZERO.
+Contamination risk: negative pressure at break can suck 
+                     groundwater into the pipe.
+
+SCENARIO: Looped Pipe Failure  
+═════════════════════════════
+
+Source ══╗                    ╔══ Source
+         ╠══ Pipe A ══╦══════╣
+         ║             ║      ║
+         ╠══ Pipe B ══╩══════╣
+         ╚════════════════════╝
+              ✕ BREAK IN PIPE A
+              
+Water reaches all customers through Pipe B.
+Pressure drops somewhat but remains adequate.
+Fire protection: maintained (reduced capacity).
+Contamination risk: reduced (positive pressure maintained).
+Repair: can isolate Pipe A without service interruption.
+```
+
+**Fire flow is the critical design case.** A fire hydrant may demand 1,500–3,000 GPM for 2–4 hours. This is an enormous, sudden, localized demand. In a dead-end system, the single supply pipe must carry ALL of this flow — the headloss may be so high that pressure drops below the minimum. In a looped system, water feeds the hydrant from multiple directions:
+
+```
+DEAD-END FIRE FLOW:
+
+Source → 8" pipe (2000 ft) → Hydrant
+  
+Flow: 1,500 GPM through ONE 8" pipe
+Velocity: 9.6 ft/s (dangerously high)
+Headloss: ~95 ft per 1000 ft at C=100
+Available pressure: probably ZERO — system fails.
+
+LOOPED FIRE FLOW:
+
+Source ─── 8" pipe ─── Node A ─── 8" pipe ─── Hydrant
+                          │                       │
+Source ─── 8" pipe ─── Node B ─── 8" pipe ────────┘
+
+Flow: 1,500 GPM split across FOUR 8" pipes
+Each pipe carries ~375 GPM
+Velocity: 2.4 ft/s (comfortable)
+Headloss: ~7 ft per 1000 ft at C=100
+Available pressure: adequate — system works.
+```
+
+The loop reduces velocity and headloss by a factor of approximately (1/N)^1.85 for N parallel paths — the Hazen-Williams exponent makes this highly nonlinear. Two parallel paths don't halve the headloss; they reduce it by about 72%. Four paths reduce it by about 93%.
+
+### 2.3 Why Loops Are Economically Justified in Pressure Systems
+
+1. **The cost of service interruption is enormous.** A boil-water advisory affects public health, closes businesses, and damages the utility's reputation. A single cross-connection between two mains (creating a loop) costs maybe $10,000–50,000 to install. The avoided cost of one service interruption event easily exceeds this.
+
+2. **Fire insurance ratings depend on redundancy.** The Insurance Services Office (ISO) rates communities on their fire suppression capability. Looped water systems score higher than dead-end systems, which directly affects property insurance rates for every building in the community. The economic benefit of lower insurance premiums across an entire community dwarfs the cost of additional pipe.
+
+3. **Water quality requires flow circulation.** Dead-end pipes have stagnant water — chlorine decays, bacteria grow, disinfection byproducts form, taste and odor deteriorate. Utilities must flush dead ends regularly (wasting treated water) or cross-connect them (creating loops). The operational cost of flushing dead ends exceeds the capital cost of cross-connections over the pipe's lifetime.
+
+4. **Pressure can be managed across the loop.** Pressure reducing valves (PRVs) and pressure sustaining valves (PSVs) allow operators to control pressure in different parts of a looped network independently. This creates pressure zones — areas of different elevation served at appropriate pressures. Dead-end systems don't benefit from this operational flexibility.
+
+### 2.4 The Resulting Topology
+
+The combination of reliability requirements, fire flow demands, water quality needs, and operational flexibility produces networks that are looped at every scale:
+
+```
+HIERARCHY OF DISTRIBUTION NETWORK LOOPING
+══════════════════════════════════════════
+
+TRANSMISSION (24-72" mains):
+  Treatment Plant ═══════════════════ Elevated Tank
+       ║                                    ║
+       ╚════════════════════════════════════╝
+  
+  Few large mains, moderately looped.
+  Follows major roads/corridors.
+  Topology: SPARSE LOOPS
+
+DISTRIBUTION (8-16" mains):
+  ┌────┬────┬────┬────┬────┐
+  │    │    │    │    │    │
+  ├────┼────┼────┼────┼────┤
+  │    │    │    │    │    │
+  ├────┼────┼────┼────┼────┤
+  │    │    │    │    │    │
+  └────┴────┴────┴────┴────┘
+  
+  Follows street grid. Pipe at every block.
+  Cross-connected at every intersection.
+  Topology: DENSE GRID (highly looped)
+
+SERVICE (¾-2" lines):
+  Main ──── Service ── Meter ── Building
+  Main ──── Service ── Meter ── Building
+  Main ──── Service ── Meter ── Building
+  
+  Individual connections. Dead ends here are OK — 
+  they serve one building, not a network.
+  Topology: DEAD ENDS (branching)
+```
+
+---
+
+## PART 3: HOW TOPOLOGY DETERMINES FAILURE MODE ANALYSIS
+
+### 3.1 Failure in Trees: The Cascade
+
+**In a tree, failure propagates UPSTREAM from a bottleneck, affecting EVERY branch above it.**
+
+This is because a tree has only one path from any source to the outlet. If that path is blocked or undersized at any point, everything upstream of that point is affected. There is no alternate route.
+
+```
+THE TREE FAILURE CASCADE
+════════════════════════
+
+NORMAL CONDITIONS:
+                    Branch A → 5 CFS ──┐
+                                        ├──→ Trunk → 15 CFS → Outfall
+                    Branch B → 10 CFS ─┘
+
+TRUNK REACHES CAPACITY (15 CFS max):
+                    Branch A → 5 CFS ──┐
+                                        ├──→ Trunk → 15 CFS → Outfall ✓
+                    Branch B → 10 CFS ─┘
+                    JUST BARELY OK
+
+STORM INTENSIFIES (20 CFS total inflow):
+                    Branch A → 7 CFS ──┐        
+                                        ├──→ Trunk [SURCHARGED] → Outfall
+                    Branch B → 13 CFS ─┘        ↑ Can only pass 15 CFS
+                                                 
+The excess 5 CFS has NOWHERE TO GO.
+
+STEP 1: Trunk surcharges → head rises at upstream junction
+STEP 2: Head rise propagates up BOTH branches
+STEP 3: Junctions in Branch A AND Branch B see rising water
+STEP 4: The junction with the LEAST FREEBOARD floods first
+
+CRITICAL INSIGHT: The flooding location may be in Branch A,
+but the CAUSE is the undersized trunk downstream.
+The problem is NOT where the symptom appears.
+
+     ⛲ FLOODING HERE           
+     (shallow manhole           
+      in Branch A)              
+         ↑                      
+         │ Backwater            
+         │                      
+    Branch A junction ←─┐       
+                         ├──→ TRUNK [CAUSE IS HERE]
+    Branch B junction ←─┘       
+         │                      
+         ↓                      
+    Possible flooding           
+    here too (Branch B)         
+```
+
+**Key characteristics of tree failure:**
+
+| Characteristic | Description |
+|---|---|
+| **Single point of failure** | The trunk sewer carries ALL flow. If it's undersized, the entire upstream system fails. |
+| **Upstream propagation** | Failure propagates from the bottleneck UPSTREAM through EVERY branch. The entire tree above the bottleneck is affected. |
+| **Symptom ≠ cause** | Flooding occurs at the weakest point (shallowest manhole) — which may be far from the bottleneck causing the problem. |
+| **Nonlinear severity** | A 10% increase in storm intensity can cause a 200% increase in flooding volume because of the surcharge transition. Near-full pipes have vanishing top width, so small additional inflows cause rapid depth increases. |
+| **No alternate path** | Water cannot route around the bottleneck. The ONLY option is: surcharge → flood → surface flow → re-enter downstream (dual drainage). |
+| **Transient failure** | Failure develops and resolves during the storm event. The system works fine for small storms and fails during large ones. Failure is always time-dependent. |
+| **Cascading impact** | One undersized pipe can cause flooding at dozens of junctions across multiple branches. The impact fans out upstream from the constraint. |
+
+**SWMM5 failure analysis workflow:**
+
+```
+1. IDENTIFY: Run design storms (2-yr, 10-yr, 25-yr, 100-yr)
+             through calibrated model
+             
+2. LOCATE: Find all nodes where maximum depth > crown elevation
+           (surcharging) or maximum depth > ground elevation (flooding)
+           
+3. DIAGNOSE: For each flooding node:
+   a. Trace DOWNSTREAM along the pipe network
+   b. Find the FIRST pipe where d/D reaches 1.0 (capacity constraint)
+   c. This is the bottleneck CAUSING the upstream flooding
+   d. Note: the bottleneck may be 2, 5, or 10 pipes downstream
+      of the flooding location
+      
+4. QUANTIFY: 
+   - Flooding volume (gallons or cubic feet) at each node
+   - Flooding duration (hours) at each node
+   - Peak flooding rate (CFS) at each node
+   - Maximum HGL elevation vs. ground elevation (freeboard)
+   - Total system flooding volume (all nodes combined)
+   
+5. TRACE IMPACT ZONE:
+   - From the bottleneck, trace UPSTREAM through all branches
+   - Every node upstream with insufficient freeboard is at risk
+   - The impact zone forms a subtree above the bottleneck
+   
+6. EVALUATE ALTERNATIVES:
+   a. Upsize the bottleneck pipe → increases capacity of the trunk
+   b. Add parallel relief sewer → creates a loop (changes topology!)
+   c. Add upstream detention → reduces/delays peak flow to the trunk
+   d. Implement LID/green infrastructure → reduces source runoff
+   e. Divert flow to alternate outfall → splits the tree
+   f. Increase junction surcharge depth → stores more water temporarily
+```
+
+### 3.2 Failure in Loops: The Redistribution
+
+**In a loop, failure redistributes flow and reduces pressure in a LOCALIZED ZONE around the disruption.**
+
+This is because a loop has multiple paths between any two points. If one path is disrupted, flow reroutes through the remaining paths. The impact is attenuated by the network's connectivity.
+
+```
+THE LOOP FAILURE REDISTRIBUTION
+════════════════════════════════
+
+NORMAL CONDITIONS (all pipes open):
+     Reservoir (H=250 ft)
+          ║
+     ┌════╩════┐
+     ║         ║
+   Pipe A    Pipe B      Each pipe carries ~50% of flow
+   (C=130)   (C=130)     to the demand zone
+     ║         ║
+     └════╦════┘
+          ║
+     Demand Zone (200 GPM total)
+     Pressure: 55 psi ✓
+
+PIPE A BREAKS (isolated — valves closed):
+     Reservoir (H=250 ft)
+          ║
+     ┌════╩════┐
+     ║         ║
+   Pipe A    Pipe B      Pipe B now carries 100% of flow
+   [CLOSED]  (C=130)     — double the normal flow
+     ║         ║
+     └════╦════┘
+          ║
+     Demand Zone (200 GPM still needed)
+     Pressure: 40 psi ← dropped 15 psi
+     
+     Still above minimum (20 psi) ✓
+     Service maintained ✓
+     Fire flow capacity reduced but not zero ✓
+
+WHAT IF THIS WERE A TREE (dead end)?
+     Reservoir ──── Pipe A ──── Demand Zone
+                    [BREAK]      ✕ NO SERVICE
+                    
+     Pressure: 0 psi
+     Service: NONE
+     Fire flow: ZERO
+     Duration of outage: 4-24 hours until repaired
+```
+
+**Key characteristics of loop failure:**
+
+| Characteristic | Description |
+|---|---|
+| **Localized impact** | Pressure drops most near the disruption, attenuating with distance as alternate paths compensate. Nodes far away barely notice. |
+| **Graceful degradation** | Pressure drops smoothly — from 55 to 40 to 30 psi — rather than the binary surcharge/flood transition in SWMM5 trees. The system degrades gradually, not catastrophically. |
+| **Connectivity determines severity** | Dense loops (urban grid) → small pressure drop per failure. Sparse loops (suburban) → larger pressure drop. Dead ends → complete service loss. |
+| **Multiple simultaneous failures compound** | One pipe break is manageable. Two adjacent breaks may isolate a zone. Three breaks during a fire during peak demand is the nightmare scenario. |
+| **Quasi-steady analysis is sufficient** | Unlike SWMM5's transient failure (evolving over minutes during a storm), EPANET failure is quasi-steady — the system reaches a new equilibrium within the same timescale as the event. |
+| **Fire flow is the critical test** | The worst case is not just a pipe break — it's a pipe break during a fire during peak demand. This compound scenario drives network design. |
+
+**EPANET failure analysis workflow:**
+
+```
+1. ESTABLISH BASELINE:
+   - Run normal operations (24-hr or 7-day EPS)
+   - Verify all pressures above minimum (20 psi typical)
+   - Record baseline pressures and flows at all nodes
+   
+2. PIPE BREAK ANALYSIS (for each critical pipe):
+   a. Close the pipe (Status = CLOSED)
+   b. Optionally add a leak demand at the break location
+   c. Run steady-state or EPS
+   d. Compare pressures to minimum service requirement
+   e. Identify nodes below minimum pressure
+   f. Map the "impact zone" — area of inadequate pressure
+   g. Quantify: pressure deficit (psi), affected customers, 
+      duration
+      
+3. FIRE FLOW ANALYSIS (for each hydrant):
+   a. Add fire demand at hydrant node (1,500-3,000 GPM)
+   b. Run steady-state
+   c. Check residual pressure at hydrant (must be ≥ 20 psi)
+   d. Available fire flow = max demand where P ≥ 20 psi
+   e. Map fire flow availability across the network
+   
+4. COMPOUND SCENARIO (pipe break + fire + peak demand):
+   a. Close critical pipe
+   b. Add fire demand at hydrant in affected zone
+   c. Use maximum-day demand pattern
+   d. Check if minimum pressure is maintained ANYWHERE
+   e. This is the design scenario — if this works, everything works
+   
+5. PUMP FAILURE ANALYSIS:
+   a. Turn off pump station
+   b. Run EPS for 24-48 hours
+   c. Check: can tanks sustain service during pump repair time?
+   d. Identify pressure zones that become isolated
+   
+6. CONTAMINATION ANALYSIS:
+   a. Define contaminant source (injection point, concentration)
+   b. Run water quality simulation
+   c. Track: how far does contamination spread? How fast?
+   d. Which nodes are affected? What's the exposure duration?
+   e. Identify: optimal valve closures to isolate contamination
+   f. Identify: optimal flushing points to remove contamination
+   
+7. EVALUATE ALTERNATIVES:
+   a. Add cross-connections (increase loop density)
+   b. Upsize critical mains (reduce headloss on alternate paths)
+   c. Add emergency interconnections with adjacent systems
+   d. Install backup generators at pump stations
+   e. Add storage (tanks) in vulnerable pressure zones
+   f. Improve valve operations (faster isolation)
+```
+
+### 3.3 Failure Mode Comparison Summary
+
+```
+                    SWMM5 TREE                   EPANET LOOP
+                    ══════════                   ═══════════
+                    
+Direction:     Propagates UPSTREAM          Radiates OUTWARD
+               from bottleneck              from disruption
+
+Extent:        ENTIRE upstream tree         LOCALIZED zone around
+               above bottleneck             disruption point
+
+Mechanism:     Surcharge → backwater →      Pressure drop → 
+               flooding → surface flow      inadequate service
+
+Severity:      CATASTROPHIC — binary        GRACEFUL — continuous
+               transition (works or floods)  degradation (pressure drops)
+
+Indicator:     Depth > ground elevation     Pressure < minimum (20 psi)
+               (flooding: YES/NO)           (adequacy: continuous scale)
+
+Worst case:    Undersized trunk during      Pipe break + fire + peak
+               extreme storm                demand simultaneously
+
+Temporal:      TRANSIENT — develops over    QUASI-STEADY — new
+               minutes during storm event   equilibrium in minutes
+
+Redundancy:    LOW — one path to outfall    HIGH — multiple paths
+               No alternate route           Flow redistributes
+
+Mitigation:    Upsize pipe, add storage,    Add loops, upsize mains,
+               add LID, divert flow         add tanks, backup generators
+```
+
+---
+
+## PART 4: HOW TOPOLOGY DETERMINES CALIBRATION STRATEGY
+
+### 4.1 Trees Enable Sequential Calibration
+
+**The fundamental advantage of tree topology: branches are hydraulically independent in the upstream direction.**
+
+In a tree, what happens in Branch A CANNOT affect what happens in Branch B (assuming they don't share a downstream bottleneck under surcharge conditions during the calibration event). This means you can calibrate Branch A without worrying about Branch B — the parameters are independent.
+
+```
+SEQUENTIAL CALIBRATION IN A TREE
+════════════════════════════════
+
+THE NETWORK:
+                    Subcatch A ──→ Node A ──┐
+                                             ├──→ Node E ──→ Trunk ──→ Outfall
+                    Subcatch B ──→ Node B ──┘
+                    
+                    Subcatch C ──→ Node C ──┐
+                                             ├──→ Node F ──→ ↑
+                    Subcatch D ──→ Node D ──┘
+
+AVAILABLE MONITORS:
+  • Flow monitor at Node E (downstream of A+B)
+  • Flow monitor at Node F (downstream of C+D)  
+  • Flow monitor at Outfall (downstream of everything)
+
+STEP 1: Calibrate Subcatchments A+B to match Monitor at Node E
+═══════════════════════════════════════════════════════════════
+
+Parameters to adjust:
+  - % Imperviousness (A and B independently)
+  - Subcatchment width (A and B)
+  - Manning's n pervious/impervious (A and B)
+  - Depression storage pervious/impervious (A and B)
+  - Infiltration parameters (A and B)
+  
+Target: Match the observed hydrograph at Node E
+  - Peak flow: within 15-25%
+  - Total volume: within 10-20%
+  - Time to peak: within 15 minutes
+  - Hydrograph shape: visual match of rising limb, peak, recession
+
+KEY INSIGHT: Nothing downstream of Node E affects this calibration.
+Nothing in Branch C-D affects this calibration.
+The parameters are ISOLATED to Subcatchments A and B.
+
+STEP 2: Calibrate Subcatchments C+D to match Monitor at Node F
+═══════════════════════════════════════════════════════════════
+
+Same process, completely independent of Step 1.
+Adjusting Subcatchment C parameters has ZERO effect on 
+the flow at Node E. The branches are decoupled.
+
+STEP 3: Calibrate the Trunk to match Monitor at Outfall
+════════════════════════════════════════════════════════
+
+Now inflows from Branches A-B and C-D are CORRECT (calibrated).
+Any error at the Outfall must come from:
+  - Manning's n in the trunk sewer
+  - Unaccounted lateral inflows (I/I, unknown connections)
+  - Cross-section geometry errors
+  - Travel time / attenuation errors
+  
+Adjust: trunk conduit roughness, add RDII if needed
+
+STEP 4: Verify with independent storm events
+═════════════════════════════════════════════
+
+Run 2-3 additional storms (not used for calibration).
+If the model matches these "validation" events reasonably,
+calibration is complete.
+```
+
+**Why tree calibration is tractable despite nonlinear hydrology:**
+
+1. **Errors are localized.** If Monitor E shows too much flow but Monitor F matches well, the problem is ONLY in Subcatchments A or B. You don't need to search the entire model.
+
+2. **The search space is small at each step.** You're adjusting 5–8 parameters for 1–2 subcatchments at a time, not 50 parameters for 25 subcatchments simultaneously.
+
+3. **Sensitivity is local.** Increasing imperviousness in Subcatchment A increases flow at Node E but has absolutely zero effect on flow at Node F. The sensitivity matrix is block-diagonal — each block corresponds to one branch.
+
+4. **The order of calibration is clear.** Always work upstream to downstream. Calibrate leaves first, then branches, then trunk. Each step benefits from the previous steps being correct.
+
+**What makes tree calibration HARD despite these advantages:**
+
+1. **Nonlinear hydrology.** Infiltration has threshold behavior — once depression storage is filled and the infiltration rate drops below rainfall intensity, runoff begins suddenly. Small parameter changes near these thresholds cause large output changes.
+
+2. **Equifinality.** Multiple parameter combinations produce similar hydrographs. High imperviousness + high depression storage can mimic low imperviousness + low depression storage for certain storms. You need multiple storms with different characteristics to break the degeneracy.
+
+3. **Limited monitoring.** You may have 3 monitors for 20 subcatchments. You can't calibrate each subcatchment independently — you must calibrate groups. Within a group, individual subcatchment errors may cancel out, giving a false sense of accuracy.
+
+4. **RDII is the wild card.** In sanitary and combined systems, rainfall-dependent infiltration/inflow (RDII) enters through pipe defects. It's spatially distributed, temporally complex (fast inflow + medium infiltration + slow baseflow), and nearly impossible to measure directly. The RTK unit hydrograph model has 9 parameters per soil group per rainfall gage, making it the most challenging calibration component.
+
+5. **Temporal variation.** Antecedent moisture conditions (how saturated the soil is before the storm) dramatically affect infiltration and runoff. A model calibrated to a wet-antecedent storm may perform poorly on a dry-antecedent storm. Continuous simulation helps but multiplies computation time.
+
+### 4.2 Loops Require Simultaneous Calibration
+
+**The fundamental challenge of looped topology: changing any parameter changes everything.**
+
+In a looped network, the flow in every pipe depends on the headloss in every other pipe that shares any loop with it. Changing the roughness of one pipe redistributes flow through the entire network, changing pressures at all nodes. You cannot calibrate one pipe without affecting all others.
+
+```
+SIMULTANEOUS CALIBRATION IN A LOOPED NETWORK
+═════════════════════════════════════════════
+
+THE NETWORK:
+     Reservoir ══╗          ╔══ Tank
+                  ║          ║
+              ┌───╨───┬──────╨───┐
+              │ Pipe 1 │  Pipe 2  │
+              │ C=?    │  C=?     │
+     Node A ──┤        │          ├── Node D
+              │ Pipe 3 │  Pipe 4  │
+              │ C=?    │  C=?     │
+              └───╥───┴──────╥───┘
+                  ║          ║
+              Node B ──── Node C
+              
+AVAILABLE MONITORS:
+  • Pressure at Node A (from SCADA or hydrant test)
+  • Pressure at Node C (from SCADA or hydrant test)
+  • Tank level at Tank (from SCADA)
+  • Flow into zone (from meter at Reservoir)
+
+THE PROBLEM:
+If you increase C in Pipe 1 (making it smoother):
+  → More flow goes through Pipe 1 (less resistance)
+  → Less flow goes through Pipe 3 (flow redistributes)
+  → Pressure at Node A changes
+  → Pressure at Node B changes
+  → Flow in Pipes 2 and 4 both change
+  → Pressure at Nodes C and D both change
+  → Tank fill rate changes
+  → EVERYTHING changes
+
+You CANNOT calibrate Pipe 1 independently.
+Every parameter affects every measurement.
+```
+
+**Calibration strategies for looped networks:**
+
+```
+STRATEGY 1: C-FACTOR GROUPING
+══════════════════════════════
+
+Instead of calibrating 5,000 individual pipe roughnesses,
+group pipes by physical characteristics:
+
+Group 1: Cast iron, installed before 1950      → C = ?
+Group 2: Cast iron, installed 1950-1980         → C = ?
+Group 3: Ductile iron, installed after 1980     → C = ?
+Group 4: PVC, all ages                          → C = ?
+Group 5: Concrete transmission mains            → C = ?
+
+Now you have 5 unknowns instead of 5,000.
+Each group's C-factor is adjusted to minimize the 
+sum of squared pressure residuals across all monitors.
+
+RATIONALE: Pipes of the same material and age have similar 
+roughness because they've experienced similar corrosion, 
+tuberculation, and biofilm growth. The grouping reflects 
+actual physics, not just mathematical convenience.
+
+STRATEGY 2: FIRE FLOW TESTS (THE GOLD STANDARD)
+════════════════════════════════════════════════
+
+1. Open fire hydrant, measure flow (Q = known)
+2. Measure pressure at hydrant and at nearby nodes
+3. The pressure drop depends on headloss = f(C, Q, D, L)
+4. Q, D, and L are known → only unknown is C
+5. The "path" from source to hydrant is dominated by 
+   the largest pipes → calibrates THOSE pipes specifically
+
+WHY THIS IS THE BEST METHOD:
+- Creates a KNOWN, LARGE demand (Q is measured)
+- The fire flow is so large relative to normal demands that
+  it dominates the headloss — uncertainty in background 
+  demands doesn't matter much
+- You're essentially running a controlled experiment
+  on the real system
+- Different hydrant locations calibrate different parts 
+  of the network
+- Results are directly tied to the physical condition 
+  of specific pipes
+
+TYPICAL RESULTS:
+  Hydrant flow: 1,000-2,000 GPM
+  Pressure drop: 10-30 psi
+  Accuracy: can determine equivalent C within ±10
+  
+A utility that runs 20 fire flow tests across its system
+can calibrate the major transmission and distribution mains
+with reasonable confidence.
+
+STRATEGY 3: AUTOMATED OPTIMIZATION
+═══════════════════════════════════
+
+Formulate as optimization problem:
+
+  Minimize: Σᵢ wᵢ · (Pmodeled,i − Pmeasured,i)²
+  
+  Decision variables: C-factor for each group, 
+                       demand multiplier for each zone
+  
+  Constraints: EPANET hydraulic equations satisfied
+               Cmin ≤ C ≤ Cmax for each group
+               0.8 ≤ demand multiplier ≤ 1.2
+
+Solve using:
+  - Genetic algorithm (GA) — robust but slow
+  - Levenberg-Marquardt — fast but can get stuck in local minima
+  - Shuffled complex evolution (SCE) — good balance
+  - Bayesian calibration — provides uncertainty bounds
+
+EPANET runs in SECONDS, so automated optimization
+can evaluate THOUSANDS of parameter combinations in minutes.
+This is a HUGE advantage over SWMM5 calibration, where 
+each model run takes minutes to hours.
+
+STRATEGY 4: DISTRICT METERED AREAS (DMAs)
+═════════════════════════════════════════
+
+Install flow meters at all entry/exit points of a zone:
+
+         Meter A                    Meter B
+            ↓                          ↓
+  ══════════╪═══════════════════════════╪══════════
+            │    DMA (isolated zone)    │
+            │    Measured net inflow    │
+            │    = total demand in DMA  │
+            ══════════════════════════════
+
+Net inflow = ΣQ_in − ΣQ_out = Total demand in DMA
+
+Compare modeled total demand to measured → adjust demand allocation
+
+BONUS: Nighttime minimum flow (2-4 AM) ≈ leakage
+This calibrates emitter coefficients for background leakage.
+
+STRATEGY 5: TANK LEVEL MATCHING
+═══════════════════════════════
+
+Compare modeled vs measured tank levels over 24-48 hours:
+
+            Measured ─── ┐    ┌─── ←── Modeled
+     ⬆                    │    │
+  Tank   Morning peak:    │╲╱╱│   If modeled level drops 
+  Level  tank drains      │    │   faster → demands too high
+         as demand rises  │    │   or roughness too high
+     ⬇                    │    │
+         Night: tank      │╱╲╲│   If modeled level drops
+         refills as       │    │   slower → demands too low
+         demand drops     └────┘   or roughness too low
+         
+         0  4  8  12  16  20  24 hours
+
+Tank level integrates the entire system's behavior over time.
+It's the MOST INFORMATIVE single measurement for EPANET calibration.
+```
+
+### 4.3 Calibration Comparison Summary
+
+```
+                    SWMM5 TREE                   EPANET LOOP
+                    ══════════                   ═══════════
+
+Approach:      SEQUENTIAL                   SIMULTANEOUS
+               Branch by branch,            Whole-network optimization
+               upstream to downstream       All parameters at once
+
+Independence:  HIGH — branches              LOW — everything coupled
+               decouple from each other     Changing one pipe's C affects
+               Calibrate A without          all pressures and flows
+               affecting B                  
+
+Primary data:  Flow/depth hydrographs       Pressure at nodes
+               at monitoring manholes       Tank levels over time
+                                            Fire flow test results
+
+Gold standard: Match multiple storm         Fire flow test — known Q,
+               hydrographs (peak, volume,   measured pressure drop,
+               timing, shape)               directly calibrates C
+
+Key params:    Subcatchment: %imperv,       Pipe: C-factor (grouped by
+               width, infiltration          material and age)
+               Conduit: Manning's n         Junction: demand magnitude
+
+Grouping:      By land use & soil type      By pipe material & age
+               (subcatchment properties)    (pipe physical condition)
+
+Search space:  5-8 params per subcatch      5-10 C-factor groups +
+               (but many subcatchments)     demand multipliers
+
+Sensitivity:   LOCAL — change subcatch A,   GLOBAL — change C in pipe 1,
+               only flow at A's monitor     pressures change everywhere
+               changes                      
+
+Equifinality:  HIGH — multiple param        MODERATE — fire flow tests
+               combos give similar          provide strong constraints
+               hydrographs                  
+
+Speed:         SLOW — each SWMM5 run        FAST — each EPANET run
+               takes minutes (DW routing)   takes seconds
+               Automated optimization       Thousands of iterations
+               impractical for large models feasible in minutes
+
+Difficulty:    HIGH                         MODERATE
+               Nonlinear hydrology +        Primarily roughness
+               many interacting params +    adjustment + demand
+               limited monitoring +         allocation, well-conditioned
+               RDII complexity              
+```
+
+---
+
+## PART 5: HOW TOPOLOGY DETERMINES SOLVER CHOICE
+
+### 5.1 The Chain: Topology → Physics → Equations → Solver
+
+```
+SWMM5 PATH:
+════════════
+
+Tree topology (gravity drainage)
+    ↓
+Water has a free surface inside partially-full pipes
+    ↓
+Depth varies in space and time — this IS the solution variable
+    ↓
+Must solve for depth evolution: ∂A/∂t + ∂Q/∂x = q (continuity)
+Must solve for flow evolution: ∂Q/∂t + ... = gA(S₀ - Sf) (momentum)
+    ↓
+These are HYPERBOLIC PDEs — they describe WAVE PROPAGATION
+    ↓
+Waves travel at finite speed: c = √(gA/T)
+    ↓
+Information propagates at (V ± c) — the characteristic speeds
+    ↓
+Numerical stability REQUIRES: Δt ≤ Δx / (V + c)  [CFL condition]
+    ↓
+EXPLICIT TIME-MARCHING solver with Courant-limited timesteps
+    ↓
+Dynamic Wave routing: Δt ~ 1-30 seconds, marching forward in time
+
+EPANET PATH:
+═════════════
+
+Loop topology (pressurized distribution)
+    ↓
+Pipes are ALWAYS full — no free surface, no depth variable
+    ↓
+The ONLY unknowns are: head at each node, flow in each pipe
+    ↓
+These satisfy ALGEBRAIC equations (not PDEs):
+  Node: ΣQ_in = ΣQ_out + Demand  (mass balance)
+  Pipe: H_i - H_j = hf(Q)        (energy equation)
+    ↓
+In a LOOPED network, these are SIMULTANEOUS — can't solve sequentially
+    ↓
+Linearize with Newton-Raphson → sparse matrix [A]{H} = {b}
+    ↓
+Solve sparse matrix → get all heads and flows simultaneously
+    ↓
+NO wave propagation → NO CFL condition → NO timestep restriction
+    ↓
+ITERATIVE ALGEBRAIC solver with unconditionally stable large timesteps
+    ↓
+Gradient Algorithm: Δt ~ 1 hour, finding equilibrium at each step
+```
+
+### 5.2 Why the Tree Can Use a Sequential Solver
+
+SWMM5 offers three routing methods, and the simplest two exploit the tree topology:
+
+**Steady Flow Routing (simplest):**
+```
+For each conduit, in upstream-to-downstream order:
+  Q_out(t) = Q_in(t)    [no delay, no attenuation]
+  
+This is a SINGLE PASS through the tree. O(N) operations.
+Requires tree topology — in a loop, you can't determine 
+the "upstream-to-downstream order."
+```
+
+**Kinematic Wave Routing (intermediate):**
+```
+For each conduit, in upstream-to-downstream order:
+  Solve: ∂A/∂t + ∂Q/∂x = q  with  Sf = S₀
+  
+  This gives hydrograph translation and attenuation.
+  Each conduit is solved INDEPENDENTLY using its 
+  upstream boundary condition (outflow from previous conduit).
+  
+  Still a SINGLE PASS through the tree. O(N) per timestep.
+  Still requires tree topology — in a loop, the boundary 
+  conditions are circular (A depends on B depends on A).
+  
+  CANNOT handle: backwater, reverse flow, surcharging, loops
+```
+
+**Dynamic Wave Routing (full physics):**
+```
+For ALL conduits SIMULTANEOUSLY:
+  Solve: ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf = 0
+  At ALL nodes SIMULTANEOUSLY:
+  Solve: As·dH/dt = ΣQ_in - ΣQ_out + Q_external
+  
+  This is a COUPLED SYSTEM. Every node and link interact.
+  The staggered finite-difference scheme alternates between:
+    - Updating flows from heads (momentum equation)
+    - Updating heads from flows (continuity equation)
+    
+  CAN handle: backwater, reverse flow, surcharging, loops
+  MUST be used for any network with loops.
+  REQUIRED when downstream conditions affect upstream flow.
+```
+
+**The tree topology gives SWMM5 modelers a choice:**
+- For simple analysis without backwater: kinematic wave (fast, stable)
+- For detailed analysis with all physics: dynamic wave (slower, powerful)
+
+This choice doesn't exist in EPANET because the looped topology demands simultaneous solution regardless of the level of detail desired.
+
+### 5.3 Why the Loop REQUIRES a Simultaneous Solver
+
+Consider the simplest possible loop:
+
+```
+SIMPLEST LOOP:
+
+     Node 1 ──── Pipe A (C=130, D=12", L=1000') ──── Node 2
+       │                                                  │
+       │              Q_A + Q_B = Demand                 │
+       │              hf_A = hf_B (same head drop)       │
+       │                                                  │
+     Node 1 ──── Pipe B (C=100, D=8", L=1500')  ──── Node 2
+
+TWO UNKNOWNS: Q_A, Q_B
+TWO EQUATIONS:
+  1. Continuity at Node 2: Q_A + Q_B = Demand
+  2. Energy around loop: hf_A(Q_A) = hf_B(Q_B)
+  
+  Where hf = 4.727 · L · Q^1.852 / (C^1.852 · D^4.87)
+
+These are SIMULTANEOUS NONLINEAR equations.
+You CANNOT solve for Q_A without knowing Q_B, and vice versa.
+You MUST solve them together.
+
+For a network with 1,000 loops and 10,000 nodes:
+  10,000 continuity equations + 1,000 loop equations
+  = 11,000 simultaneous nonlinear equations
+  
+This is why EPANET uses Newton-Raphson on a sparse matrix.
+No sequential method can solve this.
+```
+
+**The Global Gradient Algorithm (Todini & Pilati, 1988):**
+
+Rather than formulating loop equations explicitly, EPANET uses a node-based formulation that's more efficient:
+
+```
+For each pipe connecting nodes i and j:
+  Q_ij = f(H_i - H_j)    [flow is a function of head difference]
+  
+For each node i:
+  Σ_j Q_ij = Demand_i     [mass balance]
+  
+Substitute the first into the second:
+  Σ_j f(H_i - H_j) = Demand_i    [N equations in N unknowns: H₁...Hₙ]
+
+Linearize f(ΔH) ≈ f(ΔH⁰) + f'(ΔH⁰)·(ΔH - ΔH⁰):
+  This gives: [A]{ΔH} = {b}   where A is a sparse N×N matrix
+
+The sparsity pattern of A mirrors the network topology:
+  A_ii ≠ 0 for all i (diagonal — always present)
+  A_ij ≠ 0 only if nodes i and j are connected by a pipe
+  
+In a LOOPED network, each node connects to 3-6 others → 
+  A has 3-6 non-zeros per row → SPARSE matrix
+  
+Solve using sparse Cholesky factorization or similar → 
+  O(N^1.1 to N^1.3) operations
+  
+MUCH faster than dense matrix solution O(N³)
+```
+
+### 5.4 The Courant Condition: Why It Exists for Trees but Not for Loops
+
+**The CFL condition exists because SWMM5 solves WAVE PROPAGATION equations.**
+
+In a partially-full pipe, a disturbance (sudden inflow, depth change) propagates as a gravity wave at speed`c = √(gA/T)`. The solver must "see" this wave pass through each computational cell. If the timestep is too large, the wave jumps over cells, and the solver misses it — leading to oscillations, mass balance errors, and instability.
+
+```
+PHYSICAL WAVE IN A PIPE:
+                    
+Time t:    ───────╱╲──────────────────── (wave at position x)
+                    
+Time t+Δt: ────────────╱╲──────────────── (wave moved to x + c·Δt)
+
+If c·Δt > Δx (the pipe length), the wave has traveled 
+PAST the downstream node in one timestep.
+The solver never "saw" it arrive.
+Result: INSTABILITY.
+
+CFL CONDITION: Δt ≤ Δx / (V + c)
+  ensures the wave doesn't jump past a node in one step.
+  
+EXAMPLE:
+  Pipe length: 200 ft
+  Velocity: 5 ft/s
+  Wave speed: 15 ft/s
+  Maximum Δt: 200/(5+15) = 10 seconds
+  
+  If you use Δt = 30 seconds, the wave travels 
+  (5+15)×30 = 600 ft — three pipe lengths in one step.
+  The solver WILL oscillate.
+```
+
+**EPANET has no CFL condition because there are no waves to propagate.**
+
+In a full pipe under pressure, there is no free surface and no gravity wave. Changes in head at one node are felt at all connected nodes simultaneously (within the hydraulic timestep). This is because the "wave speed" in a full pipe is the acoustic wave speed (~4,000 ft/s in water), which is so fast that it traverses the entire network in a fraction of a second.
+
+EPANET's quasi-steady assumption means: between timesteps, the pressure wave has propagated to equilibrium everywhere. The solver finds this equilibrium directly, without tracking the wave's journey.
+
+```
+EPANET'S IMPLICIT ASSUMPTION:
+
+  Acoustic wave speed in water: ~4,000 ft/s
+  Typical network diameter: ~10 miles = 53,000 ft
+  Time for pressure wave to traverse network: 53,000/4,000 = 13 seconds
+  
+  EPANET hydraulic timestep: 3,600 seconds (1 hour)
+  
+  The pressure wave traverses the network ~277 TIMES per timestep.
+  Equilibrium is fully established.
+  No wave-tracking needed.
+  No CFL condition.
+```
+
+### 5.5 Solver Comparison Summary
+
+```
+                    SWMM5                        EPANET
+                    DYNAMIC WAVE                 GRADIENT ALGORITHM
+                    ════════════                 ══════════════════
+
+Equation type:     Hyperbolic PDEs              Nonlinear algebraic
+                   (Saint-Venant)               (energy + continuity)
+
+Solution method:   Explicit time-marching       Implicit Newton-Raphson
+                   Staggered finite-difference  Sparse matrix factorization
+
+Timestep:          SECONDS                      HOURS
+                   Δt = 1-30 sec typical        Δt = 1 hr typical
+                   Courant-limited              Unconditionally stable
+
+Per-timestep:      Update Q for each link       5-15 N-R iterations
+                   Update H for each node       Each iteration: sparse solve
+                   Check surcharge/flooding     Check convergence
+
+Total timesteps:   86,400 per day               24 per day
+                   (at Δt = 1 sec)              (at Δt = 1 hr)
+
+Handles loops:     YES (but slower)             YES (designed for it)
+Handles trees:     YES (naturally)              YES (but dead ends need care)
+Handles free surf: YES (fundamental)            NO (always full)
+Handles surcharge: YES (Preissmann slot)        N/A (always pressurized)
+Handles backwater: YES (full momentum)          N/A (quasi-steady)
+Handles reversal:  YES (momentum equation)      YES (algebraic — natural)
+
+CFL condition:     CRITICAL — governs stability  NONE — unconditional
+Stability risk:    MODERATE — Courant violation  LOW — well-posed algebra
+                   causes oscillation            Either converges or doesn't
+
+Scaling:           O(N) per step × many steps   O(N^1.2) per step × few steps
+                   = O(N × T/Δt) total          = O(N^1.2 × T/ΔT) total
+                   
+Network size:      10,000-50,000 links          100,000+ nodes
+(practical limit)  (Courant limits speed)        (very fast per step)
+
+Runtime:           Minutes to hours              Seconds to minutes
+(24-hr simulation) (for 10,000 links)           (for 100,000 nodes)
+```
+
+---
+
+## PART 6: COMPREHENSIVE SWMM5 VS EPANET SUMMARY
+
+### 6.1 The Physics Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Flow type** | Open-channel, free-surface, partially full | Pressurized, full-pipe, no free surface |
+| **Energy source** | Gravity (pipe slope provides potential energy) | Pumps and elevated reservoirs/tanks |
+| **Governing equations** | Saint-Venant PDEs (hyperbolic, time-dependent) | Algebraic energy + continuity (nonlinear, simultaneous) |
+| **State variables** | Depth at nodes, flow in links — both vary in time | Head at nodes, flow in links — equilibrium at each timestep |
+| **Flow regime** | Subcritical, critical, supercritical, pressurized, dry | Pressurized only — always full, always under pressure |
+| **Free surface** | The central variable — depth varies from 0 to D and beyond | Does not exist — no concept of partially full |
+| **Surcharging** | Abnormal condition — pipe exceeds capacity, handled by Preissmann slot | Normal and only condition — all pipes are "surcharged" by SWMM5 standards |
+| **Flow reversal** | Abnormal — occurs during backwater, tidal influence, surcharge | Normal — occurs during daily demand variation, tank fill/drain cycles |
+| **Wave propagation** | Yes — gravity waves at c = √(gA/T), finite speed | No — pressure equilibrium assumed instantaneous |
+| **Friction model** | Manning's equation: Q = (φ/n)·A·R^(2/3)·S^(1/2) | Hazen-Williams (default): hf = 4.727·L·Q^1.852/(C^1.852·d^4.87) |
+| **Roughness direction** | n ↑ = rougher (more friction) | C ↑ = smoother (less friction) — OPPOSITE |
+
+### 6.2 The Hydrology Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Rainfall** | Full rainfall input — rain gages, design storms, historical records | None — no concept of rainfall |
+| **Runoff generation** | Computed from first principles — infiltration, depression storage, overland flow | None — water enters via reservoirs (infinite supply at fixed head) |
+| **Subcatchments** | Detailed — area, slope, width, imperviousness, infiltration parameters, LID controls | Do not exist |
+| **Infiltration** | Horton decay, Green-Ampt, SCS Curve Number | Not applicable |
+| **LID/Green Infrastructure** | 8+ types — bioretention, permeable pavement, rain garden, green roof, rain barrel, swale, infiltration trench, rooftop disconnection | Not modeled |
+| **Water input method** | Rainfall → subcatchment hydrology → computed inflow to nodes | Specified directly as demands at junctions and heads at reservoirs |
+| **Water output** | Flow exits at outfalls (downstream boundary) | Water consumed at junction demands (customer withdrawal) |
+| **Direction of flow** | INTO the system (rain → runoff → pipe → outfall) | OUT OF the system (reservoir → pipe → demand → consumption) |
+| **Dry weather flow** | Base sanitary flow at nodes with diurnal patterns (adds water) | Base demand at junctions with diurnal patterns (removes water) |
+| **Groundwater** | Modeled — aquifer interaction, lateral inflow to nodes | Not modeled |
+| **Snowmelt** | Modeled — snowpack accumulation and melt | Not modeled |
+| **Evaporation** | Modeled — from subcatchments and storage nodes | Not modeled |
+
+### 6.3 The Network Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Topology** | Dendritic (tree) — many sources, few outlets | Looped (mesh) — few sources, many demand points |
+| **Pipe shapes** | 20+ cross-sections (circular, rectangular, trapezoidal, egg, horseshoe, custom, etc.) | Circular only — always full |
+| **Pipe properties** | Length, roughness (n), shape, inlet/outlet offsets, entry/exit/average loss coefficients | Length, diameter, roughness (C/ε/n), single minor loss K, status (open/closed/CV) |
+| **Junction properties** | Invert elevation, maximum depth, initial depth, surcharge depth, ponded area | Elevation (ground level), base demand, demand pattern, emitter coefficient |
+| **Junction storage** | Yes — junctions have volume, water level rises and falls | No — junctions are dimensionless, zero storage |
+| **Boundary nodes** | Outfalls — where water EXITS (free, fixed, tidal, time series) | Reservoirs — where water ENTERS (fixed head or pattern) |
+| **Storage elements** | Any shape (functional or tabular area vs. depth), evaporation, seepage, treatment | Cylindrical or volume curve, mixing models (complete/FIFO/LIFO/2-compartment) |
+| **Flow control** | Orifices (bottom/side), weirs (transverse/side/V-notch/trapezoidal), outlets (functional/tabular) | Valves (PRV/PSV/PBV/FCV/TCV/GPV) — pressure and flow regulation devices |
+| **Pumps** | Type 1-4 curves, on/off by depth, rule-based control, no energy tracking | Head-flow curves, variable speed (affinity laws), energy cost tracking, efficiency curves |
+| **Dividers** | Explicit — cutoff, overflow, tabular, weir-type flow splitting | Implicit — network topology and headloss determine flow distribution naturally |
+| **Emitters** | No direct equivalent (closest: orifice at storage node) | Pressure-dependent outflow: Q = C·P^γ (leaks, sprinklers, fire hydrants) |
+
+### 6.4 The Solver Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Algorithm** | Explicit staggered finite-difference time-marching | Implicit Newton-Raphson iterative (Global Gradient Algorithm) |
+| **Equations solved** | Saint-Venant PDEs (continuity + momentum) | Algebraic (node continuity + pipe energy) |
+| **Timestep** | Seconds (1–30 typical), Courant-limited | Hours (1 typical), unconditionally stable |
+| **CFL condition** | Critical — Δt ≤ Δx/(V+c), governs stability | Not applicable — no wave propagation |
+| **Convergence** | Gradual — continuity error accumulates (1% = OK, 10% = bad) | Binary — converges (correct) or doesn't (error message) |
+| **Routing options** | Steady flow, kinematic wave, dynamic wave | Global Gradient Algorithm only (no choice) |
+| **Looped networks** | Requires dynamic wave (KW cannot handle loops) | Designed for loops — the solver IS a loop solver |
+| **Extended period** | Continuous — solver marches through every second | Quasi-steady — solves equilibrium at each hourly step, updates tanks |
+| **Runtime (10K elements, 24hr)** | Minutes to hours | Seconds |
+| **Scalability** | 10,000–50,000 elements practical | 100,000+ elements practical |
+
+### 6.5 The Water Quality Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Constituents** | Multiple pollutants simultaneously | One constituent per simulation |
+| **Generation** | Buildup on subcatchments (power/exponential/saturation) + washoff (exponential/rating curve/EMC) | No generation — source concentrations specified at reservoirs or injection nodes |
+| **Transport** | Advection through conduits (no dispersion) | Advection through pipes (no dispersion) |
+| **Decay** | First-order decay in conduits: C(t) = C₀·e^(-k·t) | Bulk decay (first-order in water volume) + wall decay (pipe material/biofilm) |
+| **Treatment** | User-defined expressions at any node: C = f(C_IN, HRT, FLOW, DEPTH, AREA) or R = f(...) | Not applicable — EPANET uses reaction kinetics, not treatment expressions |
+| **Source tracing** | DIY — define conservative pollutant at 100% from source | Built-in — one-click "Trace" analysis |
+| **Water age** | Possible but manual (track travel time) | Built-in analysis type — automatic |
+| **Chlorine modeling** | Possible as first-order decay pollutant (no wall reactions) | Primary use case — bulk + wall reactions, with mass transfer coefficient |
+| **Tank mixing** | Complete mix only | Four models: complete mix, FIFO, LIFO, two-compartment |
+| **Co-pollutants** | Yes — removal of pollutant A can depend on removal of pollutant B | Not applicable — single constituent |
+
+### 6.6 The Operations Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Control rules** | IF-THEN-ELSE using DEPTH, FLOW, STATUS = ON/OFF | IF-THEN-ELSE using LEVEL, PRESSURE, STATUS IS OPEN/CLOSED |
+| **PID control** | Supported — proportional-integral-derivative logic for gate/pump modulation | Not supported — on/off and setpoint controls only |
+| **Pump energy** | Not tracked | Full analysis — kWh, efficiency, demand charges, cost per day, price patterns |
+| **Pump speed** | Variable speed via Type 4 pump curve | Variable speed via speed ratio + affinity laws |
+| **Valve control** | Orifice/weir/outlet opening modulated by rules | PRV/PSV/FCV setpoints adjusted by rules |
+| **Emergency analysis** | Flood volume, CSO volume, SSO volume | Pressure deficit, affected customers, fire flow availability |
+| **Operational timescale** | Event-based — hours (individual storms) | Continuous — days to weeks (operational cycles) |
+
+### 6.7 The Design Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Design target** | Pipe capacity at d/D ≤ 0.80 for design storm | Pressure ≥ 20 psi at max day + fire flow |
+| **Minimum velocity** | 2.0 ft/s (self-cleansing against deposition) | 0.5 ft/s (avoid stagnation and water age) |
+| **Maximum velocity** | 10–15 ft/s (prevent erosion) | 5–8 ft/s (prevent erosion and water hammer risk) |
+| **Minimum pipe size** | 8" sanitary, 12–15" storm | 6" distribution, 8" with fire hydrants |
+| **Minimum slope** | Per diameter (Ten States Standards) | Not applicable (pressurized) |
+| **Design storm** | 2-yr, 10-yr, 25-yr, 100-yr (jurisdiction-dependent) | Maximum day demand + fire flow (24-hr duration) |
+| **Failure mode** | Surcharging → flooding → CSO/SSO | Low pressure → inadequate service → contamination risk |
+| **Failure severity** | Measured in flooding volume (MG), affected area, CSO events | Measured in pressure deficit (psi), affected customers, fire flow shortfall |
+
+### 6.8 The Calibration Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Approach** | Sequential, upstream to downstream, branch by branch | Simultaneous, whole-network optimization |
+| **Primary data** | Flow/depth hydrographs at monitoring manholes | Pressure at nodes, tank levels, fire flow test results |
+| **Key parameters** | Subcatchment: %imperviousness, width, infiltration. Conduit: Manning's n | Pipe: H-W C-factor (grouped by material/age). Junction: demand |
+| **Gold standard** | Match flow hydrograph for multiple storms | Match pressure drop during fire flow test |
+| **Sensitivity** | Local — parameter change affects only downstream monitor in same branch | Global — parameter change affects pressures throughout looped network |
+| **Iteration speed** | Slow — each SWMM5 run takes minutes | Fast — each EPANET run takes seconds |
+| **Difficulty** | High — nonlinear hydrology, equifinality, limited data | Moderate — primarily roughness and demand adjustment |
+
+### 6.9 The File Format Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Format** | Plain text .inp, [SECTION] headers, semicolon comments | Plain text .inp, [SECTION] headers, semicolon comments |
+| **Unique sections** | [SUBCATCHMENTS], [SUBAREAS], [INFILTRATION], [RAINGAGES], [XSECTIONS], [TRANSECTS], [LOSSES], [DIVIDERS], [TREATMENT], [POLLUTANTS], [LANDUSES], [BUILDUP], [WASHOFF], [LID_CONTROLS], [LID_USAGE], [EVAPORATION], [SNOWPACKS], [AQUIFERS], [GROUNDWATER], [RDII], [HYDROGRAPHS] | [RESERVOIRS], [TANKS], [EMITTERS], [DEMANDS], [VALVES], [ENERGY], [MIXING], [REACTIONS], [SOURCES], [QUALITY] |
+| **Shared sections** | [JUNCTIONS], [PUMPS], [CURVES], [PATTERNS], [OPTIONS], [REPORT], [COORDINATES], [TAGS], [CONTROLS] | Same names, similar structure, different column definitions |
+| **Coordinate system** | [COORDINATES] with X,Y pairs | [COORDINATES] with X,Y pairs — identical format |
+
+### 6.10 The Meta Layer
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Primary developer** | Lewis Rossman (EPA) + Wayne Huber (OSU/Oregon) + CDM/M&E (historical) | Lewis Rossman (EPA) |
+| **First release** | 1971 (v1 Fortran), 2004 (v5 C) | 1993 (v1), 2000 (v2 C) |
+| **Current version** | 5.2.3 (2024) | 2.2 (2020) |
+| **Source code** | Public domain, C, open source | Public domain, C, open source |
+| **Primary user community** | Stormwater engineers, CSO/SSO modelers, watershed planners, LID designers | Water utility engineers, fire flow analysts, water quality modelers, pump schedulers |
+| **Regulatory drivers** | NPDES MS4 permits, CSO Long-Term Control Plans, TMDLs, floodplain management | Safe Drinking Water Act, sanitary surveys, Capacity-Management-Operations-Maintenance (CMOM) |
+| **Commercial platforms** | PCSWMM, InfoSWMM/ICM SWMM, XPSWMM, Mike Urban | WaterGEMS, WaterCAD, InfoWater, Mike Urban |
+
+---
+
+## THE FINAL SYNTHESIS
+
+### The One Diagram That Captures Everything
+
+```
+           G R A V I T Y                    P R E S S U R E
+               ↓                                  ↓
+         ONE DIRECTION                      ANY DIRECTION
+               ↓                                  ↓
+      Water CONVERGES downhill          Water goes where pumps push it
+               ↓                                  ↓
+           T R E E S                         L O O P S
+          (dendritic)                     (mesh / grid)
+               ↓                                  ↓
+    ┌──────────┴──────────┐          ┌────────────┴────────────┐
+    │                     │          │                          │
+ Failure:              Solver:    Failure:                  Solver:
+ Cascades UP           Time-      Radiates OUT              Iterative
+ through tree          marching   through mesh              algebraic
+ from bottleneck       explicit   from disruption           implicit
+    │                     │          │                          │
+ Calibration:          Physics:   Calibration:              Physics:
+ Sequential            Free       Simultaneous              Full pipe
+ branch-by-branch      surface    whole-network             pressurized
+ upstream→downstream   unsteady   optimization              quasi-steady
+    │                     │          │                          │
+    └──────────┬──────────┘          └────────────┬────────────┘
+               ↓                                  ↓
+           S W M M 5                          E P A N E T
+               ↓                                  ↓
+    "What happens when it rains?"    "Can we deliver water at pressure?"
+```
+
+### The Three Sentences
+
+1. **Gravity makes trees** because water can only flow downhill, forcing networks to converge from many high points to few low points — and this tree topology enables sequential calibration, causes cascading upstream failure, and permits efficient time-marching solvers.
+
+2. **Pressure makes loops** because pumps can push water in any direction and can fail, requiring redundant paths for reliability — and this looped topology demands simultaneous calibration, causes localized redistributive failure, and requires iterative algebraic solvers.
+
+3. **Every technical difference** between SWMM5 and EPANET — the equations, the solver, the timestep, the roughness parameter direction, the calibration strategy, the failure mode, the design criterion, the operational paradigm — **is a consequence of whether water flows by gravity through partially-full pipes or by pressure through always-full pipes**, which is itself determined by the topology that physics and engineering demand.

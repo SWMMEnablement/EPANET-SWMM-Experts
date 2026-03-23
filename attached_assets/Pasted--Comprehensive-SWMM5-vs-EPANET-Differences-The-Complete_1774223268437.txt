@@ -1,0 +1,851 @@
+# Comprehensive SWMM5 vs EPANET Differences: The Complete Deep Dive
+
+Building on the topology discussion, let me elaborate across every dimension where these two models diverge — physics, numerics, workflow, design philosophy, and practical application.
+
+---
+
+## 1. THE PHYSICS DIVIDE
+
+### 1.1 The Governing Equations — Where Everything Starts
+
+This is the root of every other difference. SWMM5 and EPANET solve fundamentally different mathematical problems.
+
+**SWMM5 solves a system of hyperbolic partial differential equations (the Saint-Venant equations):**
+
+```
+Continuity:  ∂A/∂t + ∂Q/∂x = q_lateral
+Momentum:    ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf = 0
+```
+
+These are **time-dependent, spatially-varying, nonlinear, coupled PDEs**. They describe waves propagating through pipes, water surfaces rising and falling, flow accelerating and decelerating, and backwater effects traveling upstream. Every term matters:
+
+-`∂A/∂t` — the pipe is filling or draining (storage changes over time)
+-`∂Q/∂t` — flow is accelerating or decelerating (inertia)
+-`∂(Q²/A)/∂x` — momentum changes as velocity and area vary along the pipe
+-`gA·∂H/∂x` — the pressure/gravity gradient pushing water
+-`gA·Sf` — friction resisting flow (Manning's equation)
+
+**EPANET solves a system of nonlinear algebraic equations:**
+
+```
+Node continuity:  ΣQ_in − ΣQ_out = Demand    (at every junction)
+Energy equation:  H_i − H_j = hf(Q) + hm(Q)  (along every pipe)
+```
+
+These are **steady-state, algebraic, simultaneous** equations. No time derivatives. No spatial derivatives. No waves. No inertia. Just: does the flow balance at every node, and does the energy equation hold along every pipe?
+
+**The implications cascade through everything:**
+
+| Implication | SWMM5 | EPANET |
+|---|---|---|
+| Time dependence | Intrinsic — the PDE has ∂/∂t | Imposed externally — EPS updates boundary conditions between steady-state solves |
+| Wave propagation | Yes — gravity waves travel at c = √(gA/T) | No — changes propagate instantaneously |
+| Flow inertia | Yes — flow takes time to accelerate/decelerate | No — flow adjusts instantly to new conditions |
+| Backwater | Yes — downstream conditions affect upstream | Not dynamically — only through the simultaneous steady-state solution |
+| Spatial variation | Yes — depth and velocity vary along a pipe | No — each pipe is a single computational element with uniform conditions |
+
+### 1.2 The Free Surface vs. Full Pipe
+
+**SWMM5: The free surface is the central variable.**
+
+Water depth`y` varies continuously from 0 (dry pipe) to`D` (full pipe) and potentially beyond (surcharged). The cross-sectional area`A`, wetted perimeter`P`, hydraulic radius`R`, and top width`T` are all nonlinear functions of depth:
+
+```
+For a circular pipe of diameter D, at depth y:
+
+A(y) = D²/4 · [arccos(1 − 2y/D) − (1 − 2y/D)·√(4y/D − 4y²/D²)]
+
+This is NOT a simple function. It's transcendental.
+```
+
+The solver must evaluate these geometric functions millions of times per simulation. SWMM5 pre-computes lookup tables for efficiency, but the nonlinearity is fundamental — it means that small changes in depth cause disproportionate changes in flow area, especially near the crown (where T → 0 as the pipe approaches full).
+
+**EPANET: There is no free surface.**
+
+The pipe is always full.`A = πD²/4`. Period.`R = D/4`. Period. The geometry is constant, linear, and trivial. This eliminates an entire dimension of complexity.
+
+**The surcharge transition — SWMM5's hardest numerical problem:**
+
+When a SWMM5 pipe fills to the crown, the free surface vanishes. The top width`T` goes to zero, which means the wave celerity`c = √(gA/T)` goes to infinity. The solver must handle this discontinuity. SWMM5 uses the Preissmann slot — a fictitious narrow slot at the top of the pipe that maintains a virtual free surface even when the pipe is pressurized:
+
+```
+Slot width: T_slot = g · A_full / c_target²
+
+For a 48" pipe with c_target = 1000 ft/s:
+T_slot = 32.2 × 12.57 / 1,000,000 = 0.0004 ft
+```
+
+This is an elegant hack, but it introduces its own numerical challenges — the slot is so narrow that tiny flow imbalances cause rapid head changes, requiring very small timesteps near surcharge conditions.
+
+EPANET never encounters this problem because it starts and stays on the pressurized side of this transition.
+
+### 1.3 The Energy Model
+
+**SWMM5: Gravity is the engine.**
+
+The primary energy source is the potential energy of water at higher elevations. Pipe slope`S₀` converts this potential energy into kinetic energy and overcomes friction. Pumps exist but are exceptions — used for force mains and lift stations.
+
+The energy equation along a pipe involves five terms (see the momentum equation above). The friction slope`Sf` is just one of them. Inertia, convective acceleration, and the pressure gradient all contribute.
+
+**EPANET: Pumps and reservoir head are the engine.**
+
+The primary energy sources are pumps (which add energy to the water) and reservoirs/tanks at elevated positions. The energy equation along a pipe is simple:
+
+```
+H_upstream − H_downstream = hf(friction) + hm(minor losses)
+```
+
+That's it. Two terms on the right. No inertia, no convective acceleration, no time-varying anything. The total head`H` at any node equals elevation + pressure head, and the difference in`H` between two nodes equals the losses in the connecting pipe.
+
+### 1.4 Flow Regimes
+
+**SWMM5 deals with multiple flow regimes that EPANET never encounters:**
+
+| Flow Regime | Description | SWMM5 | EPANET |
+|---|---|---|---|
+| **Subcritical** | Fr < 1, depth > critical depth, downstream-controlled | Yes — the most common regime | N/A |
+| **Critical** | Fr = 1, depth = critical depth, transition point | Yes — at changes in slope, at drops | N/A |
+| **Supercritical** | Fr > 1, depth < critical depth, upstream-controlled | Yes — steep pipes, inlet-controlled flow | N/A |
+| **Hydraulic jump** | Abrupt transition from supercritical to subcritical | Yes — energy dissipation, depth increase | N/A |
+| **Pressurized** | Pipe full, no free surface, pressure-driven | Yes — surcharge condition | **Only this one** |
+| **Dry** | No water in pipe | Yes — normal between storms | N/A |
+| **Wetting front** | Advancing edge of water entering a dry pipe | Yes — requires special numerical treatment | N/A |
+| **Slug flow** | Alternating full/partial sections in one pipe | Yes — unstable, challenging numerically | N/A |
+
+The Froude number`Fr = V/√(gA/T)` — the ratio of flow velocity to wave speed — governs which regime applies. EPANET has no concept of a Froude number because there's no free surface and no wave speed to compare against.
+
+### 1.5 Flow Reversal
+
+**SWMM5:** Flow reversal occurs when downstream conditions (tidal outfall, surcharging, downstream backup) create a hydraulic gradient that pushes water upstream. The dynamic wave solver handles this naturally — the momentum equation doesn't assume a flow direction. However, flow reversal in a gravity sewer is an **abnormal condition** indicating the system is overwhelmed.
+
+**EPANET:** Flow reversal is **normal operations**. A pipe that flows east during morning peak demand may flow west during evening peak demand as tanks on different sides of the network fill and drain. The solver handles this transparently — it's just the steady-state solution responding to changed boundary conditions. Flow direction in a looped network is a computed output, not an assumed input.
+
+---
+
+## 2. THE SOLVER DIVIDE
+
+### 2.1 Time-Marching vs. Equilibrium-Finding
+
+**SWMM5's Dynamic Wave: An explicit time-marching scheme**
+
+At each timestep, SWMM5:
+1. Solves the **momentum equation** for each link → gets new flow Q(t+Δt) using heads from time t
+2. Solves the **continuity equation** at each node → gets new head H(t+Δt) using flows just computed
+3. Checks for surcharging, flooding, drying, and regime transitions
+4. Advances to the next timestep
+
+This is a **staggered leapfrog scheme** — flows and heads are updated alternately. It's explicit, meaning the new state depends only on the current state (no iteration needed within a timestep for the basic scheme). But explicitness comes at a cost — the Courant-Friedrichs-Lewy (CFL) stability condition:
+
+```
+Δt ≤ Δx / (V + c)
+```
+
+This means the timestep is physically constrained. A 100-ft pipe with 5 ft/s flow and 15 ft/s wave speed requires Δt ≤ 5 seconds. A 2,000-ft pipe with the same conditions allows Δt ≤ 100 seconds. The shortest pipe in the entire model controls the global timestep (unless SWMM5's variable timestep option is used).
+
+**EPANET's Gradient Algorithm: An iterative equilibrium solver**
+
+At each timestep, EPANET:
+1. Guesses initial flows in all pipes
+2. Linearizes the nonlinear headloss equations using Newton-Raphson
+3. Assembles a sparse matrix`[A]{H} = {b}` where`A` depends on the current flow estimates
+4. Solves the linear system for node heads
+5. Updates pipe flows from the new heads
+6. Checks convergence: have flows and heads stopped changing?
+7. If not converged, returns to step 2 with updated estimates
+8. If converged, advances to the next EPS timestep
+
+This is an **implicit, iterative scheme**. There is no CFL condition. The timestep can be 1 hour, 6 hours, or 1 day — whatever is appropriate for the time scale of operational changes (demand pattern shifts, pump schedules, tank filling). The solver either converges (typically in 5–15 iterations) or it doesn't (indicating a modeling error, not a numerical limitation).
+
+### 2.2 Computational Cost Comparison
+
+Consider a 24-hour simulation of a 10,000-element network:
+
+**SWMM5 Dynamic Wave:**
+- Timestep: ~10 seconds (Courant-limited)
+- Steps per hour: 360
+- Total timesteps: 8,640
+- Per timestep: solve momentum for 10,000 links + continuity for 10,000 nodes
+- Operations: ~173 million node/link evaluations
+- Runtime: minutes to tens of minutes
+
+**EPANET:**
+- Timestep: 1 hour (hydraulic)
+- Total timesteps: 24
+- Per timestep: ~10 Newton-Raphson iterations, each solving a 10,000×10,000 sparse system
+- Operations: ~2.4 million matrix operations
+- Runtime: seconds
+
+EPANET is typically **100–1000× faster** for the same network size. This is why EPANET can handle networks with 100,000+ pipes in routine practice, while SWMM5 models of that size require careful timestep management and possibly parallel computing.
+
+### 2.3 Stability and Convergence
+
+**SWMM5 — Things that cause instability:**
+
+- Short pipes (violate Courant condition)
+- Steep slopes + small diameters (high velocity → small Δt requirement)
+- Rapid inflow changes (pump starts, sudden storms)
+- Surcharge/desurcharge transitions (Preissmann slot oscillations)
+- Nodes with very small surface area (twitchy depth response)
+- Zero-depth or dry elements (wetting front discontinuity)
+- Inappropriate inertial damping settings
+
+When SWMM5 goes unstable, you see:
+- Rising continuity error (>1% = warning, >10% = serious problem)
+- Flow oscillating wildly between positive and negative
+- Depths oscillating or going to unrealistic values
+- NaN or Inf appearing in output
+
+**EPANET — Things that cause non-convergence:**
+
+- Disconnected network segments (no path from source to node)
+- Pumps operating far off their curve
+- PRV/PSV settings that conflict with each other
+- Extremely low demands with high headloss pipes (ill-conditioned matrix)
+- Too few iterations allowed (increase TRIALS in [OPTIONS])
+- Abrupt control rule actions (pump cycling every timestep)
+
+When EPANET fails to converge, it tells you explicitly: "System Unbalanced at Time X." It's binary — the solver either found the answer or it didn't. There's no gradual degradation like SWMM5's creeping continuity error.
+
+### 2.4 What Each Solver Cannot Do
+
+**SWMM5's dynamic wave cannot:**
+- Find steady-state directly (must run until transients die out)
+- Handle very long simulations efficiently (10-year continuous sim = ~315 billion timesteps at Δt=1s)
+- Guarantee convergence for all network configurations
+- Model pressurized-only systems efficiently (the Preissmann slot is overkill for always-full pipes)
+
+**EPANET's gradient algorithm cannot:**
+- Track wave propagation (water hammer, pressure surges)
+- Model free-surface flow or partially full pipes
+- Capture inertial effects (pump startup transients, rapid valve closure)
+- Represent the spatial variation of conditions along a pipe (each pipe is one element)
+- Handle time-varying events faster than the hydraulic timestep
+
+---
+
+## 3. THE HYDROLOGY DIVIDE
+
+### 3.1 Where Water Comes From
+
+This is arguably the most profound practical difference between the two models.
+
+**SWMM5: Water is generated from first principles.**
+
+The model includes a complete rainfall-runoff engine:
+
+```
+Atmosphere → Rainfall → Subcatchment Surface
+    → Interception/Depression Storage (lost)
+    → Infiltration (Horton, Green-Ampt, or Curve Number) (lost to soil)
+    → Overland Flow (Manning's equation on the subcatchment surface)
+    → Inlet → Junction → Pipe Network → Outfall
+```
+
+Every subcatchment has:
+- Area, width, slope (geometry)
+- Percent imperviousness (land use)
+- Manning's n for pervious and impervious areas (surface roughness)
+- Depression storage for pervious and impervious areas (interception)
+- Infiltration parameters (Horton decay rates, Green-Ampt conductivity, or SCS Curve Number)
+
+The SWMM5 modeler's primary calibration challenge is getting this hydrologic process chain right. A 5% error in imperviousness might produce a 20% error in peak flow due to the nonlinear cascade.
+
+**EPANET: Water is specified directly.**
+
+There is no hydrology. Water enters the system through:
+- **Reservoirs** — infinite supply at a fixed (or time-varying) head
+- **Tanks** — finite storage with a level that rises and falls
+
+Water leaves through:
+- **Demands at junctions** — a base flow rate × a time pattern multiplier
+- **Emitters** — pressure-dependent outflows (Q = C·P^γ)
+
+The EPANET modeler doesn't compute how much water enters the system. They specify it based on:
+- Billing records (metered consumption)
+- Population and per-capita usage rates
+- Land use and unit demand factors
+- Fire flow requirements
+- Non-revenue water estimates
+
+### 3.2 The Time Scale of Water Input
+
+**SWMM5: Event-driven, minutes to hours.**
+
+A design storm might last 1–24 hours. The rainfall hyetograph has 5-minute to 1-hour increments. The runoff hydrograph peaks within minutes to hours of rainfall onset. The entire simulation might cover 1–72 hours.
+
+For continuous simulation (long-term), SWMM5 can run for months or years using historical rainfall records, but the timestep must remain small (seconds) for dynamic wave routing. This makes continuous SWMM5 simulation computationally expensive.
+
+**EPANET: Operational, hours to weeks.**
+
+A typical EPANET simulation covers 24–168 hours (1 day to 1 week) using hourly demand patterns. The demand pattern repeats cyclically — the Monday pattern looks like every Monday. Tank filling/draining cycles occur over hours. Pump scheduling operates on hourly timescales.
+
+EPANET's Extended Period Simulation (EPS) is perfectly suited to this timescale — 1-hour hydraulic timesteps capture the essential operational dynamics without computational burden.
+
+### 3.3 Dry Weather Flow vs. Base Demand
+
+This is the closest conceptual bridge between the two models:
+
+**SWMM5 Dry Weather Flow (DWF):**
+```
+[DWF]
+;;Node    Type  AvgValue  Pattern1  Pattern2
+J1        FLOW  0.5       Diurnal   Weekend
+J2        FLOW  0.3       Diurnal   ""
+```
+- Represents sanitary sewage flow during dry weather
+- Base flow rate (CFS or CMS) × time-of-day pattern × optional weekend/monthly patterns
+- Enters the system as a lateral inflow at the junction
+- Adds water to the system
+
+**EPANET Base Demand + Pattern:**
+```
+[JUNCTIONS]
+;;ID    Elev    Demand    Pattern
+J1      320     150       Diurnal    ;150 GPM base
+J2      310     90        Diurnal    ;90 GPM base
+```
+- Represents customer water consumption
+- Base demand rate (GPM or LPS) × time-of-day pattern
+- Removes water from the system at the junction
+- Subtracts water from the system
+
+**The syntax is nearly identical. The physics is opposite.** SWMM5 DWF adds water (sewage entering the collection system). EPANET demand removes water (customers consuming from the distribution system). But the mathematical structure — a base rate multiplied by a repeating time pattern — is the same.
+
+---
+
+## 4. THE PIPE MODELING DIVIDE
+
+### 4.1 Cross-Section Geometry
+
+**SWMM5 supports 20+ cross-section shapes:**
+
+Circular, rectangular (open and closed), trapezoidal, triangular, parabolic, power function, horseshoe, egg-shaped, gothic arch, catenary, semi-elliptical, basket handle, modified basket handle, horizontal ellipse, vertical ellipse, arch, semi-circular, irregular (natural channel), custom (user-defined shape table), and force main (circular but uses H-W or D-W when full).
+
+Each shape requires different geometric functions for A(y), P(y), R(y), T(y), and their derivatives. SWMM5 pre-computes normalized lookup tables for each standard shape and interpolates at runtime.
+
+**EPANET supports one shape: circular, always full.**
+
+`A = πD²/4, R = D/4, V = Q/A`. No lookup tables, no geometric complexity. The pipe is fully characterized by its diameter.
+
+### 4.2 Friction
+
+**SWMM5: Manning's equation (primarily)**
+
+```
+Q = (φ/n) · A · R^(2/3) · Sf^(1/2)
+```
+
+Where φ = 1.486 (US) or 1.0 (SI). Manning's n is the roughness parameter. Higher n = rougher = more friction.
+
+For force mains, SWMM5 switches to Hazen-Williams or Darcy-Weisbach when the pipe is full:
+```
+[OPTIONS]
+FORCE_MAIN_EQUATION  H-W   ;; or D-W
+```
+
+The transition between Manning's (partial flow) and H-W or D-W (full flow) uses the equivalent n formula from`forcemain.c`.
+
+**EPANET: Three options, Hazen-Williams by default**
+
+1. **Hazen-Williams** (most common in US practice):
+```
+   hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)
+   ```
+   C = roughness coefficient. Higher C = smoother = less friction.
+
+2. **Darcy-Weisbach** (most physically rigorous):
+```
+   hf = f · (L/D) · V²/(2g)
+   ```
+   f from Colebrook-White equation. ε = pipe wall roughness height.
+
+3. **Chezy-Manning** (EPANET applies Manning's to full-pipe flow):
+```
+   hf = (4.66 · n² · L · Q²) / d^5.33  [US units]
+   ```
+   Same Manning's n, but applied to pressurized flow.
+
+**The critical confusion for practitioners:**
+
+| Parameter | Direction | Example: Old Cast Iron |
+|---|---|---|
+| Manning's n | Higher = rougher | n = 0.020 |
+| Hazen-Williams C | Higher = smoother | C = 80 |
+| Darcy-Weisbach ε | Higher = rougher | ε = 2.0 mm |
+
+Manning's n and H-W C move in **opposite directions** for the same physical change (pipe deterioration). This trips up everyone crossing between the two models.
+
+### 4.3 Pipe Properties Comparison
+
+| Property | SWMM5 Conduit | EPANET Pipe |
+|---|---|---|
+| Length | ✅ | ✅ |
+| Roughness | Manning's n (or C/ε for force mains) | H-W C, D-W ε, or Manning's n |
+| Diameter | In [XSECTIONS], as Geom1 for circular | Directly in [PIPES] |
+| Shape | 20+ options in [XSECTIONS] | Circular only (implicit) |
+| Inlet offset | ✅ — pipe can be offset from junction invert | ❌ — no concept of offset |
+| Outlet offset | ✅ | ❌ |
+| Entry loss coefficient | ✅ (separate Kentry) | Combined as single K |
+| Exit loss coefficient | ✅ (separate Kexit) | Combined as single K |
+| Average loss coefficient | ✅ (Kavg for bends, etc.) | ✅ (single minor loss K) |
+| Initial flow | ✅ — can set initial depth/flow | ❌ — solver finds steady-state |
+| Maximum flow | ❌ — limited by hydraulics | ❌ — limited by hydraulics |
+| Flow divider | ✅ — at nodes (cutoff, overflow, tabular, weir) | ❌ — flow splits naturally by headloss |
+| Status | Always open (flow direction by hydraulics) | Open, Closed, or CV (check valve) |
+| Flap gate | ✅ — prevents reverse flow | Status = CV (check valve pipe) |
+
+### 4.4 Pipe Sizing Design Criteria
+
+**SWMM5 (gravity collection):**
+- Size for design storm flow at d/D ≤ 0.80 (80% full)
+- Maintain minimum velocity of 2.0 ft/s at peak flow for self-cleansing
+- Maintain maximum velocity of 10–15 ft/s to prevent erosion
+- Minimum pipe diameter: typically 8" for sanitary, 12–15" for storm
+- Minimum slope: per diameter from Ten States Standards or local code
+- Design constraint: **capacity at a target depth-to-diameter ratio**
+
+**EPANET (pressurized distribution):**
+- Size for maximum day demand + fire flow at minimum 20 psi residual
+- Maintain velocity 2–5 ft/s during normal operations (avoid stagnation at low end, erosion at high end)
+- Minimum pipe diameter: 6" for distribution, 8" for fire protection
+- Maximum headloss gradient: typically 10 ft/1000 ft
+- Design constraint: **pressure at the critical node during peak + fire flow**
+
+---
+
+## 5. THE NODE MODELING DIVIDE
+
+### 5.1 Junction Properties
+
+**SWMM5 Junction:**
+
+| Property | Description | Typical Value |
+|---|---|---|
+| Invert Elevation | Bottom of the junction (bottom of deepest connecting pipe) | Varies with terrain |
+| Maximum Depth | Crown of highest connecting pipe, or ground surface, or surcharge depth | 5–25 ft |
+| Initial Depth | Water depth at start of simulation | Usually 0 (dry) |
+| Surcharge Depth | Additional depth above maximum before flooding occurs | 0–5 ft |
+| Ponded Area | Surface area for ponding when flooded (allows water to return when capacity is available) | 0–10,000 ft² |
+
+A SWMM5 junction is a **storage element**. It has volume. Water rises and falls within it. The continuity equation at a junction includes the`dV/dt` term:
+
+```
+A_surface · dH/dt = ΣQ_in − ΣQ_out + Q_external
+```
+
+The surface area`A_surface` can be vanishingly small (just the manhole shaft, ~16 ft²) or large (if ponded area is specified). Small surface area means rapid head changes for small flow imbalances — this is why SWMM5 junctions can be "twitchy" and why the solver needs small timesteps.
+
+**EPANET Junction:**
+
+| Property | Description | Typical Value |
+|---|---|---|
+| Elevation | Ground level or pipe centerline elevation (NOT invert) | Varies with terrain |
+| Base Demand | Water consumption rate (GPM, LPS) | 0–500 GPM |
+| Demand Pattern | Name of time-varying multiplier pattern | "Residential" |
+| Emitter Coefficient | Pressure-dependent outflow: Q = C·P^γ | 0 (no leak) |
+
+An EPANET junction is a **dimensionless point**. It has no volume, no depth, no storage. The continuity equation is purely algebraic:
+
+```
+ΣQ_in = ΣQ_out + Demand
+```
+
+No`dH/dt` term. No surface area. No ponding. The head at the junction is whatever value satisfies the simultaneous energy equations in all connecting pipes. This is why EPANET junctions are numerically stable and why the solver doesn't need small timesteps.
+
+### 5.2 Boundary Nodes
+
+**SWMM5 Outfall:**
+- Where water **leaves** the system
+- Types: FREE (critical/normal depth), FIXED (set stage), TIDAL (time-varying stage), TIMESERIES (user-defined stage)
+- One-way: flow exits only (unless tidal/stage causes backflow)
+- Sets the downstream boundary condition for the entire system
+- The choice of outfall type can dramatically affect upstream results — a FIXED outfall at high stage causes backwater throughout the system
+
+**EPANET Reservoir:**
+- Where water **enters** the system (or can leave — it's bidirectional)
+- Infinite supply at a fixed head (or time-varying head via pattern)
+- Think: treatment plant clearwell, lake intake, or connection to a larger system
+- Head = elevation of the reservoir water surface (total head, not pressure)
+- Multiple reservoirs can exist — the system draws from each based on the network hydraulics
+
+**The direction flip:** SWMM5's boundary node is where water exits (downstream). EPANET's boundary node is where water enters (source). This is the single most confusing mapping for modelers crossing between the tools.
+
+**EPANET Tank vs. SWMM5 Storage:**
+
+Both store water with a varying level. But the details differ significantly:
+
+| Property | SWMM5 Storage | EPANET Tank |
+|---|---|---|
+| Shape | Any — functional curve (area vs. depth) or tabular | Cylindrical (diameter) or volume curve |
+| Evaporation | ✅ | ❌ |
+| Seepage/exfiltration | ✅ | ❌ |
+| Treatment | ✅ — pollutant removal expressions | ❌ (but water quality reactions occur) |
+| Mixing model | Complete mix only | Complete mix, FIFO, LIFO, Two-compartment |
+| Initial condition | Initial depth | Initial level |
+| Overflow behavior | Flooding if above max depth | Won't fill above max level (flow stops) |
+| Drain-down | Can go completely dry (depth = 0) | Won't drain below min level |
+
+---
+
+## 6. THE WATER QUALITY DIVIDE
+
+### 6.1 SWMM5: Multi-Pollutant, Source-to-Outfall
+
+SWMM5 models the complete pollutant lifecycle:
+
+**Generation (subcatchment surface):**
+- Buildup: pollutant accumulates on surfaces during dry weather (power, exponential, or saturation functions)
+- Washoff: rainfall mobilizes accumulated pollutant (exponential, rating curve, or event mean concentration)
+- Co-pollutant relationships: one pollutant's washoff can depend on another's concentration
+
+**Transport (pipe network):**
+- Advection: pollutant travels with the flow
+- First-order decay: C(t) = C₀ · e^(−k·t)
+- No dispersion (pure advection — plug flow within each conduit)
+
+**Treatment (at nodes):**
+- User-defined expressions:`C = f(C_IN, HRT, FLOW, DEPTH, AREA)` or`R = f(...)`
+- Can reference other pollutants' removal:`R = 0.8 * R_TSS`
+- Applied at any junction or storage node
+
+**Multiple pollutants simultaneously:** TSS, BOD, COD, nutrients (TN, TP), metals (Zn, Cu, Pb), bacteria (E. coli, fecal coliform) — all tracked in parallel with independent buildup, washoff, and decay.
+
+### 6.2 EPANET: Single Constituent, Operational Focus
+
+EPANET tracks **one substance per simulation**, but with more sophisticated transport:
+
+**Four analysis types:**
+
+1. **Chemical concentration** (e.g., chlorine residual)
+   - Bulk decay: reactions in the water volume, first-order: C(t) = C₀ · e^(−kb·t)
+   - Wall decay: reactions at the pipe wall, dependent on pipe material and age
+   - Combined:`dC/dt = −kb·C − (2·kw·kf)/(R·(kw + kf)) · C`
+   - This dual-decay model is unique to EPANET and has no SWMM5 equivalent
+
+2. **Water age** — how long since water entered from a source
+   - Built-in analysis type (no setup needed beyond selecting "Age")
+   - Critical for identifying stagnation zones, dead ends, oversized mains
+   - SWMM5 equivalent: possible but manual — define a conservative pollutant and track travel time
+
+3. **Source tracing** — what percentage of water at each node came from a specific source
+   - Built-in, one-click analysis
+   - Critical for understanding blending zones in systems with multiple treatment plants
+   - SWMM5 equivalent: define a conservative pollutant at 100% concentration from the source of interest
+
+4. **Reactive constituent** — user-defined decay/growth kinetics
+
+**EPANET's unique water quality features:**
+
+| Feature | Description | SWMM5 Equivalent |
+|---|---|---|
+| Wall reactions | Chlorine consumed by pipe material/biofilm | None — SWMM5 has no wall reaction concept |
+| Tank mixing models | FIFO, LIFO, Two-compartment, Complete mix | Complete mix only |
+| Bulk reaction order | Zero, first, or nth order | First order only |
+| Source injection | Mass or concentration booster, setpoint, or flow-paced | Direct inflow with concentration |
+| Quality timestep | Separate from hydraulic (typically 5 min vs 1 hr) | Same as routing timestep |
+
+---
+
+## 7. THE CONTROLS & OPERATIONS DIVIDE
+
+### 7.1 Control Rules Syntax
+
+The syntax is remarkably similar — a SWMM5 modeler can read EPANET control rules almost immediately:
+
+**SWMM5:**
+```
+[CONTROLS]
+RULE R1
+IF NODE Tank1 DEPTH > 10
+THEN PUMP Pump1 STATUS = OFF
+
+RULE R2
+IF NODE Tank1 DEPTH < 3
+AND SIMULATION TIME > 01:00:00
+THEN PUMP Pump1 STATUS = ON
+```
+
+**EPANET:**
+```
+[RULES]
+RULE 1
+IF TANK Tank1 LEVEL ABOVE 10
+THEN PUMP Pump1 STATUS IS CLOSED
+
+RULE 2
+IF TANK Tank1 LEVEL BELOW 3
+AND CLOCKTIME >= 1 AM
+THEN PUMP Pump1 STATUS IS OPEN
+```
+
+**Keyword differences:**
+
+| Concept | SWMM5 | EPANET |
+|---|---|---|
+| Water level | DEPTH | LEVEL |
+| Turn on | STATUS = ON | STATUS IS OPEN |
+| Turn off | STATUS = OFF | STATUS IS CLOSED |
+| Speed/setting | SETTING = value | SETTING IS value |
+| Time reference | SIMULATION TIME | TIME or CLOCKTIME |
+| Condition | IF / AND / OR | IF / AND / OR |
+| Action | THEN | THEN |
+| Alternative | ELSE | ELSE |
+| Priority | PRIORITY value | PRIORITY value |
+
+### 7.2 Simple Controls
+
+**SWMM5:**
+```
+[CONTROLS]
+;; Time-based
+RULE TimePump
+IF SIMULATION TIME >= 06:00:00
+THEN PUMP P1 STATUS = ON
+```
+
+**EPANET:**
+```
+[CONTROLS]
+;; Simpler syntax for simple controls (no RULE/IF/THEN needed)
+LINK Pump1 OPEN AT TIME 6
+LINK Pump1 CLOSED AT TIME 22
+LINK Pump1 OPEN IF NODE Tank1 BELOW 3
+LINK Pump1 CLOSED IF NODE Tank1 ABOVE 10
+```
+
+EPANET has a dedicated`[CONTROLS]` section for simple single-condition controls that doesn't require the full RULE/IF/THEN syntax. SWMM5 puts everything in the`[CONTROLS]` section using the RULE syntax.
+
+### 7.3 What EPANET Controls Can Do That SWMM5 Can't
+
+- **Valve setpoint control:** Change PRV/PSV pressure settings based on conditions
+- **Pump speed control:** Adjust variable-speed pump speed ratio based on tank level or pressure
+- **Pipe status control:** Open/close pipes based on conditions (simulating valve operations)
+- **Pattern-based controls:** Link operation to time patterns (pump runs on weekday schedule only)
+
+### 7.4 What SWMM5 Controls Can Do That EPANET Can't
+
+- **Control based on flow magnitude:** IF LINK C1 FLOW > 5.0
+- **Control based on node depth:** Depth varies continuously in SWMM5; EPANET junctions have no depth
+- **Modulated controls:** SWMM5 orifice/weir settings can be continuously modulated, not just on/off
+- **PID control:** SWMM5 supports PID (Proportional-Integral-Derivative) controller logic for gates and weirs
+
+---
+
+## 8. THE FILE FORMAT DIVIDE
+
+### 8.1 Structural Similarities
+
+Both use plain-text`.inp` files with`[SECTION]` headers, semicolon comments, and whitespace-delimited fields. The organizational principle is identical — a human-readable, editable text file that completely defines the model.
+
+### 8.2 Sections Unique to SWMM5
+
+These sections exist in SWMM5 but have **no EPANET equivalent**:
+
+| Section | Purpose | Why EPANET Doesn't Need It |
+|---|---|---|
+|`[SUBCATCHMENTS]`| Subcatchment properties | No hydrology |
+|`[SUBAREAS]`| Impervious/pervious parameters | No hydrology |
+|`[INFILTRATION]`| Horton/Green-Ampt/CN parameters | No hydrology |
+|`[RAINGAGES]`| Rainfall input | No hydrology |
+|`[SNOWPACKS]`| Snowmelt parameters | No hydrology |
+|`[AQUIFERS]`| Groundwater properties | No hydrology |
+|`[GROUNDWATER]`| Node-aquifer connections | No hydrology |
+|`[RDII]`| Rainfall-dependent I/I | No hydrology |
+|`[HYDROGRAPHS]`| RTK unit hydrographs | No hydrology |
+|`[XSECTIONS]`| Conduit cross-section geometry | All pipes are circular |
+|`[TRANSECTS]`| Irregular channel cross-sections | No open channels |
+|`[LOSSES]`| Conduit entrance/exit losses | Single K in [PIPES] |
+|`[DIVIDERS]`| Flow splitting nodes | Network topology handles this |
+|`[TREATMENT]`| Node treatment expressions | Different WQ approach |
+|`[POLLUTANTS]`| Pollutant definitions | Single constituent |
+|`[LANDUSES]`| Land use categories | No hydrology |
+|`[BUILDUP]`| Pollutant accumulation | No buildup/washoff |
+|`[WASHOFF]`| Pollutant mobilization | No buildup/washoff |
+|`[LID_CONTROLS]`| Green infrastructure definitions | No LID modeling |
+|`[LID_USAGE]`| LID placement on subcatchments | No LID modeling |
+|`[EVAPORATION]`| Evaporation rates | No evaporation |
+|`[ADJUSTMENTS]`| Monthly climate adjustments | No climate modeling |
+
+### 8.3 Sections Unique to EPANET
+
+These sections exist in EPANET but have **no SWMM5 equivalent**:
+
+| Section | Purpose | Why SWMM5 Doesn't Need It |
+|---|---|---|
+|`[RESERVOIRS]`| Fixed-head source nodes | SWMM5 uses outfalls (boundary) not sources |
+|`[TANKS]`| Storage tanks with level control | SWMM5's [STORAGE] is different |
+|`[EMITTERS]`| Pressure-dependent outflows | SWMM5 has no pressure-dependent demands |
+|`[DEMANDS]`| Multiple demand categories per node | SWMM5 has DWF but not demand categories |
+|`[VALVES]`| PRV, PSV, PBV, FCV, TCV, GPV | SWMM5 uses orifices/weirs/outlets |
+|`[ENERGY]`| Pump energy costs and efficiency | SWMM5 doesn't track energy |
+|`[MIXING]`| Tank mixing models (FIFO/LIFO/2-comp) | SWMM5 storage uses complete mix only |
+|`[REACTIONS]`| Bulk and wall reaction coefficients | SWMM5 uses [TREATMENT] expressions instead |
+|`[SOURCES]`| Water quality source injection | SWMM5 uses [INFLOWS] with concentration |
+|`[QUALITY]`| Initial quality at nodes | SWMM5 uses [INFLOWS] |
+
+### 8.4 Sections That Exist in Both (But Differ)
+
+| Section | SWMM5 Columns | EPANET Columns |
+|---|---|---|
+|`[JUNCTIONS]`| Name, Invert Elev, MaxDepth, InitDepth, SurchargeDepth, PondedArea | ID, Elevation, Demand, Pattern |
+|`[PUMPS]`| Name, From, To, Curve, Status, Startup, Shutoff | ID, Node1, Node2, Parameters (HEAD/POWER/SPEED keyword + curve/value) |
+|`[CURVES]`| Name, Type, X, Y | ID, X, Y (type inferred from context) |
+|`[PATTERNS]`| Name, Type, Multipliers | ID, Multipliers (type is always demand multiplier) |
+|`[OPTIONS]`| FLOW_UNITS, ROUTING_STEP, etc. | Units, Headloss, Hydraulic Timestep, etc. |
+|`[REPORT]`| Reporting toggles | Reporting toggles (different keywords) |
+|`[COORDINATES]`| Node, X, Y | Node, X, Y (identical format) |
+|`[TAGS]`| Element, Tag | Element, Tag (identical concept) |
+
+---
+
+## 9. THE DESIGN PHILOSOPHY DIVIDE
+
+### 9.1 What Each Model Is "For"
+
+**SWMM5 answers:** "What happens to this drainage system when it rains? Does it flood? Where? How much? What's the peak flow? What pollutant loads reach the receiving water?"
+
+**EPANET answers:** "Can this distribution system deliver water at adequate pressure to all customers? What's the chlorine residual at the dead ends? How much does pumping cost? What happens if Pipe X breaks during a fire?"
+
+### 9.2 What "Failure" Means
+
+**SWMM5 failure modes:**
+- Surcharging (pipe running full under pressure — not designed for this)
+- Flooding (water escaping through manholes to the surface)
+- Combined Sewer Overflow (CSO — untreated sewage reaching waterways)
+- Sanitary Sewer Overflow (SSO — sanitary sewage reaching the surface)
+- Basement backup
+- Excessive velocities causing erosion
+- Inadequate self-cleansing velocities causing deposition
+
+**EPANET failure modes:**
+- Low pressure (<20 psi) — can't deliver water to customers
+- Negative pressure — risk of contaminant intrusion through pipe joints
+- Inadequate fire flow — can't supply 1,500+ GPM at 20 psi during a fire
+- Low chlorine residual — potential for bacterial regrowth
+- High water age — taste and odor complaints, DBP formation
+- Excessive velocity — water hammer risk, pipe erosion
+- High energy costs — pumps running inefficiently
+
+### 9.3 What "Calibration" Means
+
+**SWMM5 calibration:**
+- **Data sources:** Flow monitors in manholes, level sensors, rain gauges
+- **Primary comparison:** Modeled vs. measured flow hydrographs and depth hydrographs at monitoring points
+- **Key parameters to adjust:** Subcatchment imperviousness, width, infiltration parameters, Manning's n for conduits
+- **Difficulty:** High — the nonlinear hydrology-hydraulics cascade means parameters interact in complex ways
+- **Typical accuracy target:** Peak flows within 15–25%, volumes within 10–20%, timing within 15 minutes
+- **Wet weather vs. dry weather:** Often calibrated separately — DWF patterns first, then storm response
+
+**EPANET calibration:**
+- **Data sources:** SCADA (tank levels, pump flows, pressures), fire hydrant flow tests, meter data
+- **Primary comparison:** Modeled vs. measured pressures at key nodes, tank levels over time, flows at meters
+- **Key parameters to adjust:** Pipe roughness (C-factor), demand magnitudes and patterns, pump curves
+- **Difficulty:** Moderate — the linear(ish) relationship between roughness and headloss makes calibration more predictable
+- **Typical accuracy target:** Pressures within 2–5 psi, flows within 5–10%
+- **Fire flow tests:** The gold standard — measured pressure drop at a known flow rate directly calibrates the system headloss
+
+### 9.4 What Gets Built
+
+**SWMM5 infrastructure:**
+- Pipes (concrete, PVC, corrugated metal, brick, vitrified clay)
+- Manholes (every change in pipe direction, size, slope, or at intervals of 300–500 ft)
+- Inlets (curb, gutter, combination — where surface flow enters the underground system)
+- Detention/retention basins
+- Pump stations (lift stations for force mains)
+- Green infrastructure (bioretention, permeable pavement, rain gardens, green roofs, swales)
+- CSO regulators (diversions, tide gates, weirs)
+
+**EPANET infrastructure:**
+- Pipes (ductile iron, PVC, HDPE, concrete, steel, cast iron)
+- Valves (PRV, PSV, gate valves, butterfly valves, check valves, air release valves)
+- Pump stations (booster stations, well pumps, high-service pumps)
+- Tanks (elevated, ground-level, standpipes, hydropneumatic)
+- Reservoirs (clearwells, intakes)
+- Hydrants (fire flow delivery points)
+- Meters (billing, monitoring, district metering)
+
+---
+
+## 10. THE OPERATIONAL DIVIDE
+
+### 10.1 What Operators Control
+
+**SWMM5 system operations:**
+- Pump stations: on/off based on wet well levels
+- Gate positions: adjusted for flow diversion (CSO control)
+- Inflatable dams: raised/lowered for in-system storage
+- Real-time control (RTC): automated gate/pump control based on sensor readings from level and flow monitors throughout the system
+
+**EPANET system operations:**
+- Pump scheduling: which pumps run at which hours, variable speed settings
+- Valve settings: PRV/PSV setpoints adjusted seasonally or by time of day
+- Tank operations: fill/drain cycles, minimum/maximum operating levels
+- Pressure zone management: which zones are active, interconnections
+- Flushing programs: opening hydrants to reduce water age at dead ends
+- Emergency response: pipe breaks, contamination events, fire flow
+
+### 10.2 Energy and Cost
+
+**SWMM5:** Does not track energy consumption or costs. The focus is on hydraulic capacity and environmental compliance.
+
+**EPANET:** Comprehensive pump energy and cost analysis:
+- kWh consumed per pump per day
+- Average and peak efficiency
+- Demand charges (peak kW)
+- Cost per day (based on energy price patterns)
+- Wire-to-water efficiency curves
+- Variable speed pump energy savings analysis
+
+For many water utilities, pumping energy is 60–80% of the total operating budget. EPANET's energy analysis directly supports pump scheduling optimization — running pumps during off-peak electricity hours, minimizing demand charges, and maximizing pump efficiency.
+
+---
+
+## 11. SUMMARY: THE COMPLETE COMPARISON TABLE
+
+| Dimension | SWMM5 | EPANET |
+|---|---|---|
+| **Domain** | Stormwater/wastewater collection | Water distribution |
+| **Physics** | Open-channel, free-surface, unsteady | Pressurized, full-pipe, quasi-steady |
+| **Governing equations** | Saint-Venant (hyperbolic PDEs) | Algebraic (energy + continuity) |
+| **Pipe state** | Partially full → full → surcharged → flooding | Always full, always pressurized |
+| **Flow driver** | Gravity (pipe slope) | Pressure (pumps, reservoir head) |
+| **Hydrology** | Full rainfall-runoff modeling | None — demands specified directly |
+| **Water input** | Rainfall → subcatchment → inflow | Reservoir (source) |
+| **Water output** | Outfall (downstream boundary) | Demands at junctions (consumption) |
+| **Roughness** | Manning's n (↑ = rougher) | Hazen-Williams C (↑ = smoother) |
+| **Pipe shapes** | 20+ cross-sections | Circular only |
+| **Solver type** | Explicit time-marching (dynamic wave) | Implicit iterative (Newton-Raphson) |
+| **Timestep** | Seconds (Courant-limited) | Hours (unconditionally stable) |
+| **CFL condition** | Critical stability constraint | Not applicable |
+| **Node storage** | Yes — junctions store water | No — junctions are dimensionless |
+| **Flow reversal** | Abnormal (backwater/surcharge) | Normal (daily demand variation) |
+| **Network topology** | Dendritic (tree-shaped, few loops) | Looped (grid/mesh, highly redundant) |
+| **Design target** | Capacity at target d/D ratio | Pressure at minimum threshold |
+| **Failure mode** | Flooding, surcharging, CSO/SSO | Low pressure, inadequate fire flow |
+| **Calibration data** | Flow/depth hydrographs, rain gauges | Pressure, tank levels, fire flow tests |
+| **Water quality** | Multi-pollutant, buildup/washoff | Single constituent, chlorine/age/trace |
+| **Energy tracking** | Not modeled | Full pump energy and cost analysis |
+| **LID/green infrastructure** | Comprehensive (8+ LID types) | Not modeled |
+| **File format** | .inp (text, section-based) | .inp (text, section-based) |
+| **Control rules** | IF-THEN-ELSE (DEPTH, STATUS=ON/OFF) | IF-THEN-ELSE (LEVEL, STATUS IS OPEN/CLOSED) |
+| **Elevation reference** | Invert (bottom of pipe) | Ground level or pipe centerline |
+| **Primary developer** | Lewis Rossman (EPA) | Lewis Rossman (EPA) |
+| **First release** | 1971 (v1), 2004 (v5) | 1993 (v1), 2000 (v2) |
+| **Current version** | 5.2.3 | 2.2 |
+| **Source code** | Public domain, C | Public domain, C |
+
+---
+
+## 12. THE DEEPER TRUTH
+
+Both SWMM5 and EPANET solve conservation of mass and conservation of energy/momentum for water flowing through pipes. They share the same bedrock physics — continuity and Newton's second law. They were written by the same person (Lewis Rossman at EPA). They use the same`.inp` file structure, similar control rule syntax, and compatible coordinate systems.
+
+The differences arise entirely from the **physical conditions** they model:
+
+- **Open channel with a free surface** → Saint-Venant equations → explicit time-marching → Courant-limited timesteps → complex cross-section geometry → variable depth → Manning's friction → subcatchment hydrology → flooding as failure
+
+- **Full pipe under pressure** → algebraic energy equations → implicit simultaneous solution → unconditionally stable → simple circular geometry → pressure as state variable → Hazen-Williams friction → demand-based loading → low pressure as failure
+
+These are not arbitrary software design choices. They are consequences of the physics. The free surface introduces a wave propagation problem that requires time-resolved numerical methods. The full pipe eliminates waves and reduces the problem to simultaneous algebraic equations.
+
+Understanding this — that every difference between SWMM5 and EPANET traces back to the presence or absence of a free water surface inside the pipe — is the single most important insight for any modeler working across both domains.

@@ -1,0 +1,194 @@
+# Network Topology Differences: SWMM5 vs EPANET
+
+## The Fundamental Structural Difference
+
+The single most important topology distinction between these two modeling worlds comes down to this:
+
+**SWMM5 networks flow like rivers — branching from many sources to few outlets.**
+**EPANET networks flow like road systems — looping from few sources to many customers.**
+
+---
+
+## SWMM5: Dendritic (Tree-Shaped) Networks
+
+### The Natural Shape of Drainage
+
+Stormwater and wastewater collection systems are overwhelmingly **dendritic** — they look like a tree with the trunk at the bottom:
+
+```
+Subcatchment A    Subcatchment B    Subcatchment C    Subcatchment D
+     ↓                 ↓                 ↓                 ↓
+   Node A            Node B            Node C            Node D
+     ↓                 ↓                 ↓                 ↓
+     └────→ Node E ←───┘                 └────→ Node F ←───┘
+                ↓                                   ↓
+                └──────────→ Node G ←───────────────┘
+                                ↓
+                            Outfall
+```
+
+**Why it's tree-shaped:** Gravity dictates the structure. Water flows downhill, pipes are sloped, and the network converges toward one or a few outfalls at the lowest elevation. You don't loop back uphill — there's no physical reason to. The topology mimics natural watershed drainage patterns because that's exactly what it's replacing.
+
+**Key characteristics:**
+- **Many inflow points** (subcatchments generating runoff) feeding into **few outlets** (outfalls)
+- Flow direction is predominantly **one-way** — upstream to downstream
+- Each pipe typically has one upstream node and one downstream node with a clear elevation drop
+- **Branching** is common (two tributaries merge at a junction), but **loops are rare**
+- When loops DO exist (e.g., parallel relief sewers, combined sewer overflow diversions), they require SWMM5's dynamic wave solver — kinematic wave cannot handle them because it can only route flow downstream
+
+### When SWMM5 Networks Have Loops
+
+Loops in collection systems exist but are exceptions, not the rule:
+
+- **Parallel relief sewers** — an oversized pipe alongside an existing one, reconnecting downstream
+- **Combined sewer overflow diversions** — flow splits between the interceptor and the CSO regulator
+- **Interconnected separate/combined systems** — older cities where networks were extended incrementally
+- **Dual drainage** — surface flow paths (streets, ditches) running parallel to underground pipes, reconnecting at inlets
+
+In every case, SWMM5's **dynamic wave solver** is required because the flow split at a loop depends on the hydraulic gradient in both branches — backwater from one branch affects the other. Kinematic wave assumes flow only goes downstream and cannot resolve this.
+
+### The Topology Implications for SWMM5's Solver
+
+The dendritic structure actually helps SWMM5 numerically:
+
+- **Kinematic wave** can solve each branch independently, marching downstream — very fast
+- **Dynamic wave** benefits from the predominantly unidirectional flow — fewer iterations needed at most timesteps
+- **Surcharging complications** arise when the tree-like structure forces all flow through a single trunk main — if that pipe surcharges, the backwater propagates up every branch simultaneously
+
+---
+
+## EPANET: Looped (Grid/Mesh-Shaped) Networks
+
+### The Engineered Shape of Distribution
+
+Water distribution systems are intentionally designed to be **heavily looped** — they look like a grid or mesh:
+
+```
+        Reservoir (Source)
+             ↓
+    ┌────── Node A ──────┐
+    │        ↓           │
+    ↓        ↓           ↓
+  Node B ── Node C ── Node D
+    ↓        ↓           ↓
+    ↓        ↓           ↓
+  Node E ── Node F ── Node G
+    │        ↓           │
+    └────── Node H ──────┘
+             ↓
+         Tank (Storage)
+```
+
+**Why it's looped:** Reliability and redundancy. If any single pipe breaks, water can reach every customer through an alternate path. This is a deliberate engineering design choice — not a consequence of physics, but of **service requirements**. A dead-end pipe means that if it breaks, everyone downstream loses service. A looped pipe means water can come from the other direction.
+
+**Key characteristics:**
+- **Few source points** (reservoirs, treatment plants, tanks) supplying **many demand points** (every junction is a customer)
+- Flow direction is **not fixed** — it changes with demand patterns throughout the day, pump schedules, and tank fill/drain cycles
+- A single pipe may flow east in the morning (when the eastern tank is filling) and west in the evening (when the western tank is draining)
+- **Loops are everywhere** — urban grids may have a loop for every city block
+- **Dead ends are problems** — they cause water stagnation, age issues, and loss of chlorine residual
+
+### Why Loops Matter for EPANET's Solver
+
+The looped topology is why EPANET uses the **Global Gradient Algorithm** (Todini-Pilati) rather than a simple downstream-marching scheme:
+
+- In a tree network, you can solve sequentially from leaves to root (like kinematic wave in SWMM5)
+- In a looped network, the flow in every pipe depends on the head at every node **simultaneously** — you must solve the entire system as one coupled set of equations
+- This is analogous to Kirchhoff's laws in electrical circuits: the sum of head losses around every loop must equal zero, and the sum of flows at every node must balance
+- The result is a large sparse matrix equation **[A]{H} = {b}** solved iteratively at each timestep
+
+### Pressure Zones — A Topology Concept Unique to EPANET
+
+EPANET networks are often divided into **pressure zones** — areas at similar elevation that are hydraulically isolated from each other by:
+
+- **PRVs** (Pressure Reducing Valves) — water flows from high zone to low zone through a valve that caps downstream pressure
+- **PSVs** (Pressure Sustaining Valves) — maintain minimum upstream pressure
+- **Booster pump stations** — push water from low zone to high zone
+- **Closed valves or altitude valves** — physically disconnect zones until conditions require flow
+
+```
+High Zone (Elev 500-600 ft)
+  ┌──────────────────┐
+  │  Tank (Elev 580) │
+  │  ↕               │
+  │  Looped grid     │
+  └──────┬───────────┘
+         │ PRV (set to 80 psi)
+  ┌──────┴───────────┐
+  │  Low Zone        │
+  │  (Elev 300-400)  │
+  │  Looped grid     │
+  │  ↕               │
+  │  Reservoir       │
+  └──────────────────┘
+```
+
+SWMM5 has **no equivalent concept**. Gravity sewers don't have pressure zones — they have drainage basins defined by topography, which is a subcatchment delineation problem, not a hydraulic network topology problem.
+
+---
+
+## Side-by-Side Topology Comparison
+
+| Characteristic | SWMM5 (Collection) | EPANET (Distribution) |
+|---|---|---|
+| **Dominant shape** | Dendritic / tree | Looped / grid / mesh |
+| **Why that shape** | Gravity dictates convergence downhill | Redundancy and reliability by design |
+| **Flow direction** | Predominantly one-way (downhill) | Variable — changes with demand and operations |
+| **Number of sources** | Many (every subcatchment) | Few (reservoirs, treatment plants) |
+| **Number of sinks** | Few (outfalls) | Many (every junction has demand) |
+| **Loops** | Rare, exceptional | Ubiquitous, intentional |
+| **Dead ends** | Normal (upstream headwater pipes) | Problematic (stagnation, water quality) |
+| **Network hierarchy** | Lateral → collector → trunk → interceptor → outfall | Transmission → distribution → service |
+| **Typical pipe count** | Hundreds to low thousands | Thousands to hundreds of thousands |
+| **Solver implication** | Can often use sequential downstream marching | Must solve entire network simultaneously |
+| **Flow reversal** | Occurs during surcharge/backwater (abnormal) | Occurs during normal daily operations |
+| **Redundancy** | Low — one path to outfall typically | High — multiple paths to every customer |
+| **Failure mode** | Surcharge → flooding (localized, propagates upstream) | Pipe break → low pressure (affects zone downstream) |
+| **Isolation** | Difficult — no valves in gravity sewers typically | Common — valve closures isolate segments for repair |
+
+---
+
+## How Topology Affects Modeling Decisions
+
+### For SWMM5 Modelers Moving to EPANET
+
+**Your tree-thinking must become loop-thinking:**
+
+1. **You can't trace a single flow path.** In SWMM5, you can start at any node and trace downstream to the outfall — there's essentially one path. In EPANET, water from a reservoir reaches a customer through potentially dozens of different pipe paths simultaneously. The flow splits according to the headloss in each path.
+
+2. **Closing a pipe doesn't just affect downstream.** In SWMM5, blocking a pipe affects everything upstream (backwater) and starves everything downstream. In EPANET, closing a pipe redistributes flow through alternate paths — the effect propagates through the entire looped network. This is why EPANET's simultaneous solution is necessary.
+
+3. **Source tracing becomes complex.** In a SWMM5 tree, you always know where water came from — you trace upstream. In an EPANET loop, water at a junction may be a blend from multiple sources in proportions that change hour by hour. This is why EPANET has a built-in source tracing analysis.
+
+4. **Calibration is different.** In SWMM5, you calibrate upstream-to-downstream — if the upstream flow is right, the downstream should follow. In EPANET, changing roughness in one pipe redistributes flow through the entire looped system — the effect is non-local and simultaneous.
+
+### For EPANET Modelers Moving to SWMM5
+
+**Your loop-thinking must become tree-thinking:**
+
+1. **There IS a flow path.** You can trace every drop from subcatchment to outfall. The network has a clear directionality that EPANET networks lack.
+
+2. **Downstream conditions propagate upstream.** A tidal outfall or a surcharging trunk main sends backwater up every branch. This is the dynamic wave's reason for existence — and why SWMM5 modelers obsess over outfall boundary conditions.
+
+3. **The network converges.** All flow accumulates toward the outfall. The trunk main at the bottom carries everything. If it's undersized, the entire system backs up. There's no alternate path.
+
+4. **The topology IS the hydrology.** In EPANET, the topology is just pipes and nodes — the hydrology (demands) is applied separately. In SWMM5, the subcatchment delineation (which areas drain to which nodes) IS the fundamental driver of the model. Getting the topology wrong means getting the hydrology wrong.
+
+---
+
+## Hybrid Cases: Where the Topologies Blur
+
+### Force Mains in SWMM5
+When a pump station pushes sewage through a force main, that segment behaves like an EPANET pipe — full, pressurized, flow driven by pump head. The force main may even go uphill. But it typically terminates at a gravity manhole where the flow drops back into the dendritic gravity system. It's a pressurized island in a gravity tree.
+
+### Large Transmission Mains in EPANET
+The backbone transmission mains of a distribution system can look tree-like — large diameter pipes bringing water from the treatment plant to major distribution points. The looping happens at the distribution level (6–12 inch pipes serving neighborhoods). So EPANET networks often have a dendritic backbone with looped edges.
+
+### Dual Drainage in SWMM5
+When you model both the underground pipe network AND the surface flow paths (streets as open channels), you create a looped topology — water can flow through the pipe or overland, reconnecting at downstream inlets. This is one of the most computationally challenging configurations in SWMM5 and absolutely requires dynamic wave routing.
+
+---
+
+## The One-Sentence Summary
+
+> **SWMM5 networks are trees that occasionally loop; EPANET networks are loops that occasionally branch — and this single structural difference drives everything from solver choice to calibration strategy to failure mode analysis.**

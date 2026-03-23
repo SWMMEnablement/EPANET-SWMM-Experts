@@ -12,11 +12,11 @@ A self-contained, single-page interactive web application that maps every SWMM5 
 The app is pure HTML/CSS/JS — no React, no build-time framework. It is served as a static `index.html` by Vite in development and deployed as a static site.
 
 **Key stats (as of March 2026):**
-- ~7,800+ lines in a single `index.html`
-- 18 interactive tabs
-- 3 animated `<canvas>` elements + 1 Chart.js chart (fire flow)
-- 30+ interactive range sliders
-- 5 calculators (pipe head loss, force main n↔C, treatment editor, fire flow, pump energy)
+- ~9,000+ lines in a single `index.html`
+- 30 interactive tabs (including 12 new deep-dive tabs)
+- 3 animated `<canvas>` elements + 5 Chart.js charts (fire flow, PDA demand, pattern bar chart, pipe aging dual-axis, pump energy)
+- 40+ interactive range sliders
+- 8 calculators/simulators (pipe head loss, force main n↔C, treatment editor, fire flow, pump energy, PDA demand, Joukowsky water hammer, skeletonization)
 - US/SI unit toggle
 - 5 color themes
 - URL hash state persistence
@@ -62,7 +62,7 @@ The `index.html` file contains everything: all CSS, all HTML, and all JavaScript
 
 ## 4. Tabs — Complete Inventory
 
-The app has 18 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. (The original v1.0 release had 11 tabs; Force Mains was part of v1.0 as tab 12, then First Principles and Reference were added post-release (14 tabs), then Treatment Editor (15 tabs), and finally Valves, Fire Flow, and Pump Energy (18 tabs).)
+The app has 30 tabs, controlled by `data-tab` attributes on nav buttons and matching `id="sec-{name}"` section divs. (The original v1.0 release had 11 tabs; grew through Force Mains, First Principles, Reference, Treatment, Valves, Fire Flow, Pump Energy (18 tabs), then 12 new deep-dive tabs were added covering demand allocation, topology, design criteria, patterns, calibration, skeletonization, SCADA/RT, interop, GIS, reporting, pipe aging, and transients.)
 
 | # | Tab Label | `data-tab` | Section ID | Description |
 |---|---|---|---|---|
@@ -78,12 +78,24 @@ The app has 18 tabs, controlled by `data-tab` attributes on nav buttons and matc
 | 10 | Gotchas | `gotchas` | `sec-gotchas` | Common mistakes when crossing between SWMM5 and EPANET. Convergence troubleshooting. |
 | 11 | Which Tool? | `whichtool` | `sec-whichtool` | Decision flowchart: when to use SWMM5 vs. EPANET. SVG flowchart with decision nodes. |
 | 12 | Force Mains | `forcemains` | `sec-forcemains` | Force Main Converter v2.0. Dual-mode n↔C conversion (SWMM5 source code vs. reference manual). Darcy-Weisbach. Batch chart. Setup checklist. |
-| 13 | First Principles | `firstprinciples` | `sec-firstprinciples` | First-principles deconstruction: 25 inherited EPANET assumptions, 10 bedrock truths, rebuilt SWMM5 mental model, sacred vs. arbitrary conventions. |
-| 14 | Treatment | `treatment` | `sec-treatment` | Treatment expression editor with real-time validation, 10 pollutant presets, 8 templates, live simulation with Chart.js visualization, SWMM5 export. TX IIFE namespace. |
-| 15 | Valves | `valves` | `sec-valves` | EPANET valve types deep dive (PRV, PSV, PBV, FCV, TCV, GPV). Interactive valve simulator with type-specific equations, sliders, and SWMM5 comparison notes. |
-| 16 | Fire Flow | `fireflow` | `sec-fireflow` | Fire flow analysis calculator. Available fire flow from hydrant test data using Q_avail = Q_test × ((P_static - P_min) / (P_static - P_residual))^0.54. ISO rating. Chart.js visualization. |
-| 17 | Pump Energy | `pumpenergy` | `sec-pumpenergy` | Pump energy & cost calculator. WHP, BHP, kW, daily/annual cost. Affinity laws. SWMM5 pump type comparison. EPANET [ENERGY] section explained. |
-| 18 | Reference | `docs` | `sec-docs` | All 16 reference sections displayed inline with a 2-column TOC. Also contains link to downloadable printable document. |
+| 13 | Treatment | `treatment` | `sec-treatment` | Treatment expression editor with real-time validation, 10 pollutant presets, 8 templates, live simulation with Chart.js visualization, SWMM5 export. TX IIFE namespace. |
+| 14 | Valves | `valves` | `sec-valves` | EPANET valve types deep dive (PRV, PSV, PBV, FCV, TCV, GPV). Interactive valve simulator with type-specific equations, sliders, and SWMM5 comparison notes. |
+| 15 | Fire Flow | `fireflow` | `sec-fireflow` | Fire flow analysis calculator. Available fire flow from hydrant test data using Q_avail = Q_test × ((P_static - P_min) / (P_static - P_residual))^0.54. ISO rating. Chart.js visualization. |
+| 16 | Pump Energy | `pumpenergy` | `sec-pumpenergy` | Pump energy & cost calculator. WHP, BHP, kW, daily/annual cost. Affinity laws. SWMM5 pump type comparison. EPANET [ENERGY] section explained. |
+| 17 | Demand Alloc | `demand` | `sec-demand` | Demand allocation methods (unit length, service connections, land use, meter data). Interactive PDA vs DDA chart with adjustable normal pressure. |
+| 18 | Topology | `topology` | `sec-topology` | Network topology comparison: dendritic trees (SWMM5) vs looped grids (EPANET). SVG network diagrams. Failure propagation differences. |
+| 19 | Design Criteria | `designcrit` | `sec-designcrit` | Design criteria comparison: velocity limits, pressure requirements, fire flow standards, pipe sizing approaches. |
+| 20 | Patterns | `patterns` | `sec-patterns` | Diurnal pattern editor with 4 presets (residential, commercial, industrial, combined wet). Click-to-edit bar chart, stats, SWMM5/EPANET export. |
+| 21 | Calibration | `calibration` | `sec-calibration` | Calibration workflow comparison: sequential branch-by-branch (SWMM5) vs simultaneous whole-network optimization (EPANET). |
+| 22 | Skeletonize | `skeleton` | `sec-skeleton` | Skeletonization simulator with pipe count and minimum diameter sliders. Shows percentage removed and remaining pipes. |
+| 23 | SCADA/RT | `scada` | `sec-scada` | SCADA and real-time modeling comparison. EPANET-RTX integration, data flow architectures, telemetry mapping. |
+| 24 | Interop | `interop` | `sec-interop` | Interoperability and file exchange between SWMM5 and EPANET. Shared nodes, GIS workflows, model conversion strategies. |
+| 25 | GIS | `gis` | `sec-gis` | GIS integration comparison. Shapefile workflows, attribute mapping, spatial analysis differences. |
+| 26 | Reporting | `reporting` | `sec-reporting` | Output reporting comparison. Binary output files, time series extraction, visualization approaches. |
+| 27 | Pipe Aging | `aging` | `sec-aging` | Pipe aging and condition assessment. Dual-axis chart showing C-factor decay (EPANET) and Manning's n increase (SWMM5) over time. 5 pipe materials. |
+| 28 | Transients | `transient` | `sec-transient` | Water hammer / transient analysis. Joukowsky calculator with velocity, wave celerity, pipe length, closure time. Sudden vs slow closure detection. |
+| 29 | First Principles | `firstprinciples` | `sec-firstprinciples` | First-principles deconstruction: 25 inherited EPANET assumptions, 10 bedrock truths, rebuilt SWMM5 mental model, sacred vs. arbitrary conventions. |
+| 30 | Reference | `docs` | `sec-docs` | All 16 reference sections displayed inline with a 2-column TOC. Also contains link to downloadable printable document. |
 
 ---
 

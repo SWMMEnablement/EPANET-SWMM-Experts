@@ -1073,6 +1073,18 @@
     <button class="nav-tab" data-tab="valves">Valves</button>
     <button class="nav-tab" data-tab="fireflow">Fire Flow</button>
     <button class="nav-tab" data-tab="pumpenergy">Pump Energy</button>
+    <button class="nav-tab" data-tab="demand">Demand Alloc</button>
+    <button class="nav-tab" data-tab="topology">Topology</button>
+    <button class="nav-tab" data-tab="designcrit">Design Criteria</button>
+    <button class="nav-tab" data-tab="patterns">Patterns</button>
+    <button class="nav-tab" data-tab="calibration">Calibration</button>
+    <button class="nav-tab" data-tab="skeleton">Skeletonize</button>
+    <button class="nav-tab" data-tab="scada">SCADA/RT</button>
+    <button class="nav-tab" data-tab="interop">Interop</button>
+    <button class="nav-tab" data-tab="gis">GIS</button>
+    <button class="nav-tab" data-tab="reporting">Reporting</button>
+    <button class="nav-tab" data-tab="aging">Pipe Aging</button>
+    <button class="nav-tab" data-tab="transient">Transients</button>
     <button class="nav-tab" data-tab="firstprinciples">First Principles</button>
     <button class="nav-tab" data-tab="docs">Reference</button>
   </div>
@@ -3791,6 +3803,909 @@ Pump P1  Efficiency   Curve1      ;; Per-pump efficiency curve
 Pump P1  Price        Pattern1    ;; Time-varying energy price
 Pump P1  Pattern      Pattern2    ;; Time-varying speed pattern</pre>
       <div class="vf-note"><strong>SWMM5 comparison:</strong> SWMM5's [PUMPS] section defines only the pump curve and on/off control. There is no efficiency, no energy price, no demand charge. The entire [ENERGY] section — and the detailed energy report EPANET produces — has no SWMM5 equivalent whatsoever.</div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: DEMAND ALLOCATION ===== -->
+  <div class="section" id="sec-demand">
+    <h2 class="section-title">Demand Allocation &amp; Pressure-Dependent Analysis</h2>
+    <p class="section-intro">EPANET requires distributing total system demand to individual junctions — a workflow <strong>completely absent from SWMM5</strong>, where subcatchments generate inflows automatically from rainfall. This is one of the biggest workflow differences between the two models.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-note"><strong>The Hydrology Divide:</strong> SWMM5 generates water from first principles (Rainfall &rarr; Subcatchment &rarr; Runoff). EPANET specifies water directly as demands at junctions based on billing records, population, and land use. In SWMM5, water <em>enters</em> the system at junctions (DWF). In EPANET, water <em>leaves</em> the system at junctions (consumption). The syntax is nearly identical; the physics is opposite.</div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Demand Allocation Methods</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+          <div id="dm-method-unitLength" class="vf-method-card active" onclick="dmSelectMethod('unitLength')" style="cursor:pointer;padding:12px;border-radius:8px;border:1px solid rgba(56,189,248,0.4);background:rgba(56,189,248,0.08);">
+            <div style="font-size:0.85rem;font-weight:600;color:var(--epanet-blue);">Unit Length</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Demand per linear foot of main pipe. Simple but rough.</div>
+          </div>
+          <div id="dm-method-serviceConn" class="vf-method-card" onclick="dmSelectMethod('serviceConn')" style="cursor:pointer;padding:12px;border-radius:8px;border:1px solid var(--border);background:rgba(30,41,59,0.4);">
+            <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);">Service Connections</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Count connections per junction. More accurate for residential.</div>
+          </div>
+          <div id="dm-method-landUse" class="vf-method-card" onclick="dmSelectMethod('landUse')" style="cursor:pointer;padding:12px;border-radius:8px;border:1px solid var(--border);background:rgba(30,41,59,0.4);">
+            <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);">Land Use / GIS</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Assign by parcel/zoning. Best for mixed-use systems.</div>
+          </div>
+          <div id="dm-method-meterData" class="vf-method-card" onclick="dmSelectMethod('meterData')" style="cursor:pointer;padding:12px;border-radius:8px;border:1px solid var(--border);background:rgba(30,41,59,0.4);">
+            <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);">Meter/Billing Data</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Nearest-junction assignment of actual consumption. Gold standard.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">SWMM5 vs EPANET: Where Water Comes From</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Category</th><th style="color:var(--epanet-amber);">SWMM5 Concept</th><th style="color:var(--epanet-blue);">EPANET Concept</th></tr></thead>
+            <tbody>
+              <tr><td>Flow source</td><td>Subcatchment runoff (computed from rainfall)</td><td>Junction demand (specified by modeler)</td></tr>
+              <tr><td>Spatial unit</td><td>Subcatchment area (acres)</td><td>Junction service area (pressure zone)</td></tr>
+              <tr><td>Time pattern</td><td>DWF pattern + rainfall time series</td><td>Demand pattern (hourly multiplier, cyclical)</td></tr>
+              <tr><td>Categories</td><td>DWF components (sanitary, I/I)</td><td>Demand categories (residential, commercial, fire)</td></tr>
+              <tr><td>Unaccounted flow</td><td>RDII / Groundwater Infiltration</td><td>Non-revenue water / emitter leakage</td></tr>
+              <tr><td>Direction</td><td>Water <strong>enters</strong> system at junctions</td><td>Water <strong>leaves</strong> system at junctions</td></tr>
+              <tr><td>Time scale</td><td>Event-driven (minutes to hours)</td><td>Operational (hours to weeks, cyclical)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card">
+          <div class="vf-card-title">PDA vs DDA Simulator</div>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;">PDA reduces demand at low pressures. DDA assumes full demand regardless &mdash; producing unrealistic negative pressures.</p>
+          <div class="vf-slider-row">
+            <span class="vf-slider-label">Full-Demand Pressure (psi):</span>
+            <input type="range" id="dmNormalP" min="20" max="60" value="40" step="1" oninput="dmUpdatePDA()" style="flex:1;">
+            <span class="vf-slider-val" id="valDmNormalP">40</span>
+          </div>
+          <canvas id="dmPdaChart" height="220"></canvas>
+          <div class="vf-note" style="margin-top:8px;"><strong>SWMM5 parallel:</strong> SWMM5 always computes flow based on hydraulic conditions (depth, slope), so it&rsquo;s inherently &ldquo;pressure-dependent.&rdquo; EPANET&rsquo;s DDA is simpler but can produce unrealistic results during fire flow or pipe breaks.</div>
+        </div>
+        <div class="vf-card">
+          <div class="vf-card-title">Leakage Modeling: Emitters</div>
+          <p style="font-size:0.82rem;color:var(--text-muted);line-height:1.6;">EPANET represents background leakage using <strong>emitters</strong> at junctions:</p>
+          <div style="font-family:var(--font-mono);font-size:1.1rem;color:var(--accent-green);text-align:center;padding:16px;background:rgba(16,185,129,0.08);border-radius:8px;margin:12px 0;">Q = C &middot; P<sup>&gamma;</sup></div>
+          <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">Where &gamma; &asymp; 0.5 (orifice flow) or &gamma; &asymp; 1.18 (UK Ofwat leakage model). This is conceptually similar to SWMM5&rsquo;s groundwater inflow equation &mdash; both are pressure/head-driven flow relationships.</p>
+          <div style="overflow-x:auto;margin-top:12px;">
+            <table class="vf-table">
+              <thead><tr><th>DWF vs Base Demand</th><th style="color:var(--epanet-amber);">SWMM5 DWF</th><th style="color:var(--epanet-blue);">EPANET Demand</th></tr></thead>
+              <tbody>
+                <tr><td>Syntax</td><td style="font-family:var(--font-mono);font-size:0.75rem;">J1 FLOW 0.5 Diurnal</td><td style="font-family:var(--font-mono);font-size:0.75rem;">J1 320 150 Diurnal</td></tr>
+                <tr><td>Effect</td><td>Adds water to system</td><td>Removes water from system</td></tr>
+                <tr><td>Pattern</td><td>Base rate &times; time pattern</td><td>Base rate &times; time pattern</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: TOPOLOGY ===== -->
+  <div class="section" id="sec-topology">
+    <h2 class="section-title">Network Topology: Trees vs Loops</h2>
+    <p class="section-intro">SWMM5 networks are typically <strong>dendritic</strong> (tree-shaped, flowing to outfalls). EPANET networks are typically <strong>heavily looped</strong> (multiple paths for redundancy). This fundamental difference is not an engineering preference &mdash; it is dictated by physics, function, and the fundamental purpose of each system.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="background:rgba(245,158,11,0.2);color:var(--epanet-amber);padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;border:1px solid rgba(245,158,11,0.4);">SWMM5</span>
+            <span style="font-size:0.9rem;font-weight:700;color:var(--epanet-amber);">Dendritic (Tree) Network</span>
+          </div>
+          <svg viewBox="0 0 300 200" style="width:100%;height:160px;margin-bottom:12px;">
+            <circle cx="50" cy="30" r="8" fill="#F59E0B" opacity="0.6"/>
+            <circle cx="100" cy="30" r="8" fill="#F59E0B" opacity="0.6"/>
+            <circle cx="200" cy="30" r="8" fill="#F59E0B" opacity="0.6"/>
+            <circle cx="250" cy="30" r="8" fill="#F59E0B" opacity="0.6"/>
+            <circle cx="75" cy="80" r="8" fill="#F59E0B" opacity="0.8"/>
+            <circle cx="225" cy="80" r="8" fill="#F59E0B" opacity="0.8"/>
+            <circle cx="150" cy="130" r="10" fill="#F59E0B"/>
+            <circle cx="150" cy="180" r="12" fill="#EF4444" stroke="#EF4444" stroke-width="2"/>
+            <line x1="50" y1="38" x2="75" y2="72" stroke="#F59E0B" stroke-width="2"/>
+            <line x1="100" y1="38" x2="75" y2="72" stroke="#F59E0B" stroke-width="2"/>
+            <line x1="200" y1="38" x2="225" y2="72" stroke="#F59E0B" stroke-width="2"/>
+            <line x1="250" y1="38" x2="225" y2="72" stroke="#F59E0B" stroke-width="2"/>
+            <line x1="75" y1="88" x2="150" y2="122" stroke="#F59E0B" stroke-width="2.5"/>
+            <line x1="225" y1="88" x2="150" y2="122" stroke="#F59E0B" stroke-width="2.5"/>
+            <line x1="150" y1="140" x2="150" y2="168" stroke="#EF4444" stroke-width="3"/>
+            <text x="50" y="18" text-anchor="middle" fill="#64748b" font-size="8">SC-1</text>
+            <text x="100" y="18" text-anchor="middle" fill="#64748b" font-size="8">SC-2</text>
+            <text x="200" y="18" text-anchor="middle" fill="#64748b" font-size="8">SC-3</text>
+            <text x="250" y="18" text-anchor="middle" fill="#64748b" font-size="8">SC-4</text>
+            <text x="150" y="198" text-anchor="middle" fill="#EF4444" font-size="9" font-weight="bold">OUTFALL</text>
+          </svg>
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;">
+            <p>&bull; Flow always moves <strong>downstream</strong> toward outfall(s)</p>
+            <p>&bull; Gravity provides free, reliable, unidirectional energy</p>
+            <p>&bull; No redundancy &mdash; single path from source to outlet</p>
+            <p>&bull; Loops are physically unnecessary and economically wasteful</p>
+            <p>&bull; Kinematic Wave solver works (unidirectional flow)</p>
+          </div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="background:rgba(59,130,246,0.2);color:var(--epanet-blue);padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;border:1px solid rgba(59,130,246,0.4);">EPANET</span>
+            <span style="font-size:0.9rem;font-weight:700;color:var(--epanet-blue);">Looped (Grid) Network</span>
+          </div>
+          <svg viewBox="0 0 300 200" style="width:100%;height:160px;margin-bottom:12px;">
+            <circle cx="75" cy="40" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="150" cy="40" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="225" cy="40" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="75" cy="100" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="150" cy="100" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="225" cy="100" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="75" cy="160" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="150" cy="160" r="8" fill="#3B82F6" opacity="0.7"/>
+            <circle cx="225" cy="160" r="8" fill="#3B82F6" opacity="0.7"/>
+            <line x1="83" y1="40" x2="142" y2="40" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="158" y1="40" x2="217" y2="40" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="83" y1="100" x2="142" y2="100" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="158" y1="100" x2="217" y2="100" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="83" y1="160" x2="142" y2="160" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="158" y1="160" x2="217" y2="160" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="75" y1="48" x2="75" y2="92" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="150" y1="48" x2="150" y2="92" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="225" y1="48" x2="225" y2="92" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="75" y1="108" x2="75" y2="152" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="150" y1="108" x2="150" y2="152" stroke="#3B82F6" stroke-width="2"/>
+            <line x1="225" y1="108" x2="225" y2="152" stroke="#3B82F6" stroke-width="2"/>
+            <rect x="10" y="90" width="30" height="20" fill="#0EA5E9" rx="3"/>
+            <line x1="40" y1="100" x2="67" y2="100" stroke="#0EA5E9" stroke-width="3"/>
+            <text x="25" y="85" text-anchor="middle" fill="#0EA5E9" font-size="8" font-weight="bold">RES</text>
+            <rect x="260" y="30" width="25" height="20" fill="#10B981" rx="3"/>
+            <line x1="233" y1="40" x2="260" y2="40" stroke="#10B981" stroke-width="3"/>
+            <text x="273" y="24" text-anchor="middle" fill="#10B981" font-size="8" font-weight="bold">TANK</text>
+          </svg>
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;">
+            <p>&bull; Flow travels <strong>multiple paths</strong> from source to customer</p>
+            <p>&bull; Pumps can push water in any direction (omnidirectional)</p>
+            <p>&bull; Redundancy &mdash; if one pipe breaks, water reroutes</p>
+            <p>&bull; Loops are physically necessary (pumps fail, pipes break)</p>
+            <p>&bull; Gradient Algorithm solves simultaneous loop equations</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Root Cause: Why Each Topology Exists</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Factor</th><th style="color:var(--epanet-amber);">Drainage &rarr; Trees</th><th style="color:var(--epanet-blue);">Distribution &rarr; Loops</th></tr></thead>
+            <tbody>
+              <tr><td>Energy source</td><td>Gravity (free, reliable, unidirectional)</td><td>Pumps (expensive, can fail, omnidirectional)</td></tr>
+              <tr><td>Service obligation</td><td>Convey peak storm flow (intermittent)</td><td>Deliver water 24/7/365 (continuous)</td></tr>
+              <tr><td>Failure tolerance</td><td>Some flooding accepted during extreme events</td><td>Zero tolerance &mdash; service must never stop</td></tr>
+              <tr><td>Fire protection</td><td>Not applicable</td><td>Critical &mdash; 1,500+ GPM from multiple directions</td></tr>
+              <tr><td>Water quality</td><td>Managed at treatment plant (end of system)</td><td>Must be maintained throughout (chlorine everywhere)</td></tr>
+              <tr><td>Flow direction</td><td>Determined by gravity &mdash; essentially fixed</td><td>Determined by pressure gradient &mdash; changes continuously</td></tr>
+              <tr><td>Redundancy cost</td><td>Very high &mdash; parallel gravity pipes need deep excavation</td><td>Moderate &mdash; cross-connecting mains is straightforward</td></tr>
+              <tr><td>Dead ends</td><td>Normal (headwater laterals)</td><td>Vulnerability (stagnation, no alternate supply)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">When SWMM5 Networks DO Have Loops (Exceptions)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Dual Drainage</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Surface + underground flow paths run parallel and reconnect at inlets/manholes, creating a loop.</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Parallel Relief Sewer</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">New relief sewer built alongside an undersized original &mdash; both carry flow, split by hydraulics.</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">CSO Regulator</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Flow can go to interceptor or overflow to river &mdash; diversion creates a loop based on hydraulic conditions.</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-amber);margin-bottom:4px;">Interconnected Systems</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Older cities with decades of connections between neighborhoods creating unintentional loops.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Topology Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Aspect</th><th style="color:var(--epanet-amber);">SWMM5 (Collection)</th><th style="color:var(--epanet-blue);">EPANET (Distribution)</th></tr></thead>
+            <tbody>
+              <tr><td>Typical shape</td><td>Dendritic / tree</td><td>Looped / grid</td></tr>
+              <tr><td>Flow direction</td><td>Known a priori (downhill)</td><td>Computed from pressures (can reverse)</td></tr>
+              <tr><td>Solver</td><td>KW (downstream only) or DW</td><td>Gradient Algorithm (all loops)</td></tr>
+              <tr><td>Loops allowed?</td><td>DW only (backwater effects)</td><td>Always (fundamental design)</td></tr>
+              <tr><td>Pressure zones</td><td>N/A (gravity flow)</td><td>Separated by PRVs and pumps</td></tr>
+              <tr><td>Redundancy</td><td>None typical</td><td>Critical design requirement</td></tr>
+              <tr><td>Dead ends</td><td>Rare (everything flows out)</td><td>Common (cul-de-sacs &rarr; water age issues)</td></tr>
+              <tr><td>Flow reversal</td><td>Abnormal (system overwhelmed)</td><td>Normal operations (tank fill/drain cycles)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: DESIGN CRITERIA ===== -->
+  <div class="section" id="sec-designcrit">
+    <h2 class="section-title">Design Criteria: Collection vs Distribution</h2>
+    <p class="section-intro">Design criteria differ fundamentally because collection systems are <strong>gravity-driven</strong> (sizing for capacity at a target depth ratio) while distribution systems are <strong>pressure-driven</strong> (sizing for pressure at the critical node during peak + fire flow).</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Design Parameter Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Parameter</th><th style="color:var(--epanet-amber);">SWMM5 (Collection)</th><th style="color:var(--epanet-blue);">EPANET (Distribution)</th></tr></thead>
+            <tbody>
+              <tr><td>Pipe sizing target</td><td>d/D &le; 0.8 at design flow</td><td>Velocity 2-5 ft/s; pressure 40-80 psi</td></tr>
+              <tr><td>Minimum velocity</td><td>2.0 ft/s (self-cleansing)</td><td>0.5 ft/s (avoid stagnation / water age)</td></tr>
+              <tr><td>Maximum velocity</td><td>10-15 ft/s (prevent erosion)</td><td>5-8 ft/s (prevent erosion &amp; water hammer)</td></tr>
+              <tr><td>Minimum slope</td><td>Per diameter (Ten States Standards)</td><td>N/A (pressurized)</td></tr>
+              <tr><td>Minimum cover</td><td>3-5 ft typically</td><td>3-5 ft (freeze protection)</td></tr>
+              <tr><td>Design loading</td><td>2-yr to 100-yr storm</td><td>Max day demand + fire flow</td></tr>
+              <tr><td>Failure mode</td><td>Surcharge &rarr; flooding &rarr; CSO/SSO</td><td>Low pressure &rarr; no service &rarr; contamination</td></tr>
+              <tr><td>Critical check</td><td>d/D ratio, Froude number</td><td>Residual pressure, water age</td></tr>
+              <tr><td>Material spec</td><td>RCP, HDPE, VCP, PVC</td><td>DI, PVC, HDPE, AC (legacy)</td></tr>
+              <tr><td>Min pipe size</td><td>8 in (sanitary), 15 in (storm)</td><td>6 in (fire flow), 2 in (service)</td></tr>
+              <tr><td>Cross-sections</td><td>20+ shapes (circular, egg, horseshoe&hellip;)</td><td>Circular only, always full</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5 Failure Cascade</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem;color:var(--text-muted);">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--epanet-amber);display:inline-block;"></span>1. Storm exceeds design capacity</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--epanet-amber);display:inline-block;"></span>2. Pipes surcharge (d/D &gt; 1.0)</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:#F97316;display:inline-block;"></span>3. HGL rises above ground &rarr; manhole flooding</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:#F97316;display:inline-block;"></span>4. Street flooding / basement backup</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:#EF4444;display:inline-block;"></span>5. CSO/SSO &rarr; receiving water contamination</div>
+          </div>
+          <div class="vf-note" style="margin-top:12px;"><strong>Key insight:</strong> Failure propagates <em>upstream</em> through the tree. A bottleneck in the trunk sewer causes backwater in ALL upstream branches. Flooding occurs at the weakest point (shallowest junction), not necessarily near the bottleneck.</div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET Failure Cascade</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem;color:var(--text-muted);">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--epanet-blue);display:inline-block;"></span>1. Demand exceeds supply capacity</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--epanet-blue);display:inline-block;"></span>2. Pressure drops below 40 psi (low-pressure zone)</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:#F97316;display:inline-block;"></span>3. Pressure drops below 20 psi (inadequate fire flow)</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:#F97316;display:inline-block;"></span>4. Negative pressure &rarr; no service</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:#EF4444;display:inline-block;"></span>5. Contamination intrusion risk (backflow)</div>
+          </div>
+          <div class="vf-note" style="margin-top:12px;"><strong>Key insight:</strong> Failure radiates <em>outward</em> from the disruption, attenuating as alternate paths compensate. A pipe break affects a localized zone &mdash; loops provide hydraulic &ldquo;short circuits&rdquo; around it.</div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Failure Mode Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Characteristic</th><th style="color:var(--epanet-amber);">SWMM5 (Tree)</th><th style="color:var(--epanet-blue);">EPANET (Loop)</th></tr></thead>
+            <tbody>
+              <tr><td>Propagation direction</td><td>Upstream (backwater from bottleneck)</td><td>Outward (pressure drop from disruption)</td></tr>
+              <tr><td>Propagation extent</td><td>Entire upstream tree above bottleneck</td><td>Localized zone around disruption</td></tr>
+              <tr><td>Cascade behavior</td><td>Severe &mdash; one bottleneck affects all branches</td><td>Mild &mdash; loops provide alternate paths</td></tr>
+              <tr><td>Failure indicator</td><td>Depth exceeding maximum (binary: flood or not)</td><td>Pressure below minimum (continuous gradient)</td></tr>
+              <tr><td>Worst case scenario</td><td>Undersized trunk during extreme storm</td><td>Pipe break during fire during peak demand</td></tr>
+              <tr><td>Temporal nature</td><td>Transient &mdash; evolves during storm</td><td>Quasi-steady &mdash; new equilibrium quickly</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Pipe Properties Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Property</th><th style="color:var(--epanet-amber);">SWMM5 Conduit</th><th style="color:var(--epanet-blue);">EPANET Pipe</th></tr></thead>
+            <tbody>
+              <tr><td>Length</td><td>&check;</td><td>&check;</td></tr>
+              <tr><td>Roughness</td><td>Manning&rsquo;s n (or C/&epsilon; for force mains)</td><td>H-W C, D-W &epsilon;, or Manning&rsquo;s n</td></tr>
+              <tr><td>Shape</td><td>20+ options in [XSECTIONS]</td><td>Circular only (implicit)</td></tr>
+              <tr><td>Inlet/Outlet offset</td><td>&check; &mdash; pipe can be offset from junction invert</td><td>&cross; &mdash; no concept of offset</td></tr>
+              <tr><td>Entry/Exit loss</td><td>&check; (separate K_entry, K_exit, K_avg)</td><td>Combined as single K</td></tr>
+              <tr><td>Initial flow</td><td>&check; &mdash; can set initial depth/flow</td><td>&cross; &mdash; solver finds steady-state</td></tr>
+              <tr><td>Check valve</td><td>Flap gate (prevents reverse)</td><td>Status = CV (check valve pipe)</td></tr>
+              <tr><td>Flow divider</td><td>&check; at nodes (cutoff, overflow, tabular, weir)</td><td>&cross; &mdash; flow splits naturally by headloss</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: PATTERNS ===== -->
+  <div class="section" id="sec-patterns">
+    <h2 class="section-title">Diurnal Pattern Editor</h2>
+    <p class="section-intro">Both SWMM5 and EPANET use hourly multiplier patterns, but SWMM5 calls them <strong>DWF patterns</strong> (dry weather flow) while EPANET calls them <strong>demand patterns</strong>. The format is nearly identical &mdash; edit, compare, and export patterns here.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Load a Preset Pattern</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <button class="vf-valve-btn active" onclick="patLoadPreset('residential',this)" style="padding:6px 14px;">Residential</button>
+          <button class="vf-valve-btn" onclick="patLoadPreset('commercial',this)" style="padding:6px 14px;">Commercial</button>
+          <button class="vf-valve-btn" onclick="patLoadPreset('industrial',this)" style="padding:6px 14px;">Industrial</button>
+          <button class="vf-valve-btn" onclick="patLoadPreset('combined_wet',this)" style="padding:6px 14px;">Combined (Wet)</button>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">24-Hour Multiplier Pattern <span style="font-weight:400;color:var(--text-dim);font-size:0.75rem;">(click a bar to edit)</span></div>
+        <canvas id="patBarChart" height="240"></canvas>
+        <div id="patEditRow" style="display:none;margin-top:8px;align-items:center;gap:10px;padding:4px 8px;">
+          <span style="font-size:0.78rem;color:var(--text-muted);" id="patEditLabel">Hour 0:00 =</span>
+          <input type="number" id="patEditVal" step="0.05" min="0" max="5" value="0.5" oninput="patEditUpdate()" style="width:70px;padding:4px 8px;border-radius:6px;background:var(--bg-deep);border:1px solid var(--border);color:#fff;font-size:0.85rem;font-family:var(--font-mono);">
+          <button onclick="patEditDone()" style="font-size:0.75rem;color:var(--text-dim);background:none;border:none;cursor:pointer;">Done</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div class="vf-card" style="text-align:center;">
+          <div style="font-size:0.72rem;color:var(--text-dim);">Avg Multiplier</div>
+          <div id="patStatAvg" style="font-size:1.4rem;font-weight:700;color:var(--epanet-blue);">1.000</div>
+        </div>
+        <div class="vf-card" style="text-align:center;">
+          <div style="font-size:0.72rem;color:var(--text-dim);">Peak Factor</div>
+          <div id="patStatPeak" style="font-size:1.4rem;font-weight:700;color:var(--epanet-amber);">1.40x</div>
+        </div>
+        <div class="vf-card" style="text-align:center;">
+          <div style="font-size:0.72rem;color:var(--text-dim);">Peak Hour</div>
+          <div id="patStatHour" style="font-size:1.4rem;font-weight:700;color:var(--accent-green);">8:00</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5 [PATTERNS]</div>
+          <pre id="patSwmmExport" style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;"></pre>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET [PATTERNS]</div>
+          <pre id="patEpanetExport" style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;"></pre>
+        </div>
+      </div>
+
+      <div class="vf-note"><strong>Key difference:</strong> EPANET patterns are always <strong>cyclical</strong> (they repeat automatically). SWMM5 can use both repeating patterns and arbitrary time series. For event-based SWMM5 simulations, time series are more common than repeating patterns.</div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: CALIBRATION ===== -->
+  <div class="section" id="sec-calibration">
+    <h2 class="section-title">Calibration: Sequential Trees vs Simultaneous Meshes</h2>
+    <p class="section-intro">Calibration workflows differ fundamentally due to network topology. SWMM5 calibrates <strong>sequentially, branch by branch</strong> (upstream to downstream) in a tree. EPANET requires <strong>simultaneous whole-network optimization</strong> because changing one pipe&rsquo;s roughness redistributes flow through all loops.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5: Sequential Branch-by-Branch</div>
+          <pre style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">Step 1: Calibrate FURTHEST UPSTREAM subcatchments
+        Adjust: imperviousness, width, infiltration
+        These are INDEPENDENT of each other
+
+Step 2: Calibrate the COLLECTOR reach
+        Upstream inflows now correct
+        Adjust: Manning's n, add RDII if needed
+
+Step 3: Calibrate the TRUNK reach
+        All branches above are correct
+        Errors must be in trunk parameters
+
+Step 4: Verify at the OUTFALL
+        If flow matches → model calibrated</pre>
+          <div class="vf-note" style="margin-top:8px;">Errors are localized &mdash; wrong flow at Monitor A means problem is in Subcatchment A. Sensitivity is contained within the branch.</div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET: Simultaneous Optimization</div>
+          <pre style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">PROBLEM: Cannot calibrate Pipe 1 independently
+         Changing C in Pipe 1:
+         → More flow through Pipe 1
+         → Less flow through Pipe 2
+         → Pressures change EVERYWHERE
+         → Everything is coupled
+
+SOLUTION: Minimize Σ(P_model - P_measured)²
+          Adjust: C₁,C₂...Cₙ simultaneously
+          Plus: D₁,D₂...Dₘ (demands)
+          Subject to: EPANET equations satisfied</pre>
+          <div class="vf-note" style="margin-top:8px;">No sequential approach possible. Changing roughness of one pipe affects pressures several blocks away. Requires simultaneous nonlinear optimization.</div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Calibration Strategy Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Aspect</th><th style="color:var(--epanet-amber);">SWMM5 Calibration</th><th style="color:var(--epanet-blue);">EPANET Calibration</th></tr></thead>
+            <tbody>
+              <tr><td>Approach</td><td>Sequential, upstream to downstream</td><td>Simultaneous, whole-network optimization</td></tr>
+              <tr><td>Primary data</td><td>Flow/depth hydrographs at manholes</td><td>Pressure at hydrants, SCADA flows, tank levels</td></tr>
+              <tr><td>Key parameters</td><td>Imperviousness, infiltration, Manning&rsquo;s n</td><td>Pipe roughness C, junction demands</td></tr>
+              <tr><td>Independence</td><td>Branches calibrate independently</td><td>Everything coupled (non-local effects)</td></tr>
+              <tr><td>Gold standard test</td><td>Match flow hydrograph for multiple storms</td><td>Match pressure drop during fire flow test</td></tr>
+              <tr><td>Sensitivity</td><td>Local (changing A doesn&rsquo;t affect branch B)</td><td>Global (changing C in pipe 1 affects all pressures)</td></tr>
+              <tr><td>Automated tools</td><td>SRTC, PEST + SWMM5 (slow &mdash; minutes/run)</td><td>Darwin, PEST + EPANET (fast &mdash; seconds/run)</td></tr>
+              <tr><td>Difficulty</td><td>High (nonlinear hydrology + many params)</td><td>Moderate (primarily roughness adjustment)</td></tr>
+              <tr><td>Equifinality risk</td><td>High (multiple param combos give similar results)</td><td>Moderate (fire flow tests break ties)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">EPANET Calibration Strategies</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">Fire Flow Tests</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Open hydrant, measure Q and pressure drop. Since Q, D, L are known, only unknown is C. Gold standard.</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">C-Factor Grouping</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Group pipes by material + age + diameter. Calibrate group C-factors (5-10 unknowns vs hundreds).</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">Tank Level Matching</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Compare modeled vs measured tank levels over 24-48 hrs. Integrates entire system behavior.</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--epanet-blue);">District Metered Areas</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Meter all entry/exit points. Net flow = total demand. Nighttime minimum &asymp; leakage.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: SKELETONIZATION ===== -->
+  <div class="section" id="sec-skeleton">
+    <h2 class="section-title">Model Skeletonization</h2>
+    <p class="section-intro">Large distribution networks can have 100,000+ pipes. Skeletonization simplifies the model by removing small-diameter pipes while preserving hydraulic behavior &mdash; a concept <strong>far more important in EPANET</strong> than SWMM5.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Skeletonization Simulator</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Original Pipes:</span>
+              <input type="range" id="skelOrigPipes" min="100" max="50000" value="10000" step="100" oninput="skelUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valSkelOrig">10000</span>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Min Diameter (in):</span>
+              <input type="range" id="skelMinDia" min="2" max="12" value="6" step="1" oninput="skelUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valSkelDia">6</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="vf-card" style="text-align:center;padding:12px;">
+              <div style="font-size:0.72rem;color:var(--text-dim);">Removed</div>
+              <div id="skelRemoved" style="font-size:1.4rem;font-weight:700;color:var(--accent-red);">48%</div>
+            </div>
+            <div class="vf-card" style="text-align:center;padding:12px;">
+              <div style="font-size:0.72rem;color:var(--text-dim);">Remaining Pipes</div>
+              <div id="skelRemaining" style="font-size:1.4rem;font-weight:700;color:var(--accent-green);">5,200</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Skeletonization Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Aspect</th><th style="color:var(--epanet-amber);">SWMM5</th><th style="color:var(--epanet-blue);">EPANET</th></tr></thead>
+            <tbody>
+              <tr><td>Need for skeletonization</td><td>Moderate (1,000-5,000 typical)</td><td>High (10,000-200,000 pipes)</td></tr>
+              <tr><td>What gets removed</td><td>Small lateral sewers</td><td>Small distribution mains (&lt;6&rdquo;)</td></tr>
+              <tr><td>Demand redistribution</td><td>Lateral inflows merged at collector</td><td>Demands reassigned to nearest remaining junction</td></tr>
+              <tr><td>Hydraulic impact</td><td>Minimal (laterals carry little flow)</td><td>Moderate (must adjust demands and pipe equivalents)</td></tr>
+              <tr><td>Common minimum</td><td>12&rdquo; for trunk-only models</td><td>6-8&rdquo; for fire flow models, 12&rdquo; for planning</td></tr>
+              <tr><td>GIS tools</td><td>PCSWMM auto-length</td><td>WaterGEMS Skelebrator, InfoWater</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: SCADA ===== -->
+  <div class="section" id="sec-scada">
+    <h2 class="section-title">SCADA &amp; Real-Time Control</h2>
+    <p class="section-intro">Both models support rule-based control with remarkably similar syntax. The control rule syntax is nearly identical &mdash; a SWMM5 modeler can read EPANET rules almost immediately. But each model has unique capabilities the other lacks.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5 [CONTROLS]</div>
+          <pre style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(245,158,11,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">[CONTROLS]
+RULE R1
+IF NODE Tank1 DEPTH > 10
+THEN PUMP Pump1 STATUS = OFF
+
+RULE R2
+IF NODE Tank1 DEPTH < 3
+AND SIMULATION TIME > 01:00:00
+THEN PUMP Pump1 STATUS = ON</pre>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET [RULES] + [CONTROLS]</div>
+          <pre style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(59,130,246,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">[CONTROLS]
+LINK Pump1 OPEN IF NODE Tank1 BELOW 3
+LINK Pump1 CLOSED IF NODE Tank1 ABOVE 10
+
+[RULES]
+RULE 1
+IF TANK Tank1 LEVEL ABOVE 10
+THEN PUMP Pump1 STATUS IS CLOSED
+
+RULE 2
+IF TANK Tank1 LEVEL BELOW 3
+AND CLOCKTIME >= 1 AM
+THEN PUMP Pump1 STATUS IS OPEN</pre>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Control Keyword Mapping</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Concept</th><th style="color:var(--epanet-amber);">SWMM5</th><th style="color:var(--epanet-blue);">EPANET</th></tr></thead>
+            <tbody>
+              <tr><td>Water level</td><td style="font-family:var(--font-mono);">DEPTH</td><td style="font-family:var(--font-mono);">LEVEL</td></tr>
+              <tr><td>Turn on</td><td style="font-family:var(--font-mono);">STATUS = ON</td><td style="font-family:var(--font-mono);">STATUS IS OPEN</td></tr>
+              <tr><td>Turn off</td><td style="font-family:var(--font-mono);">STATUS = OFF</td><td style="font-family:var(--font-mono);">STATUS IS CLOSED</td></tr>
+              <tr><td>Speed/setting</td><td style="font-family:var(--font-mono);">SETTING = value</td><td style="font-family:var(--font-mono);">SETTING IS value</td></tr>
+              <tr><td>Time reference</td><td style="font-family:var(--font-mono);">SIMULATION TIME</td><td style="font-family:var(--font-mono);">TIME or CLOCKTIME</td></tr>
+              <tr><td>Priority</td><td style="font-family:var(--font-mono);">PRIORITY value</td><td style="font-family:var(--font-mono);">PRIORITY value</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET Can Do (SWMM5 Can&rsquo;t)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem;color:var(--text-muted);">
+            <div>&bull; Valve setpoint control (change PRV/PSV pressure settings)</div>
+            <div>&bull; Variable-speed pump control (adjust speed ratio)</div>
+            <div>&bull; Pipe status control (open/close pipes based on conditions)</div>
+            <div>&bull; Pattern-based controls (link to time patterns)</div>
+          </div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5 Can Do (EPANET Can&rsquo;t)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem;color:var(--text-muted);">
+            <div>&bull; Control based on flow magnitude (IF LINK C1 FLOW &gt; 5.0)</div>
+            <div>&bull; Control based on node depth (varies continuously)</div>
+            <div>&bull; Modulated controls (orifice/weir continuously adjusted)</div>
+            <div>&bull; PID control logic for gates and weirs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: INTEROP ===== -->
+  <div class="section" id="sec-interop">
+    <h2 class="section-title">Model Interoperability</h2>
+    <p class="section-intro">Many real water/wastewater systems need <strong>both</strong> models. The collection system (SWMM5) delivers to treatment, and effluent enters the distribution system (EPANET). Understanding the handoff points is critical.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Integrated Water System Workflow</div>
+        <svg viewBox="0 0 600 150" style="width:100%;height:130px;">
+          <rect x="5" y="20" width="180" height="110" rx="8" fill="rgba(245,158,11,0.06)" stroke="rgba(245,158,11,0.25)" stroke-width="1.5"/>
+          <text x="95" y="15" text-anchor="middle" fill="#F59E0B" font-size="10" font-weight="bold">SWMM5 Domain</text>
+          <rect x="15" y="40" width="60" height="25" rx="4" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.4)"/>
+          <text x="45" y="57" text-anchor="middle" fill="#F59E0B" font-size="8">Subcatch</text>
+          <rect x="15" y="80" width="60" height="25" rx="4" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.4)"/>
+          <text x="45" y="97" text-anchor="middle" fill="#F59E0B" font-size="8">Sewers</text>
+          <rect x="110" y="60" width="65" height="30" rx="4" fill="rgba(245,158,11,0.3)" stroke="rgba(245,158,11,0.5)"/>
+          <text x="142" y="78" text-anchor="middle" fill="#F59E0B" font-size="8" font-weight="bold">Outfall</text>
+          <line x1="75" y1="52" x2="110" y2="72" stroke="rgba(245,158,11,0.4)" stroke-width="1.5"/>
+          <line x1="75" y1="92" x2="110" y2="78" stroke="rgba(245,158,11,0.4)" stroke-width="1.5"/>
+          <rect x="210" y="45" width="100" height="50" rx="8" fill="rgba(16,185,129,0.1)" stroke="rgba(16,185,129,0.4)" stroke-width="1.5"/>
+          <text x="260" y="72" text-anchor="middle" fill="#10B981" font-size="9" font-weight="bold">Treatment</text>
+          <text x="260" y="85" text-anchor="middle" fill="rgba(16,185,129,0.5)" font-size="7">WWTP / WTP</text>
+          <line x1="175" y1="75" x2="210" y2="70" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowInterop)"/>
+          <rect x="340" y="20" width="250" height="110" rx="8" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.25)" stroke-width="1.5"/>
+          <text x="465" y="15" text-anchor="middle" fill="#3B82F6" font-size="10" font-weight="bold">EPANET Domain</text>
+          <rect x="350" y="45" width="65" height="30" rx="4" fill="rgba(59,130,246,0.3)" stroke="rgba(59,130,246,0.5)"/>
+          <text x="382" y="64" text-anchor="middle" fill="#3B82F6" font-size="8" font-weight="bold">Reservoir</text>
+          <rect x="440" y="35" width="55" height="25" rx="4" fill="rgba(59,130,246,0.2)" stroke="rgba(59,130,246,0.4)"/>
+          <text x="467" y="52" text-anchor="middle" fill="#3B82F6" font-size="8">Pipes</text>
+          <rect x="440" y="70" width="55" height="25" rx="4" fill="rgba(59,130,246,0.2)" stroke="rgba(59,130,246,0.4)"/>
+          <text x="467" y="87" text-anchor="middle" fill="#3B82F6" font-size="8">Demands</text>
+          <rect x="520" y="50" width="55" height="25" rx="4" fill="rgba(59,130,246,0.2)" stroke="rgba(59,130,246,0.4)"/>
+          <text x="548" y="67" text-anchor="middle" fill="#3B82F6" font-size="8">Tanks</text>
+          <line x1="310" y1="70" x2="350" y2="60" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowInterop)"/>
+          <line x1="415" y1="60" x2="440" y2="48" stroke="rgba(59,130,246,0.4)" stroke-width="1.5"/>
+          <line x1="415" y1="60" x2="440" y2="82" stroke="rgba(59,130,246,0.4)" stroke-width="1.5"/>
+          <line x1="495" y1="48" x2="520" y2="62" stroke="rgba(59,130,246,0.4)" stroke-width="1.5"/>
+          <defs>
+            <marker id="arrowInterop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Integration Points</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Integration Point</th><th>How It Works</th><th>Key Data Transfer</th></tr></thead>
+            <tbody>
+              <tr><td>SWMM5 outfall &rarr; EPANET reservoir</td><td>Outfall flow becomes EPANET source input</td><td>Flow time series &rarr; demand or source pattern</td></tr>
+              <tr><td>Treatment plant effluent</td><td>WTP clearwell modeled as EPANET reservoir</td><td>Effluent quality &rarr; source concentration</td></tr>
+              <tr><td>CSO impact on source water</td><td>CSO discharge near WTP intake</td><td>Pollutant loads &rarr; source water quality</td></tr>
+              <tr><td>Pump station boundary</td><td>SWMM5 force main &rarr; EPANET pump station</td><td>Flow rate, TDH, energy</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Commercial Integrated Platforms</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+          <div style="padding:10px;border-radius:8px;background:rgba(30,41,59,0.4);border:1px solid var(--border);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">InfoWorks ICM</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">Full collection + distribution in one model</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(30,41,59,0.4);border:1px solid var(--border);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">MIKE+</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">MIKE URBAN combines both domains</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(30,41,59,0.4);border:1px solid var(--border);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">PCSWMM / SWMM5+</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">SWMM5 + EPANET under one GIS interface</div>
+          </div>
+          <div style="padding:10px;border-radius:8px;background:rgba(30,41,59,0.4);border:1px solid var(--border);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">Innovyze Suite</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">InfoSWMM + InfoWater in ArcGIS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: GIS ===== -->
+  <div class="section" id="sec-gis">
+    <h2 class="section-title">GIS Integration</h2>
+    <p class="section-intro">Both SWMM5 and EPANET use identical [COORDINATES] formats &mdash; simply X, Y pairs for each node. GIS integration is handled entirely by third-party tools, not the engines themselves.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">GIS Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>GIS Aspect</th><th style="color:var(--epanet-amber);">SWMM5</th><th style="color:var(--epanet-blue);">EPANET</th></tr></thead>
+            <tbody>
+              <tr><td>Native GIS</td><td>None (coordinates only)</td><td>None (coordinates only)</td></tr>
+              <tr><td>Common GIS tools</td><td>PCSWMM, ICM, XPSWMM, QGIS plugin</td><td>WaterGEMS, WaterCAD, QGIS plugin</td></tr>
+              <tr><td>Elevation source</td><td>LiDAR for inverts, rim elevations</td><td>DEM for junction elevation</td></tr>
+              <tr><td>Key GIS data</td><td>Land use, soil, pipe survey, inverts</td><td>Pipe records, billing, DEM, pressure zone boundaries</td></tr>
+              <tr><td>Coordinate section</td><td style="font-family:var(--font-mono);">[COORDINATES] &mdash; same format!</td><td style="font-family:var(--font-mono);">[COORDINATES] &mdash; same format!</td></tr>
+              <tr><td>Polygon data</td><td>[POLYGONS] for subcatchments</td><td>N/A (no subcatchments)</td></tr>
+              <tr><td>Typical CRS</td><td>State Plane / UTM</td><td>State Plane / UTM</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5 GIS Data Needs</div>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--text-muted);">
+            <div>&bull; LiDAR &rarr; manhole rim &amp; invert elevations</div>
+            <div>&bull; Land use &rarr; impervious %, roughness n</div>
+            <div>&bull; Soil survey &rarr; infiltration parameters</div>
+            <div>&bull; CCTV records &rarr; pipe condition, I/I sources</div>
+            <div>&bull; Rain gauge network &rarr; precipitation input</div>
+            <div>&bull; DWF allocations from billing/census data</div>
+          </div>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET GIS Data Needs</div>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--text-muted);">
+            <div>&bull; Pipe records &rarr; diameter, material, install year &rarr; C-factor</div>
+            <div>&bull; DEM &rarr; junction ground/service elevation</div>
+            <div>&bull; Meter/billing data &rarr; demand allocation</div>
+            <div>&bull; Pressure zone boundaries &rarr; PRV/pump locations</div>
+            <div>&bull; Hydrant locations &rarr; fire flow analysis nodes</div>
+            <div>&bull; Tank/reservoir locations &rarr; boundary conditions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: REPORTING ===== -->
+  <div class="section" id="sec-reporting">
+    <h2 class="section-title">Reporting &amp; Output</h2>
+    <p class="section-intro">Both models produce .rpt text summary files and .out binary output files, but the contents differ to match each model&rsquo;s domain &mdash; SWMM5 reports continuity and flooding; EPANET reports energy and pressure.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Output Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Output</th><th style="color:var(--epanet-amber);">SWMM5</th><th style="color:var(--epanet-blue);">EPANET</th></tr></thead>
+            <tbody>
+              <tr><td>Report file</td><td>.rpt &mdash; text summary + detailed tables</td><td>.rpt &mdash; text summary + node/link tables</td></tr>
+              <tr><td>Binary output</td><td>.out &mdash; time-indexed binary</td><td>.out &mdash; time-indexed binary</td></tr>
+              <tr><td>Continuity check</td><td>Runoff + routing volume balance (%)</td><td>System flow balance (total in vs. out)</td></tr>
+              <tr><td>Node outputs</td><td>Depth, head, volume, flooding, quality</td><td>Demand, head, pressure, quality</td></tr>
+              <tr><td>Link outputs</td><td>Flow, velocity, depth, d/D, Froude</td><td>Flow, velocity, headloss, status</td></tr>
+              <tr><td>Special reports</td><td>LID performance, storage utilization</td><td>Energy report (kWh, cost, efficiency/pump)</td></tr>
+              <tr><td>Acceptable error</td><td>Continuity &lt; 1-2% for each component</td><td>System balance &lt; 1-2%</td></tr>
+              <tr><td>Status messages</td><td>Routing errors, instabilities</td><td>Negative pressures, disconnected nodes</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-amber);margin-bottom:8px;">SWMM5 .rpt Key Sections</div>
+          <pre style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(245,158,11,0.6);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">** Runoff Quantity Continuity **
+  Total Precipitation ..  3.200 in
+  Evaporation Loss .....  0.042 in
+  Infiltration Loss ....  1.285 in
+  Surface Runoff .......  1.854 in
+  Continuity Error (%)..  0.59
+
+** Flow Routing Continuity **
+  Dry Weather Inflow ...  2.156 MG
+  Wet Weather Inflow ...  4.832 MG
+  Flooding Loss ........  0.052 MG
+  Routing Error (%) ...  0.23</pre>
+        </div>
+        <div class="vf-card" style="border-color:rgba(59,130,246,0.3);">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--epanet-blue);margin-bottom:8px;">EPANET .rpt Key Sections</div>
+          <pre style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(59,130,246,0.6);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">** System Flow Balance **
+  Total Produced ....... 4.56 MGD
+  Total Consumed ....... 4.49 MGD
+  System Leakage ....... 0.00 MGD
+
+** Energy Usage **
+  Pump   Pct Util  Avg Eff  kWh/MG  Cost/day
+  Pump1   85.42    76.3     421.2   $130.42
+  Pump2   42.17    71.8     488.7   $55.78
+
+  Total Cost/day: $186.20</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: PIPE AGING ===== -->
+  <div class="section" id="sec-aging">
+    <h2 class="section-title">Pipe Aging &amp; Condition Assessment</h2>
+    <p class="section-intro">Pipe aging affects both models differently: EPANET sees <strong>lower C-factor &rarr; higher headloss &rarr; lower pressures</strong>. SWMM5 sees <strong>higher Manning&rsquo;s n &rarr; reduced capacity &rarr; earlier surcharging</strong>.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Pipe Material &amp; Age Simulator</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+              <button class="vf-valve-btn active" onclick="agingSelectMat('cast_iron',this)" style="padding:4px 10px;font-size:0.72rem;">Cast Iron (Unlined)</button>
+              <button class="vf-valve-btn" onclick="agingSelectMat('ductile_iron',this)" style="padding:4px 10px;font-size:0.72rem;">Ductile Iron</button>
+              <button class="vf-valve-btn" onclick="agingSelectMat('pvc',this)" style="padding:4px 10px;font-size:0.72rem;">PVC</button>
+              <button class="vf-valve-btn" onclick="agingSelectMat('concrete',this)" style="padding:4px 10px;font-size:0.72rem;">Concrete / RCP</button>
+              <button class="vf-valve-btn" onclick="agingSelectMat('hdpe',this)" style="padding:4px 10px;font-size:0.72rem;">HDPE</button>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Pipe Age (years):</span>
+              <input type="range" id="agingAge" min="0" max="100" value="40" step="1" oninput="agingUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valAgingAge">40</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="vf-card" style="text-align:center;padding:12px;border-color:rgba(59,130,246,0.3);">
+              <div style="font-size:0.72rem;color:var(--epanet-blue);">EPANET C-Factor</div>
+              <div id="agingC" style="font-size:1.6rem;font-weight:700;color:var(--epanet-blue);">93</div>
+              <div id="agingCRange" style="font-size:0.72rem;color:var(--text-dim);">New: 130 &rarr; Min: 50</div>
+            </div>
+            <div class="vf-card" style="text-align:center;padding:12px;border-color:rgba(245,158,11,0.3);">
+              <div style="font-size:0.72rem;color:var(--epanet-amber);">SWMM5 Manning&rsquo;s n</div>
+              <div id="agingN" style="font-size:1.6rem;font-weight:700;color:var(--epanet-amber);">0.0168</div>
+              <div id="agingNRange" style="font-size:0.72rem;color:var(--text-dim);">New: 0.012 &rarr; Max: 0.020</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Roughness Degradation Over Time</div>
+        <canvas id="agingChart" height="280"></canvas>
+      </div>
+
+      <div class="vf-note"><strong>Friction direction confusion:</strong> Manning&rsquo;s n and H-W C move in <strong>opposite directions</strong> for the same physical change (pipe deterioration). As pipes age: n goes UP (higher = rougher), C goes DOWN (lower = rougher). This trips up everyone crossing between the two models.</div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: TRANSIENT ===== -->
+  <div class="section" id="sec-transient">
+    <h2 class="section-title">Transient Analysis &amp; Water Hammer</h2>
+    <p class="section-intro">Pressure transients (water hammer) can destroy pipes. EPANET is <strong>steady-state/EPS only</strong> &mdash; transient analysis requires HAMMER, AFT Impulse, or similar. SWMM5&rsquo;s dynamic wave captures free-surface transients but NOT pressure wave propagation.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">Joukowsky Water Hammer Calculator</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Steady-State Velocity (ft/s):</span>
+              <input type="range" id="trVelocity" min="0.5" max="10" value="4" step="0.5" oninput="trUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valTrVel">4.0</span>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Wave Celerity (ft/s):</span>
+              <input type="range" id="trCelerity" min="1000" max="4500" value="3200" step="100" oninput="trUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valTrCel">3200</span>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Pipe Length (ft):</span>
+              <input type="range" id="trLength" min="500" max="20000" value="5000" step="500" oninput="trUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valTrLen">5000</span>
+            </div>
+            <div class="vf-slider-row">
+              <span class="vf-slider-label">Valve Closure Time (sec):</span>
+              <input type="range" id="trClosure" min="0.5" max="30" value="5" step="0.5" oninput="trUpdate()" style="flex:1;">
+              <span class="vf-slider-val" id="valTrClose">5.0</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="vf-card" style="text-align:center;padding:12px;">
+              <div style="font-size:0.72rem;color:var(--text-dim);">Joukowsky &Delta;H</div>
+              <div id="trDeltaH" style="font-size:1.6rem;font-weight:700;color:var(--accent-red);">397.5</div>
+              <div style="font-size:0.72rem;color:var(--text-dim);">ft of head</div>
+              <div id="trDeltaPsi" style="font-size:0.85rem;font-weight:600;color:var(--accent-red);margin-top:4px;">172.1 psi</div>
+            </div>
+            <div class="vf-card" style="text-align:center;padding:12px;">
+              <div style="font-size:0.72rem;color:var(--text-dim);">Critical Time (2L/a)</div>
+              <div id="trCritTime" style="font-size:1.6rem;font-weight:700;color:var(--epanet-blue);">3.13</div>
+              <div style="font-size:0.72rem;color:var(--text-dim);">seconds</div>
+              <div id="trClosureType" style="font-size:0.85rem;font-weight:600;margin-top:4px;color:var(--accent-green);">&check; Slow closure</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:0.85rem;text-align:center;padding:12px;margin-top:8px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:var(--text-muted);">
+          &Delta;H = a &middot; V / g = <span id="trFormula" style="color:var(--accent-red);font-weight:700;">3200 &times; 4.0 / 32.2 = 397.5 ft</span>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Transient Analysis Comparison</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Transient Type</th><th style="color:var(--epanet-amber);">SWMM5 Dynamic Wave</th><th>Dedicated Transient Solver</th></tr></thead>
+            <tbody>
+              <tr><td>Wave type</td><td>Free-surface / Preissmann slot</td><td>Pressure wave (Method of Characteristics)</td></tr>
+              <tr><td>Wave speed</td><td>&radic;(gA/T) &asymp; 1-15 ft/s</td><td>a &asymp; 1,000-4,500 ft/s (acoustic)</td></tr>
+              <tr><td>Time step</td><td>0.5-30 sec typical</td><td>0.001-0.01 sec (Courant on &lsquo;a&rsquo;)</td></tr>
+              <tr><td>Captures</td><td>Surcharge, backwater, flooding</td><td>Water hammer, column separation, surge</td></tr>
+              <tr><td>Tools</td><td>SWMM5 DW, ICM, MIKE+</td><td>HAMMER, AFT Impulse, Hytran</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="vf-note"><strong>Preissmann Slot:</strong> SWMM5 uses a fictitious narrow slot at the top of the pipe to maintain a virtual free surface during surcharge. The slot width is tiny (e.g., 0.0004 ft for a 48&rdquo; pipe), giving a &ldquo;celerity&rdquo; far slower than a true acoustic pressure wave. So SWMM5 cannot model water hammer &mdash; only free-surface transients.</div>
     </div>
   </div>
 
@@ -7349,6 +8264,276 @@ Daily  0.6 0.5</div>
   updateValveSim();
   updateFireFlow();
   updatePumpEnergy();
+
+  // =====================================================
+  // === DEMAND ALLOCATION TAB ===
+  // =====================================================
+  var dmPdaChart = null;
+  function dmSelectMethod(method) {
+    var methods = ['unitLength', 'serviceConn', 'landUse', 'meterData'];
+    methods.forEach(function(m) {
+      var el = document.getElementById('dm-method-' + m);
+      if (!el) return;
+      if (m === method) {
+        el.style.borderColor = 'rgba(56,189,248,0.4)';
+        el.style.background = 'rgba(56,189,248,0.08)';
+      } else {
+        el.style.borderColor = 'var(--border)';
+        el.style.background = 'rgba(30,41,59,0.4)';
+      }
+    });
+  }
+  function dmUpdatePDA() {
+    var normalP = parseFloat(document.getElementById('dmNormalP').value);
+    document.getElementById('valDmNormalP').textContent = normalP;
+    var labels = [], pdaData = [], ddaData = [];
+    for (var p = 0; p <= 80; p += 1) {
+      labels.push(p);
+      var pda = p <= 0 ? 0 : p >= normalP ? 100 : Math.pow(p / normalP, 0.5) * 100;
+      pdaData.push(parseFloat(pda.toFixed(1)));
+      ddaData.push(100);
+    }
+    var ctx = document.getElementById('dmPdaChart');
+    if (!ctx) return;
+    if (dmPdaChart) dmPdaChart.destroy();
+    dmPdaChart = new Chart(ctx.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'PDA (Pressure-Dependent)', data: pdaData, borderColor: '#3B82F6', borderWidth: 2.5, pointRadius: 0, fill: false, tension: 0.3 },
+          { label: 'DDA (Always 100%)', data: ddaData, borderColor: '#F59E0B', borderWidth: 2, pointRadius: 0, borderDash: [6, 4], fill: false }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+        scales: {
+          x: { title: { display: true, text: 'Junction Pressure (psi)', color: '#94a3b8' }, ticks: { color: '#64748b', maxTicksLimit: 9 }, grid: { color: 'rgba(30,45,74,0.3)' } },
+          y: { title: { display: true, text: '% of Demand Met', color: '#94a3b8' }, ticks: { color: '#64748b' }, grid: { color: 'rgba(30,45,74,0.3)' }, min: 0, max: 110 }
+        }
+      }
+    });
+  }
+
+  // =====================================================
+  // === PATTERN EDITOR TAB ===
+  // =====================================================
+  var patChart = null;
+  var patEditHour = null;
+  var patPresets = {
+    residential: [0.5,0.4,0.35,0.35,0.4,0.6,0.9,1.3,1.4,1.3,1.2,1.1,1.0,0.95,0.9,0.95,1.1,1.3,1.4,1.3,1.1,0.9,0.7,0.6],
+    commercial:  [0.2,0.15,0.15,0.15,0.2,0.3,0.5,0.8,1.2,1.5,1.6,1.5,1.4,1.5,1.6,1.5,1.3,1.1,0.8,0.5,0.3,0.25,0.2,0.2],
+    industrial:  [0.7,0.7,0.7,0.7,0.7,0.7,0.9,1.1,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.1,0.9,0.7,0.7,0.7,0.7,0.7,0.7],
+    combined_wet:[0.6,0.5,0.45,0.45,0.5,0.7,1.0,1.4,1.5,1.4,1.3,2.5,3.0,2.8,2.0,1.5,1.3,1.4,1.5,1.4,1.2,1.0,0.8,0.7]
+  };
+  var patData = patPresets.residential.slice();
+  function patLoadPreset(key, btn) {
+    patData = patPresets[key].slice();
+    if (btn) {
+      btn.closest('.vf-card').querySelectorAll('.vf-valve-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    }
+    patRender();
+  }
+  function patRender() {
+    var ctx = document.getElementById('patBarChart');
+    if (!ctx) return;
+    var labels = [];
+    for (var i = 0; i < 24; i++) labels.push(i + ':00');
+    if (patChart) patChart.destroy();
+    patChart = new Chart(ctx.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'Multiplier', data: patData.slice(), backgroundColor: 'rgba(59,130,246,0.6)', borderColor: '#3B82F6', borderWidth: 1, borderRadius: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: function(e, elements) {
+          if (elements.length > 0) {
+            patEditHour = elements[0].index;
+            document.getElementById('patEditLabel').textContent = 'Hour ' + patEditHour + ':00 =';
+            document.getElementById('patEditVal').value = patData[patEditHour];
+            document.getElementById('patEditRow').style.display = 'flex';
+          }
+        },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(30,45,74,0.3)' } },
+          y: { title: { display: true, text: 'Multiplier', color: '#94a3b8' }, ticks: { color: '#64748b' }, grid: { color: 'rgba(30,45,74,0.3)' }, min: 0 }
+        }
+      }
+    });
+    patUpdateStats();
+    patUpdateExport();
+  }
+  function patEditUpdate() {
+    if (patEditHour === null) return;
+    patData[patEditHour] = parseFloat(document.getElementById('patEditVal').value) || 0;
+    patRender();
+  }
+  function patEditDone() {
+    patEditHour = null;
+    document.getElementById('patEditRow').style.display = 'none';
+  }
+  function patUpdateStats() {
+    var sum = patData.reduce(function(a, b) { return a + b; }, 0);
+    var avg = sum / 24;
+    var peak = Math.max.apply(null, patData);
+    var peakHr = patData.indexOf(peak);
+    var el1 = document.getElementById('patStatAvg');
+    var el2 = document.getElementById('patStatPeak');
+    var el3 = document.getElementById('patStatHour');
+    if (el1) el1.textContent = avg.toFixed(3);
+    if (el2) el2.textContent = (peak / avg).toFixed(2) + 'x';
+    if (el3) el3.textContent = peakHr + ':00';
+  }
+  function patUpdateExport() {
+    var swmm = '[PATTERNS]\n;;Name           Type       Multipliers\n;;-------------- ---------- -----------\n';
+    var epa = '[PATTERNS]\n;ID              Multipliers\n';
+    for (var r = 0; r < 4; r++) {
+      var row = patData.slice(r * 6, r * 6 + 6).map(function(v) { return v.toFixed(2); }).join('  ');
+      swmm += (r === 0 ? 'Diurnal          HOURLY     ' : 'Diurnal                     ') + row + '\n';
+      epa += 'Diurnal          ' + row + '\n';
+    }
+    var el1 = document.getElementById('patSwmmExport');
+    var el2 = document.getElementById('patEpanetExport');
+    if (el1) el1.textContent = swmm;
+    if (el2) el2.textContent = epa;
+  }
+
+  // =====================================================
+  // === SKELETONIZATION TAB ===
+  // =====================================================
+  function skelUpdate() {
+    var origPipes = parseInt(document.getElementById('skelOrigPipes').value);
+    var minDia = parseInt(document.getElementById('skelMinDia').value);
+    document.getElementById('valSkelOrig').textContent = origPipes.toLocaleString();
+    document.getElementById('valSkelDia').textContent = minDia;
+    var removedPct = Math.min(95, Math.max(0, (minDia - 2) * 12));
+    var remaining = Math.round(origPipes * (1 - removedPct / 100));
+    document.getElementById('skelRemoved').textContent = removedPct + '%';
+    document.getElementById('skelRemaining').textContent = remaining.toLocaleString();
+  }
+
+  // =====================================================
+  // === PIPE AGING TAB ===
+  // =====================================================
+  var agingChartInstance = null;
+  var agingMaterials = {
+    cast_iron:   { name: 'Cast Iron (Unlined)', cNew: 130, cMin: 50,  nNew: 0.012, nMax: 0.020, halfLife: 40 },
+    ductile_iron:{ name: 'Ductile Iron',        cNew: 140, cMin: 90,  nNew: 0.011, nMax: 0.016, halfLife: 60 },
+    pvc:         { name: 'PVC',                  cNew: 150, cMin: 140, nNew: 0.009, nMax: 0.011, halfLife: 100 },
+    concrete:    { name: 'Concrete / RCP',       cNew: 130, cMin: 80,  nNew: 0.013, nMax: 0.018, halfLife: 50 },
+    hdpe:        { name: 'HDPE',                 cNew: 150, cMin: 145, nNew: 0.009, nMax: 0.010, halfLife: 100 }
+  };
+  var agingCurrentMat = 'cast_iron';
+  function agingSelectMat(key, btn) {
+    agingCurrentMat = key;
+    if (btn) {
+      btn.closest('.vf-card').querySelectorAll('.vf-valve-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    }
+    agingUpdate();
+  }
+  function agingUpdate() {
+    var mat = agingMaterials[agingCurrentMat];
+    var age = parseInt(document.getElementById('agingAge').value);
+    document.getElementById('valAgingAge').textContent = age;
+    var frac = 1 - Math.exp(-age / mat.halfLife);
+    var currentC = Math.round(mat.cNew - (mat.cNew - mat.cMin) * frac);
+    var currentN = (mat.nNew + (mat.nMax - mat.nNew) * frac).toFixed(4);
+    document.getElementById('agingC').textContent = currentC;
+    document.getElementById('agingN').textContent = currentN;
+    document.getElementById('agingCRange').textContent = 'New: ' + mat.cNew + ' \u2192 Min: ' + mat.cMin;
+    document.getElementById('agingNRange').textContent = 'New: ' + mat.nNew + ' \u2192 Max: ' + mat.nMax;
+    var years = [], cVals = [], nVals = [];
+    for (var yr = 0; yr <= 100; yr += 2) {
+      var f = 1 - Math.exp(-yr / mat.halfLife);
+      years.push(yr);
+      cVals.push(Math.round(mat.cNew - (mat.cNew - mat.cMin) * f));
+      nVals.push(parseFloat((mat.nNew + (mat.nMax - mat.nNew) * f).toFixed(4)));
+    }
+    var ctx = document.getElementById('agingChart');
+    if (!ctx) return;
+    if (agingChartInstance) agingChartInstance.destroy();
+    agingChartInstance = new Chart(ctx.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [
+          { label: 'H-W C-Factor (EPANET)', data: cVals, borderColor: '#3B82F6', borderWidth: 2.5, pointRadius: 0, fill: false, yAxisID: 'yC' },
+          { label: "Manning's n (SWMM5)", data: nVals, borderColor: '#F59E0B', borderWidth: 2.5, pointRadius: 0, fill: false, yAxisID: 'yN' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 10 } } },
+          annotation: { annotations: { ageLine: { type: 'line', xMin: age, xMax: age, borderColor: '#94a3b8', borderDash: [4, 4], borderWidth: 1, label: { display: true, content: age + ' yr', position: 'start', color: '#94a3b8', font: { size: 9 } } } } }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Pipe Age (years)', color: '#94a3b8' }, ticks: { color: '#64748b' }, grid: { color: 'rgba(30,45,74,0.3)' } },
+          yC: { type: 'linear', position: 'left', title: { display: true, text: 'H-W C', color: '#3B82F6' }, ticks: { color: '#3B82F6' }, grid: { color: 'rgba(30,45,74,0.3)' } },
+          yN: { type: 'linear', position: 'right', title: { display: true, text: "Manning's n", color: '#F59E0B' }, ticks: { color: '#F59E0B' }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  }
+
+  // =====================================================
+  // === TRANSIENT CALCULATOR TAB ===
+  // =====================================================
+  function trUpdate() {
+    var V = parseFloat(document.getElementById('trVelocity').value);
+    var a = parseFloat(document.getElementById('trCelerity').value);
+    var L = parseFloat(document.getElementById('trLength').value);
+    var tc = parseFloat(document.getElementById('trClosure').value);
+    document.getElementById('valTrVel').textContent = V.toFixed(1);
+    document.getElementById('valTrCel').textContent = a;
+    document.getElementById('valTrLen').textContent = L;
+    document.getElementById('valTrClose').textContent = tc.toFixed(1);
+    var critTime = (2 * L / a);
+    var isSudden = tc < critTime;
+    var dH = (a * V / 32.2);
+    var dPsi = dH * 0.433;
+    document.getElementById('trDeltaH').textContent = dH.toFixed(1);
+    document.getElementById('trDeltaPsi').textContent = dPsi.toFixed(1) + ' psi';
+    document.getElementById('trCritTime').textContent = critTime.toFixed(2);
+    var closureEl = document.getElementById('trClosureType');
+    if (isSudden) {
+      closureEl.innerHTML = '\u26A0\uFE0F SUDDEN CLOSURE';
+      closureEl.style.color = 'var(--accent-red)';
+    } else {
+      closureEl.innerHTML = '\u2713 Slow closure';
+      closureEl.style.color = 'var(--accent-green)';
+    }
+    document.getElementById('trFormula').textContent = '\u0394H = ' + a + ' \u00D7 ' + V.toFixed(1) + ' / 32.2 = ' + dH.toFixed(1) + ' ft';
+  }
+
+  // =====================================================
+  // === INIT NEW TABS ON TAB ACTIVATION ===
+  // =====================================================
+  var newTabsInitialized = {};
+  function initNewTabOnActivation(tabName) {
+    if (newTabsInitialized[tabName]) return;
+    newTabsInitialized[tabName] = true;
+    switch (tabName) {
+      case 'demand': dmUpdatePDA(); break;
+      case 'patterns': patLoadPreset('residential', null); break;
+      case 'skeleton': skelUpdate(); break;
+      case 'aging': agingUpdate(); break;
+      case 'transient': trUpdate(); break;
+    }
+  }
+
+  var origActivateTab = activateTab;
+  activateTab = function(tab) {
+    origActivateTab(tab);
+    var tabName = tab.getAttribute('data-tab');
+    initNewTabOnActivation(tabName);
+  };
 
   // =====================================================
   // === URL HASH STATE — Persistence & Restore ===

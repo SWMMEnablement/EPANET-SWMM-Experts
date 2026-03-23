@@ -1,0 +1,87 @@
+A Note on the Treatment Expression Editor
+
+I am uncertain why a SWMM5-specific treatment expression builder appears in a document whose title and stated purpose is "EPANET for SWMM5 Experts." The flow of the document is from SWMM to EPANET. This tool goes the opposite direction without clearly explaining its relevance.
+
+It is as if I had included, in a guide to teaching oneself Latin from a knowledge of Greek, an interactive tool for declining Greek nouns. Useful, perhaps, but not obviously connected to the stated pedagogical goal.
+
+If the tool belongs here, it should be explicitly connected to the broader theme: "Here is what SWMM5 can do with water quality that EPANET cannot, and here is the tool for doing it."
+
+
+
+What Is Missing
+
+1. A Worked Verification Problem
+
+The document lacks a "proof is in the pudding" moment: a simple network modeled in both systems, with results that can be verified by hand calculation and shown to agree.
+
+Consider: a single pipe, 1000 feet long, 12-inch diameter, conveying 500 GPM. Compute headloss by hand using Hazen-Williams. Show the EPANET output matches. Then show the equivalent SWMM5 force main configuration produces the same headloss.
+
+This is the most powerful pedagogical device available: the moment when the reader sees, with their own eyes, that the translation actually works. Its absence is the most significant missing piece in an otherwise thorough work.
+
+2. A Table of Common Modeling Errors and Their Symptoms
+
+The "Gotchas" section is good as far as it goes. But a comprehensive table of the form:
+
+
+
+
+
+
+
+Symptom
+
+
+
+Likely Cause
+
+
+
+Fix
+
+
+
+
+
+Negative pressure at node
+
+
+
+Inadequate source head
+
+
+
+Check reservoir elevation, add pump
+
+
+
+
+
+System unbalanced
+
+
+
+Zero-length pipe, pump off curve
+
+
+
+Check pipe lengths, verify pump data
+
+
+
+
+
+Continuity error > 1%
+
+
+
+Courant violation
+
+
+
+Reduce timestep or lengthen short pipes
+
+…would be more immediately useful to the practicing engineer than prose descriptions.
+
+3. A Brief History
+
+The document would benefit from a short section on the historical development of both tools: when SWMM was created (1971, by me and others at EPA and the University of Florida), when EPANET followed (1993, by Rossman), and why both were placed in the public domain. Understanding the origins of these tools helps the user understand their design philosophies.

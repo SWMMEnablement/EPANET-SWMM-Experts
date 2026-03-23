@@ -1343,7 +1343,7 @@ Chart.register({
         <rect x="40" y="195" width="270" height="75" rx="8" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="1"/>
         <text x="175" y="214" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono, Consolas, monospace" font-size="10">1D Saint-Venant Equations</text>
         <text x="175" y="232" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="9">∂A/∂t + ∂Q/∂x = q</text>
-        <text x="175" y="248" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="9">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf = 0</text>
+        <text x="175" y="248" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="9">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x = gA·(S₀−Sf)</text>
         <text x="175" y="264" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono, Consolas, monospace" font-size="7">Sf from Manning: (nQ/1.49AR²ᐟ³)²</text>
         <rect x="390" y="195" width="270" height="75" rx="8" fill="rgba(245,158,11,0.06)" stroke="rgba(245,158,11,0.2)" stroke-width="1"/>
         <text x="525" y="210" text-anchor="middle" fill="#f59e0b" font-family="JetBrains Mono, Consolas, monospace" font-size="10">Hazen-Williams (empirical)</text>
@@ -1748,6 +1748,11 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
             <p><strong>1. Hazen-Williams</strong> (default, most common in US practice) — empirical, only valid for water at normal temperatures. Roughness = C coefficient.</p>
             <p><strong>2. Darcy-Weisbach</strong> (theoretically correct — the only headloss formula derived from dimensional analysis and the Navier-Stokes equations, not an empirical curve fit) — uses friction factor from the Moody diagram via Colebrook-White. Roughness = ε (pipe wall roughness height in mm or ft). Unlike H-W, D-W is valid for any fluid, any temperature, any pipe size, and any Reynolds number. H-W and Manning are empirical fits valid over limited ranges of Re, diameter (~3&Prime; to ~72&Prime; for H-W), and temperature (~60°F water). For anything outside those ranges, D-W is the only defensible choice.</p>
             <p><strong>3. Chezy-Manning</strong> — yes, your old friend! Uses Manning's n. EPANET applies it to full-pipe flow. So if you really want, you can use Manning's n in EPANET and feel right at home.</p>
+            <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:8px;padding:14px;margin-top:12px;">
+              <p style="font-size:0.85rem;color:var(--text-bright);font-weight:600;margin-bottom:6px;">Why does H-W persist if D-W is theoretically superior?</p>
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px;">The answer is largely historical. Allen Hazen and Gardner Williams published their formula in 1902 — decades before Lewis Moody's 1944 diagram made friction factor calculation practical. In an era of slide rules and nomographs, H-W's direct relationship between C, diameter, and headloss was a major computational convenience. That convenience became institutionalized: textbooks taught it, agencies specified it, databases were built around C values, and regulatory frameworks encoded it into design standards.</p>
+              <p style="font-size:0.82rem;color:var(--text-muted);">Engineers do not cling to H-W out of ignorance. They use it because it works well enough for typical municipal water at ambient temperatures in common pipe sizes (3&Prime;–72&Prime;), and because their entire professional ecosystem — calibrated models, utility records, design manuals — is built around C values. For most drinking water distribution work, H-W's limitations rarely matter. But when they do matter (non-ambient temperature, unusual fluids, extreme pipe sizes, laminar or transitional flow), there is no workaround — D-W is the only defensible choice.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -5979,7 +5984,7 @@ THEN PUMP Pump1 STATUS IS OPEN</pre>
 
       <div class="ref-note" style="margin-bottom:16px;">
         <strong style="color:var(--text-bright);">Truth 2: Conservation of Momentum (St. Venant / Shallow Water)</strong>
-        <div class="ref-eq" style="margin:8px 0;">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x + gA·S<sub>f</sub> − gA·S₀ = 0</div>
+        <div class="ref-eq" style="margin:8px 0;">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x = gA·(S₀ − S<sub>f</sub>)</div>
         <ul style="margin:8px 0 0;padding-left:20px;font-size:0.85rem;color:var(--text-muted);">
           <li><code style="color:var(--accent-cyan);">∂Q/∂t</code> = local acceleration (absent in EPANET entirely)</li>
           <li><code style="color:var(--accent-cyan);">∂(Q²/A)/∂x</code> = convective acceleration (absent in EPANET)</li>
@@ -6831,7 +6836,13 @@ STEP 4: Compare
       <h4>16.1 Dr. Lewis A. Rossman and EPANET</h4>
       <p>Dr. Rossman, an environmental engineer at EPA's Water Supply and Water Resources Division in Cincinnati, authored EPANET and the EPANET 2 Users Manual, and is recognized as the program's original creator.</p>
       <p>EPANET first appeared in the early 1990s as a research tool to understand hydraulic and water-quality behavior in drinking water distribution systems, quickly becoming a de facto global standard.</p>
-      <p>Community colleagues have noted that he wrote EPANET "from scratch," with a well-organized codebase that others could understand, modify, and recompile — an important precursor to later open-source collaboration.</p>
+      <p>His contribution was not merely the writing of EPANET. It was three deliberate decisions that shaped the field:</p>
+      <ul style="font-size:0.85rem;color:var(--text-muted);padding-left:20px;margin:8px 0 12px;">
+        <li><strong>Public domain release</strong> — placing the code in the public domain rather than licensing it, enabling unrestricted academic and commercial use worldwide.</li>
+        <li><strong>Thorough documentation</strong> — the EPANET 2 Users Manual remains a model of clarity, with worked examples that allow practitioners to verify their understanding against hand calculations.</li>
+        <li><strong>Modular architecture</strong> — building the codebase in a well-organized, readable structure that others could understand, modify, and recompile, creating the foundation for subsequent community development.</li>
+      </ul>
+      <p>This combination — open code, clear documentation, extensible architecture — is a model of scientific software development that deserves explicit acknowledgment.</p>
 
       <h4>16.2 Transition to Community Open Source</h4>
       <p>After more than 30 years of service at EPA, Lew announced his retirement effective April 1, 2014, which the EPANET user community marked as the end of an era for EPA-led development.</p>
@@ -6839,8 +6850,7 @@ STEP 4: Compare
       <p>EPA's later release of EPANET 2.2.0 explicitly recognized this new model as a collaboration between EPA and the community developers organized via OWA.</p>
 
       <h4>16.3 Legacy</h4>
-      <p>Today's open, community-based EPANET development flows directly from Lew's original work at EPA and the decision to release EPANET into the public domain.</p>
-      <div class="ref-note"><strong>On the dedication:</strong> The statement "Every pressurized pipe model in the world traces back to his work" is a powerful tribute. As a strict factual claim it overreaches (since other proprietary and academic engines have independent roots), but as a dedication it effectively conveys his outsized influence on distribution system modeling practice worldwide.</div>
+      <p>EPANET became the foundation for virtually all subsequent academic and commercial water distribution modeling. Today's open, community-based development flows directly from Lew's original work and his decision to place the code in the public domain.</p>
     </div>
 
   </div>
@@ -6852,7 +6862,7 @@ STEP 4: Compare
     EPANET for SWMM5 Experts · <a href="https://www.swmm5.org" target="_blank">SWMM5.org</a> · <a href="https://www.linkedin.com/in/robertdickinson/" target="_blank">LinkedIn</a> · <span style="opacity:0.6;">v1.0 · March 2026</span>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(30,45,74,0.5);max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6;color:var(--text-muted);font-family:var(--font-body);font-size:0.82rem;">
       <strong style="color:var(--epanet-glow);">Dedicated to Dr. Lewis A. Rossman</strong><br>
-      Creator of EPANET at the US EPA (1991–2014). After 30+ years of service, Lew retired in April 2014 — prompting EPA's transition to community-based open source development through Open Water Analytics. Every pressurized pipe model in the world traces back to his work.
+      Creator of EPANET at the US EPA (1991–2014). After 30+ years of service, Lew retired in April 2014 — prompting EPA's transition to community-based open source development through Open Water Analytics. His decisions to release the code into the public domain, document it thoroughly, and build it in a modular structure that others could extend created the foundation for virtually all subsequent water distribution modeling.
     </div>
   </div>
 </div>
@@ -9792,7 +9802,7 @@ Daily  0.6 0.5</div>
 <h2>16.1 Dr. Lewis A. Rossman and EPANET</h2>
 <p>Dr. Rossman, an environmental engineer at EPA's Water Supply and Water Resources Division in Cincinnati, authored EPANET and the EPANET 2 Users Manual, and is recognized as the program's original creator.</p>
 <p>EPANET first appeared in the early 1990s as a research tool to understand hydraulic and water-quality behavior in drinking water distribution systems, quickly becoming a de facto global standard.</p>
-<p>Community colleagues have noted that he wrote EPANET "from scratch," with a well-organized codebase that others could understand, modify, and recompile — an important precursor to later open-source collaboration.</p>
+<p>His contribution was not merely the writing of EPANET. It was three deliberate decisions that shaped the field: placing the code in the public domain rather than licensing it; documenting it thoroughly with worked examples; and building it in a modular, readable structure that permitted subsequent extension and modification. This combination is a model of scientific software development.</p>
 
 <h2>16.2 Transition to Community Open Source</h2>
 <p>After more than 30 years of service at EPA, Lew announced his retirement effective April 1, 2014, which the EPANET user community marked as the end of an era for EPA-led development.</p>
@@ -9800,8 +9810,7 @@ Daily  0.6 0.5</div>
 <p>EPA's later release of EPANET 2.2.0 explicitly recognized this new model as a collaboration between EPA and the community developers organized via OWA.</p>
 
 <h2>16.3 Legacy</h2>
-<p>Today's open, community-based EPANET development flows directly from Lew's original work at EPA and the decision to release EPANET into the public domain.</p>
-<div class="note"><strong>On the dedication:</strong> The statement "Every pressurized pipe model in the world traces back to his work" is a powerful tribute. As a strict factual claim it overreaches (since other proprietary and academic engines have independent roots), but as a dedication it effectively conveys his outsized influence on distribution system modeling practice worldwide.</div>
+<p>EPANET became the foundation for virtually all subsequent academic and commercial water distribution modeling. Today's open, community-based development flows directly from Lew's original work and his decision to place the code in the public domain.</p>
 
 <div class="footer-doc">
   EPANET for SWMM5 Experts — Equations & Code Reference · v1.0 · March 2026<br>

@@ -3711,6 +3711,89 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
         </div>
       </div>
     </div>
+    <details style="margin-bottom:20px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.9rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">EPANET-MSX vs SWMM5 Water Quality &mdash; The Full Picture</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+
+        <h4 style="color:var(--text-primary);margin:0 0 8px;">The Fundamental Distinction</h4>
+        <p>They serve different domains and different problems. SWMM5 models collection systems (storm/sanitary sewers) with gravity-driven, partially full pipes &mdash; water <em>enters</em> via rainfall/runoff. EPANET-MSX models distribution systems (drinking water) with pressure-driven, always full pipes &mdash; water <em>leaves</em> via demand/consumption.</p>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">What EPANET-MSX Is</h4>
+        <p>EPANET-MSX (Multi-Species eXtension) is an add-on to EPANET that allows modeling of <strong>multiple interacting chemical and biological species</strong> simultaneously. Standard EPANET can only model a single constituent per simulation (chlorine decay OR water age OR source tracing). MSX removes this limitation, enabling:</p>
+        <ul style="padding-left:18px;margin:6px 0;">
+          <li>Auto-decomposition of chloramines to ammonia</li>
+          <li>Formation of disinfection byproducts (DBPs)</li>
+          <li>Biological regrowth and nitrification dynamics</li>
+          <li>Combined reaction rate constants in multi-source systems</li>
+          <li>Mass transfer limited oxidation and pipe wall adsorption reactions</li>
+        </ul>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">How They&rsquo;re Similar</h4>
+        <p>Both solve the <strong>advection-reaction equation</strong>: Transport + Reaction = Concentration Change. Both track parcels of water as they move through pipes (Lagrangian approach), assume complete mixing at junctions, and allow user-defined reaction kinetics.</p>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Where Reactions Happen &mdash; The Key Difference</h4>
+        <table class="map-table" style="font-size:0.8rem;">
+          <thead><tr><th style="color:var(--text-primary);">Location</th><th>SWMM5</th><th>EPANET-MSX</th></tr></thead>
+          <tbody>
+            <tr><td>Subcatchments</td><td>Buildup/washoff equations</td><td>Not applicable</td></tr>
+            <tr><td>Pipes</td><td>First-order decay only</td><td>Arbitrary reaction kinetics (bulk + wall)</td></tr>
+            <tr><td>Nodes</td><td>Treatment expressions (C = f(...))</td><td>Complete mixing only (no treatment)</td></tr>
+            <tr><td>Tanks</td><td>Complete mixing</td><td>Multiple mixing models + reactions</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:8px;">SWMM5&rsquo;s treatment expressions are the rough equivalent of what MSX provides for pipes &mdash; arbitrary mathematical expressions that define how concentrations change. But SWMM5 applies them at <em>nodes</em>, while MSX applies reaction kinetics <em>along pipes</em> and <em>at pipe walls</em>.</p>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Example: Modeling Chlorine Decay</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;padding:10px;">
+            <div style="color:var(--epanet-amber);font-weight:600;font-size:0.78rem;margin-bottom:6px;">Standard EPANET</div>
+            <code style="font-size:0.75rem;color:var(--text-muted);white-space:pre-wrap;">K<sub>b</sub> = -1.0 /day
+K<sub>w</sub> = -0.5 ft/day
+dC/dt = K<sub>b</sub>&middot;C</code>
+            <div style="font-size:0.75rem;margin-top:6px;color:var(--text-dim);">Single constituent only</div>
+          </div>
+          <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:6px;padding:10px;">
+            <div style="color:#a78bfa;font-weight:600;font-size:0.78rem;margin-bottom:6px;">EPANET-MSX</div>
+            <code style="font-size:0.75rem;color:var(--text-muted);white-space:pre-wrap;">Cl2, NH2Cl, NCl3
+Rate_Cl2 = -K<sub>b</sub>&middot;Cl2
+Rate_NH2Cl = -K<sub>d</sub>&middot;NH2Cl
+  - K<sub>react</sub>&middot;NH2Cl&middot;Cl2</code>
+            <div style="font-size:0.75rem;margin-top:6px;color:var(--text-dim);">Coupled multi-species reactions</div>
+          </div>
+          <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:10px;">
+            <div style="color:var(--swmm-glow);font-weight:600;font-size:0.78rem;margin-bottom:6px;">SWMM5</div>
+            <code style="font-size:0.75rem;color:var(--text-muted);white-space:pre-wrap;">Pollutant: Chlorine
+Decay coeff only
+No wall reactions
+No coupled species</code>
+            <div style="font-size:0.75rem;margin-top:6px;color:var(--text-dim);">Wrong tool for this job</div>
+          </div>
+        </div>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Why MSX Was Needed</h4>
+        <p>Standard EPANET cannot handle: (1) multiple sources with different decay rates &mdash; when water from two treatment plants blends, EPANET uses a single bulk decay coefficient for all water; (2) complex reaction pathways &mdash; DBP formation from chlorine reacting with organic matter involves multiple coupled reactions; (3) temperature-dependent kinetics &mdash; reaction rates vary significantly between summer and winter. MSX overcomes these by allowing users to define arbitrary reaction networks in a text file.</p>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Capability Summary</h4>
+        <table class="map-table" style="font-size:0.8rem;">
+          <thead><tr><th style="color:var(--text-primary);">Capability</th><th>SWMM5 WQ</th><th>EPANET</th><th>EPANET-MSX</th></tr></thead>
+          <tbody>
+            <tr><td>Multiple species simultaneously</td><td style="color:var(--accent-green);">&check; Native</td><td style="color:var(--accent-red);">&cross;</td><td style="color:var(--accent-green);">&check;</td></tr>
+            <tr><td>Buildup/washoff from land</td><td style="color:var(--accent-green);">&check;</td><td style="color:var(--accent-red);">&cross;</td><td style="color:var(--accent-red);">&cross;</td></tr>
+            <tr><td>Node treatment expressions</td><td style="color:var(--accent-green);">&check;</td><td style="color:var(--accent-red);">&cross;</td><td style="color:var(--accent-red);">&cross;</td></tr>
+            <tr><td>Bulk reactions in pipes</td><td>1st-order only</td><td>1st-order only</td><td style="color:var(--accent-green);">Arbitrary</td></tr>
+            <tr><td>Wall reactions</td><td style="color:var(--accent-red);">&cross;</td><td>1st-order only</td><td style="color:var(--accent-green);">Arbitrary</td></tr>
+            <tr><td>Tank mixing models</td><td>Complete mix</td><td>4 models</td><td>4 models + reactions</td></tr>
+            <tr><td>Coupled reaction networks</td><td style="color:var(--accent-red);">&cross;</td><td style="color:var(--accent-red);">&cross;</td><td style="color:var(--accent-green);">&check;</td></tr>
+            <tr><td style="font-weight:600;">Best for</td><td>Stormwater, wastewater</td><td>Simple chlorine/age</td><td>Complex distribution chemistry</td></tr>
+          </tbody>
+        </table>
+
+        <div class="ref-note" style="margin-top:12px;">
+          <strong>Bottom line:</strong> SWMM5 water quality and EPANET-MSX are complementary, not competing, tools. Use SWMM5 when rainfall drives the system and you care about pollutants washing off land surfaces. Use EPANET-MSX when you need to track multiple interacting chemical species in a drinking water distribution system. They share the same underlying transport mathematics (advection through pipes, mixing at junctions), but serve completely different engineering domains.
+        </div>
+      </div>
+    </details>
+
     <h3 style="font-size:1.05rem;margin-bottom:8px;">SWMM5 Treatment Expression Editor</h3>
     <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px;">Visual expression builder with live simulation. SWMM5 treatment expressions set effluent concentration (<code style="color:var(--accent-green)">C = f(...)</code>) or fractional removal (<code style="color:var(--accent-green)">R = f(...)</code>) at any node. Build, test, and export expressions with instant feedback.</p>
     <p style="font-size:0.82rem;color:var(--accent-yellow);margin-bottom:16px;"><strong>Why is a SWMM5 tool in an EPANET guide?</strong> Because understanding what SWMM5 can do with water quality that EPANET cannot is essential context for the SWMM expert. EPANET&rsquo;s simpler reaction model (bulk/wall decay coefficients) cannot express the node-based, multi-pollutant treatment logic below. Knowing this boundary helps you decide when EPANET-MSX or a different tool is needed.</p>

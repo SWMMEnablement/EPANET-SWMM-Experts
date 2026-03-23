@@ -249,6 +249,7 @@
   .nav-tabs {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 10px;
     margin-bottom: 32px;
     padding-bottom: 4px;
@@ -258,6 +259,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 4px;
   }
 
@@ -288,6 +290,22 @@
   }
 
   .nav-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+  .rq-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    transition: all 0.2s;
+  }
+  .rq-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .rq-btn.selected { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: var(--epanet-blue); }
+  .rq-btn.correct { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.12); color: var(--accent-green); }
+  .rq-btn.wrong { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.12); color: #ef4444; }
 
   .nav-tab.active {
     background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(245,158,11,0.15));
@@ -2070,6 +2088,36 @@ Solve using sparse Cholesky factorization →
       </div>
     </div>
 
+    <div class="vf-card" style="border-color:rgba(245,158,11,0.3);">
+      <div class="vf-card-title" style="color:var(--epanet-amber);">Interactive CFL Calculator</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">Check if your SWMM5 timestep is stable. Enter pipe properties below &mdash; the calculator computes the maximum stable timestep and shows whether your current setting is safe.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:0.68rem;color:var(--text-dim);display:block;margin-bottom:4px;">Pipe Length (ft)</label>
+          <input type="number" id="cflLength" value="200" min="1" step="10" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+        </div>
+        <div>
+          <label style="font-size:0.68rem;color:var(--text-dim);display:block;margin-bottom:4px;">Flow Velocity (ft/s)</label>
+          <input type="number" id="cflVelocity" value="5" min="0.1" step="0.5" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+        </div>
+        <div>
+          <label style="font-size:0.68rem;color:var(--text-dim);display:block;margin-bottom:4px;">Wave Celerity (ft/s)</label>
+          <input type="number" id="cflCelerity" value="15" min="1" step="1" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:0.68rem;color:var(--text-dim);display:block;margin-bottom:4px;">Your Timestep (seconds)</label>
+          <input type="number" id="cflTimestep" value="30" min="0.1" step="1" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+        </div>
+        <div>
+          <label style="font-size:0.68rem;color:var(--text-dim);display:block;margin-bottom:4px;">Flow Depth Ratio (d/D)</label>
+          <input type="number" id="cflDepthRatio" value="0.5" min="0.05" max="1.0" step="0.05" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+        </div>
+      </div>
+      <div id="cflResult" style="padding:14px;border-radius:8px;background:rgba(15,23,42,0.5);border:1px solid var(--border);font-family:var(--font-mono);font-size:0.72rem;"></div>
+    </div>
+
     <div class="vf-card" style="border-color:rgba(16,185,129,0.3);">
       <div class="vf-card-title" style="color:var(--accent-green);">Solver Choice Summary: 3 Options vs 1</div>
       <pre style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(16,185,129,0.7);white-space:pre;overflow-x:auto;background:rgba(15,23,42,0.5);padding:10px;border-radius:6px;">SWMM5: 3 SOLVER OPTIONS
@@ -2825,6 +2873,47 @@ Pump1   WetWell FM-1    PumpCurve1</div>
       <div class="insight-label">⚠️ For SWMM Veterans</div>
       <h3>The conversion is approximate — and that's OK</h3>
       <p>Because Manning's and Hazen-Williams use different exponents for both hydraulic radius (2/3 vs 0.63) and friction slope (0.5 vs 0.54), no single n value perfectly matches a given C across all flow conditions. The chart above shows this divergence. SWMM5 handles this correctly by using H-W directly during force main routing — the equivalent n is only for initialization and display purposes.</p>
+    </div>
+
+    <div class="vf-card" style="border-color:rgba(16,185,129,0.3);margin-top:20px;">
+      <div class="vf-card-title" style="color:var(--accent-green);">Roughness Direction Trainer</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:14px;">Test your intuition about Manning&rsquo;s n vs Hazen-Williams C. For each scenario, predict what happens to each parameter. Click your answer for each row.</div>
+      <div id="roughnessQuiz">
+        <div id="rqQuestion" style="padding:14px;border-radius:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);margin-bottom:14px;font-size:0.82rem;font-weight:600;color:var(--text-primary);"></div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table" style="margin-bottom:14px;">
+            <thead><tr><th>Parameter</th><th style="cursor:pointer;">Increases</th><th style="cursor:pointer;">Decreases</th><th style="cursor:pointer;">No Change</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:600;">Manning&rsquo;s n</td>
+                <td><button class="rq-btn" data-param="n" data-choice="up" onclick="rqAnswer(this)">&#x2191;</button></td>
+                <td><button class="rq-btn" data-param="n" data-choice="down" onclick="rqAnswer(this)">&#x2193;</button></td>
+                <td><button class="rq-btn" data-param="n" data-choice="same" onclick="rqAnswer(this)">&rarr;</button></td>
+              </tr>
+              <tr><td style="font-weight:600;">H-W C factor</td>
+                <td><button class="rq-btn" data-param="c" data-choice="up" onclick="rqAnswer(this)">&#x2191;</button></td>
+                <td><button class="rq-btn" data-param="c" data-choice="down" onclick="rqAnswer(this)">&#x2193;</button></td>
+                <td><button class="rq-btn" data-param="c" data-choice="same" onclick="rqAnswer(this)">&rarr;</button></td>
+              </tr>
+              <tr><td style="font-weight:600;">Headloss</td>
+                <td><button class="rq-btn" data-param="hl" data-choice="up" onclick="rqAnswer(this)">&#x2191;</button></td>
+                <td><button class="rq-btn" data-param="hl" data-choice="down" onclick="rqAnswer(this)">&#x2193;</button></td>
+                <td><button class="rq-btn" data-param="hl" data-choice="same" onclick="rqAnswer(this)">&rarr;</button></td>
+              </tr>
+              <tr><td style="font-weight:600;">Velocity</td>
+                <td><button class="rq-btn" data-param="v" data-choice="up" onclick="rqAnswer(this)">&#x2191;</button></td>
+                <td><button class="rq-btn" data-param="v" data-choice="down" onclick="rqAnswer(this)">&#x2193;</button></td>
+                <td><button class="rq-btn" data-param="v" data-choice="same" onclick="rqAnswer(this)">&rarr;</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="rqFeedback" style="padding:12px;border-radius:8px;font-family:var(--font-mono);font-size:0.72rem;display:none;"></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;">
+          <button id="rqCheck" onclick="rqCheckAnswers()" style="padding:8px 20px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);cursor:pointer;font-family:var(--font-mono);font-size:0.78rem;">Check Answers</button>
+          <button id="rqNext" onclick="rqNextQuestion()" style="padding:8px 20px;border-radius:6px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.1);color:var(--epanet-blue);cursor:pointer;font-family:var(--font-mono);font-size:0.78rem;">Next Question</button>
+          <span id="rqScore" style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);margin-left:auto;"></span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -4438,6 +4527,23 @@ Chlorine maintained. No stagnation. No complaints.</pre>
         <div class="vf-note" style="margin-top:10px;">Every exception involves <strong>failure</strong> (surcharge), <strong>pressure</strong> (pumps), <strong>external forcing</strong> (tides), or <strong>human intervention</strong> (interconnections). None involves gravity spontaneously creating a loop.</div>
       </div>
 
+      <div class="vf-card" style="border-color:rgba(16,185,129,0.3);">
+        <div class="vf-card-title" style="color:var(--accent-green);">Interactive Failure Propagation Simulator</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;">Click any pipe to &ldquo;break&rdquo; it and watch how failure propagates differently in a tree (SWMM5) vs a looped (EPANET) network. The tree shows upstream cascade; the loop shows pressure redistribution.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:0.68rem;color:var(--epanet-amber);text-align:center;margin-bottom:4px;font-weight:600;">TREE (SWMM5) &mdash; Click a pipe</div>
+            <canvas id="failTreeCanvas" width="380" height="280" style="width:100%;border-radius:8px;background:#0d1117;border:1px solid var(--border);cursor:pointer;"></canvas>
+          </div>
+          <div>
+            <div style="font-size:0.68rem;color:var(--epanet-blue);text-align:center;margin-bottom:4px;font-weight:600;">LOOP (EPANET) &mdash; Click a pipe</div>
+            <canvas id="failLoopCanvas" width="380" height="280" style="width:100%;border-radius:8px;background:#0d1117;border:1px solid var(--border);cursor:pointer;"></canvas>
+          </div>
+        </div>
+        <div id="failSimResult" style="padding:10px;border-radius:8px;background:rgba(15,23,42,0.5);border:1px solid var(--border);font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);text-align:center;">Click any pipe segment to simulate a break</div>
+        <button onclick="resetFailSim()" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Reset Simulation</button>
+      </div>
+
       <div class="vf-card">
         <div class="vf-card-title">Topology Comparison</div>
         <div style="overflow-x:auto;">
@@ -4866,6 +4972,60 @@ SOLUTION: Minimize Σ(P_model - P_measured)²
             <div style="font-size:0.82rem;font-weight:700;color:var(--epanet-blue);">5. Automated Optimization</div>
             <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">Formulate as: Minimize &Sigma;w<sub>i</sub>&middot;(P<sub>model,i</sub> &minus; P<sub>measured,i</sub>)&sup2; with decision variables = C-factor per group + demand multiplier per zone. Solve with GA, Levenberg-Marquardt, SCE, or Bayesian methods. <strong>EPANET runs in seconds</strong>, so thousands of iterations in minutes. This is a <em>huge</em> advantage over SWMM5 calibration where each run takes minutes to hours.</div>
           </div>
+        </div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(16,185,129,0.3);">
+        <div class="vf-card-title" style="color:var(--accent-green);">Calibration Strategy Advisor</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">Answer a few questions about your network and the advisor will recommend the best calibration approach, expected accuracy, and step-by-step workflow.</div>
+        <div id="calAdvisor">
+          <div id="calQ" style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px;">1. Network type</label>
+              <select id="calType" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+                <option value="tree">Predominantly tree / dendritic (SWMM5)</option>
+                <option value="loop">Predominantly looped / grid (EPANET)</option>
+                <option value="mixed">Mixed (some loops, some branches)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px;">2. Number of monitoring points</label>
+              <select id="calMonitors" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+                <option value="few">1-5 monitors</option>
+                <option value="moderate">6-20 monitors</option>
+                <option value="many">20+ monitors or SCADA</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px;">3. Available data types</label>
+              <select id="calData" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+                <option value="flow">Flow only</option>
+                <option value="flowdepth">Flow + depth/level</option>
+                <option value="pressure">Pressure only</option>
+                <option value="pressuretank">Pressure + tank levels</option>
+                <option value="fireflow">Fire flow test data available</option>
+                <option value="all">Comprehensive (flow, pressure, tanks, fire flow)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px;">4. Computational budget</label>
+              <select id="calBudget" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+                <option value="quick">Quick (minutes)</option>
+                <option value="moderate">Moderate (hours)</option>
+                <option value="extended">Extended (days, automated)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px;">5. Number of calibration events</label>
+              <select id="calEvents" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-mono);font-size:0.78rem;">
+                <option value="1">1 event only</option>
+                <option value="3">2-4 events</option>
+                <option value="5">5+ events</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="runCalAdvisor()" style="margin-top:12px;padding:8px 24px;border-radius:6px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.1);color:var(--accent-green);cursor:pointer;font-family:var(--font-mono);font-size:0.78rem;font-weight:600;">Get Recommendation</button>
+          <div id="calAdvResult" style="margin-top:12px;padding:14px;border-radius:8px;background:rgba(15,23,42,0.5);border:1px solid var(--border);font-family:var(--font-mono);font-size:0.72rem;display:none;"></div>
         </div>
       </div>
 
@@ -6424,6 +6584,339 @@ Daily  0.6 0.5</div>
     }
   }
 
+  // === CFL Calculator ===
+  function updateCFL() {
+    const L = parseFloat(el('cflLength')?.value) || 200;
+    const V = parseFloat(el('cflVelocity')?.value) || 5;
+    const c = parseFloat(el('cflCelerity')?.value) || 15;
+    const dt = parseFloat(el('cflTimestep')?.value) || 30;
+    const dD = parseFloat(el('cflDepthRatio')?.value) || 0.5;
+    const dtMax = L / (V + c);
+    const courant = (V + c) * dt / L;
+    const stable = courant <= 1.0;
+    const res = el('cflResult');
+    if (!res) return;
+    const theta = 2 * Math.acos(1 - 2 * dD);
+    const AoverD2 = (theta - Math.sin(theta)) / 8;
+    const ToverD = Math.sin(theta / 2);
+    const hydraulicDepth = ToverD > 0 ? AoverD2 / ToverD : dD;
+    const cGravity = Math.sqrt(32.2 * hydraulicDepth).toFixed(1);
+    res.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+      '<div>Max stable &Delta;t: <strong style="color:var(--epanet-amber);">' + dtMax.toFixed(1) + ' s</strong></div>' +
+      '<div>Your &Delta;t: <strong>' + dt + ' s</strong></div>' +
+      '<div>Courant number: <strong style="color:' + (stable ? 'var(--accent-green)' : '#ef4444') + ';">' + courant.toFixed(2) + '</strong></div>' +
+      '<div>Gravity wave celerity: <strong>' + cGravity + ' ft/s</strong> (at d/D=' + dD + ')</div>' +
+      '</div>' +
+      '<div style="margin-top:10px;padding:10px;border-radius:6px;background:' + (stable ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)') + ';border:1px solid ' + (stable ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)') + ';">' +
+      (stable
+        ? '<span style="color:var(--accent-green);font-weight:700;">STABLE</span> — Courant &le; 1.0. Your timestep is safe for this pipe.'
+        : '<span style="color:#ef4444;font-weight:700;">UNSTABLE</span> — Courant &gt; 1.0! Reduce timestep to &le; ' + dtMax.toFixed(1) + ' s, or lengthen the pipe to &ge; ' + Math.ceil((V+c)*dt) + ' ft.') +
+      '</div>';
+  }
+  ['cflLength','cflVelocity','cflCelerity','cflTimestep','cflDepthRatio'].forEach(id => {
+    const e = el(id);
+    if (e) e.addEventListener('input', updateCFL);
+  });
+
+  // === Roughness Direction Trainer ===
+  const rqQuestions = [
+    { q: "A pipe has become more corroded over 20 years.", answers: { n:'up', c:'down', hl:'up', v:'down' }, tip: "n = nastiness (up = worse), C = capacity (up = better). Corrosion increases resistance." },
+    { q: "A utility replaces an old cast iron main with new PVC.", answers: { n:'down', c:'up', hl:'down', v:'up' }, tip: "New PVC is much smoother. n drops from ~0.013 to ~0.009, C rises from ~100 to ~150." },
+    { q: "Tuberculation builds up inside an unlined ductile iron pipe.", answers: { n:'up', c:'down', hl:'up', v:'down' }, tip: "Tuberculation = internal bumps from corrosion. Same effect as general corrosion but more extreme." },
+    { q: "A cement-mortar lining is applied to an existing pipe.", answers: { n:'down', c:'up', hl:'down', v:'up' }, tip: "Lining creates a smooth interior. Equivalent to making the pipe nearly new again." },
+    { q: "Flow rate doubles but the pipe stays the same.", answers: { n:'same', c:'same', hl:'up', v:'up' }, tip: "n and C are pipe properties (independent of flow). Headloss and velocity both increase with flow." },
+    { q: "Pipe diameter increases from 8\" to 12\" at the same flow rate.", answers: { n:'same', c:'same', hl:'down', v:'down' }, tip: "n and C depend on material/condition, not diameter. Larger pipe = lower velocity = lower headloss." },
+    { q: "Biofilm growth coats the inside of a water main.", answers: { n:'up', c:'down', hl:'up', v:'down' }, tip: "Biofilm adds roughness. This is common in distribution systems and increases resistance to flow." },
+    { q: "Temperature drops from 70F to 40F (viscosity increases).", answers: { n:'same', c:'same', hl:'up', v:'same' }, tip: "n and C are empirical constants (temperature-independent in standard formulas). Higher viscosity technically increases friction losses at the same velocity, though this effect is embedded in the empirical coefficients." }
+  ];
+  let rqIdx = 0, rqCorrect = 0, rqTotal = 0, rqSelections = {};
+
+  function rqLoadQuestion() {
+    const qEl = el('rqQuestion');
+    if (!qEl) return;
+    qEl.textContent = rqQuestions[rqIdx].q;
+    rqSelections = {};
+    document.querySelectorAll('.rq-btn').forEach(b => {
+      b.classList.remove('selected','correct','wrong');
+    });
+    const fb = el('rqFeedback');
+    if (fb) fb.style.display = 'none';
+  }
+
+  function rqAnswer(btn) {
+    const param = btn.getAttribute('data-param');
+    const row = btn.closest('tr');
+    row.querySelectorAll('.rq-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    rqSelections[param] = btn.getAttribute('data-choice');
+  }
+
+  function rqCheckAnswers() {
+    const ans = rqQuestions[rqIdx].answers;
+    let correct = 0, total = 4;
+    document.querySelectorAll('.rq-btn').forEach(btn => {
+      const param = btn.getAttribute('data-param');
+      const choice = btn.getAttribute('data-choice');
+      btn.classList.remove('correct','wrong');
+      if (choice === ans[param]) {
+        btn.classList.add('correct');
+      }
+      if (btn.classList.contains('selected')) {
+        if (choice === ans[param]) correct++;
+        else btn.classList.add('wrong');
+      }
+    });
+    rqTotal++;
+    if (correct === total) rqCorrect++;
+    const fb = el('rqFeedback');
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = correct === total ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+      fb.style.border = '1px solid ' + (correct === total ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)');
+      fb.style.color = 'var(--text-muted)';
+      fb.innerHTML = '<strong style="color:' + (correct === total ? 'var(--accent-green)' : '#ef4444') + ';">' + correct + '/4 correct</strong><br>' + rqQuestions[rqIdx].tip;
+    }
+    const sc = el('rqScore');
+    if (sc) sc.textContent = 'Score: ' + rqCorrect + '/' + rqTotal;
+  }
+
+  function rqNextQuestion() {
+    rqIdx = (rqIdx + 1) % rqQuestions.length;
+    rqLoadQuestion();
+  }
+
+  // === Failure Propagation Simulator ===
+  const failTreeNodes = [
+    {id:'O',x:190,y:250,label:'Outfall',elev:80},
+    {id:'T',x:190,y:190,label:'Trunk',elev:88},
+    {id:'A',x:80,y:130,label:'A',elev:95},
+    {id:'B',x:300,y:130,label:'B',elev:96},
+    {id:'A1',x:40,y:70,label:'A1',elev:102},
+    {id:'A2',x:120,y:70,label:'A2',elev:100},
+    {id:'B1',x:260,y:70,label:'B1',elev:103},
+    {id:'B2',x:340,y:70,label:'B2',elev:101}
+  ];
+  const failTreePipes = [
+    {from:'A1',to:'A'},{from:'A2',to:'A'},{from:'A',to:'T'},
+    {from:'B1',to:'B'},{from:'B2',to:'B'},{from:'B',to:'T'},
+    {from:'T',to:'O'}
+  ];
+  const failLoopNodes = [
+    {id:'S',x:190,y:250,label:'Source',pressure:65},
+    {id:'N1',x:80,y:180,label:'N1',pressure:58},
+    {id:'N2',x:300,y:180,label:'N2',pressure:60},
+    {id:'N3',x:80,y:100,label:'N3',pressure:52},
+    {id:'N4',x:300,y:100,label:'N4',pressure:54},
+    {id:'N5',x:190,y:40,label:'N5',pressure:48}
+  ];
+  const failLoopPipes = [
+    {from:'S',to:'N1'},{from:'S',to:'N2'},
+    {from:'N1',to:'N3'},{from:'N2',to:'N4'},
+    {from:'N1',to:'N2'},{from:'N3',to:'N4'},
+    {from:'N3',to:'N5'},{from:'N4',to:'N5'}
+  ];
+  let failTreeBroken = -1, failLoopBroken = -1;
+
+  function getNode(nodes, id) { return nodes.find(n => n.id === id); }
+
+  function drawFailNetwork(canvasId, nodes, pipes, brokenIdx, isLoop) {
+    const canvas = el(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    let affectedNodes = new Set();
+    if (brokenIdx >= 0) {
+      const bp = pipes[brokenIdx];
+      if (isLoop) {
+        const bFrom = getNode(nodes, bp.from), bTo = getNode(nodes, bp.to);
+        nodes.forEach(n => {
+          const df = Math.hypot(n.x - bFrom.x, n.y - bFrom.y);
+          const dt2 = Math.hypot(n.x - bTo.x, n.y - bTo.y);
+          const dist = Math.min(df, dt2);
+          if (dist < 200) affectedNodes.add(n.id);
+        });
+      } else {
+        function upstream(nodeId) {
+          affectedNodes.add(nodeId);
+          pipes.forEach((p,i) => { if (i !== brokenIdx && p.to === nodeId) upstream(p.from); });
+        }
+        upstream(bp.from);
+      }
+    }
+    pipes.forEach((p, i) => {
+      const from = getNode(nodes, p.from), to = getNode(nodes, p.to);
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      if (i === brokenIdx) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([6, 4]);
+      } else if (brokenIdx >= 0 && (affectedNodes.has(p.from) || affectedNodes.has(p.to))) {
+        if (isLoop) {
+          const bp2 = pipes[brokenIdx];
+          const bMid = { x: (getNode(nodes,bp2.from).x + getNode(nodes,bp2.to).x)/2, y: (getNode(nodes,bp2.from).y + getNode(nodes,bp2.to).y)/2 };
+          const pMid = { x: (from.x+to.x)/2, y: (from.y+to.y)/2 };
+          const dist = Math.hypot(pMid.x - bMid.x, pMid.y - bMid.y);
+          const intensity = Math.max(0.3, 1 - dist / 250);
+          ctx.strokeStyle = 'rgba(245,158,11,' + intensity + ')';
+          ctx.lineWidth = 2 + intensity * 2;
+        } else {
+          ctx.strokeStyle = 'rgba(245,158,11,0.7)';
+          ctx.lineWidth = 3;
+        }
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = isLoop ? 'rgba(59,130,246,0.4)' : 'rgba(245,158,11,0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    if (brokenIdx >= 0) {
+      const bp = pipes[brokenIdx];
+      const from = getNode(nodes, bp.from), to = getNode(nodes, bp.to);
+      const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillStyle = '#ef4444';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2716', mx, my + 5);
+    }
+    nodes.forEach(n => {
+      let color = isLoop ? 'rgba(59,130,246,0.8)' : 'rgba(245,158,11,0.8)';
+      let radius = 6;
+      if (brokenIdx >= 0 && affectedNodes.has(n.id)) {
+        if (isLoop) {
+          const bp = pipes[brokenIdx];
+          const bMid = { x: (getNode(nodes,bp.from).x + getNode(nodes,bp.to).x)/2, y: (getNode(nodes,bp.from).y + getNode(nodes,bp.to).y)/2 };
+          const dist = Math.hypot(n.x - bMid.x, n.y - bMid.y);
+          if (dist < 80) { color = '#ef4444'; radius = 8; }
+          else if (dist < 150) { color = '#f59e0b'; radius = 7; }
+          else { color = 'rgba(245,158,11,0.6)'; }
+        } else {
+          color = '#ef4444'; radius = 7;
+        }
+      }
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.font = '10px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.label, n.x, n.y - 12);
+    });
+  }
+
+  function handleFailClick(e, canvasId, nodes, pipes, isLoop) {
+    const canvas = el(canvasId);
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    let closestPipe = -1, closestDist = Infinity;
+    pipes.forEach((p, i) => {
+      const from = getNode(nodes, p.from), to = getNode(nodes, p.to);
+      const dx = to.x - from.x, dy = to.y - from.y;
+      const len2 = dx*dx + dy*dy;
+      let t = Math.max(0, Math.min(1, ((mx-from.x)*dx + (my-from.y)*dy) / len2));
+      const px = from.x + t * dx, py = from.y + t * dy;
+      const dist = Math.hypot(mx - px, my - py);
+      if (dist < closestDist) { closestDist = dist; closestPipe = i; }
+    });
+    if (closestDist < 20) {
+      if (isLoop) {
+        failLoopBroken = closestPipe;
+        drawFailNetwork('failLoopCanvas', failLoopNodes, failLoopPipes, failLoopBroken, true);
+        const bp = failLoopPipes[closestPipe];
+        const affected = failLoopNodes.filter(n => {
+          const bFrom = getNode(failLoopNodes,bp.from), bTo = getNode(failLoopNodes,bp.to);
+          return Math.min(Math.hypot(n.x-bFrom.x,n.y-bFrom.y), Math.hypot(n.x-bTo.x,n.y-bTo.y)) < 200;
+        });
+        const severe = affected.filter(n => {
+          const bFrom = getNode(failLoopNodes,bp.from), bTo = getNode(failLoopNodes,bp.to);
+          return Math.min(Math.hypot(n.x-bFrom.x,n.y-bFrom.y), Math.hypot(n.x-bTo.x,n.y-bTo.y)) < 80;
+        });
+        el('failSimResult').innerHTML = '<span style="color:var(--epanet-blue);">LOOP:</span> Pipe ' + bp.from + '-' + bp.to + ' broken. ' +
+          '<strong style="color:#ef4444;">' + severe.length + ' nodes</strong> with severe pressure drop, ' +
+          '<strong style="color:#f59e0b;">' + (affected.length - severe.length) + ' nodes</strong> with moderate drop. ' +
+          'Service continues via alternate paths. Impact attenuates with distance.';
+      } else {
+        failTreeBroken = closestPipe;
+        drawFailNetwork('failTreeCanvas', failTreeNodes, failTreePipes, failTreeBroken, false);
+        const bp = failTreePipes[closestPipe];
+        let upCount = 0;
+        function countUp(nodeId) { upCount++; failTreePipes.forEach((p,i) => { if (i !== closestPipe && p.to === nodeId) countUp(p.from); }); }
+        countUp(bp.from);
+        el('failSimResult').innerHTML = '<span style="color:var(--epanet-amber);">TREE:</span> Pipe ' + bp.from + '-' + bp.to + ' blocked. ' +
+          '<strong style="color:#ef4444;">' + upCount + ' upstream nodes</strong> experience backwater cascade. ' +
+          'ALL upstream junctions affected &mdash; no alternate path exists. Flooding at shallowest points.';
+      }
+    }
+  }
+
+  function resetFailSim() {
+    failTreeBroken = -1; failLoopBroken = -1;
+    drawFailNetwork('failTreeCanvas', failTreeNodes, failTreePipes, -1, false);
+    drawFailNetwork('failLoopCanvas', failLoopNodes, failLoopPipes, -1, true);
+    el('failSimResult').innerHTML = 'Click any pipe segment to simulate a break';
+  }
+
+  // === Calibration Strategy Advisor ===
+  function runCalAdvisor() {
+    const type = el('calType')?.value || 'tree';
+    const monitors = el('calMonitors')?.value || 'few';
+    const data = el('calData')?.value || 'flow';
+    const budget = el('calBudget')?.value || 'quick';
+    const events = el('calEvents')?.value || '1';
+    const res = el('calAdvResult');
+    if (!res) return;
+    res.style.display = 'block';
+    let strategy = '', steps = '', accuracy = '', warning = '';
+    if (type === 'tree') {
+      strategy = 'Sequential Upstream-to-Downstream Calibration';
+      steps = '1. Calibrate DWF patterns first\n2. Start at furthest-upstream subcatchments\n3. Adjust %Imperv, Width, Depression Storage, Infiltration\n4. Match peak flow (within 15-25%), volume (within 10-20%)\n5. Move downstream branch by branch\n6. Calibrate trunk reaches last (upstream inflows now known)\n7. Validate with reserved events';
+      accuracy = 'Peak: \u00b115-25% | Volume: \u00b110-20% | Timing: \u00b115 min';
+      if (monitors === 'few') warning = 'With few monitors, focus on the single monitored branch first. Consider adding temporary flow monitors.';
+      if (events === '1') warning += ' Single-event calibration risks overfitting. Reserve at least one event for validation if possible.';
+    } else if (type === 'loop') {
+      if (data === 'fireflow' || data === 'all') {
+        strategy = 'Fire Flow Test-Based C-Factor Calibration';
+        steps = '1. Use fire flow tests to determine C-factors per pipe group\n2. Group pipes by material + age + diameter\n3. Assign C from test results (accuracy \u00b110)\n4. Set demand multipliers per pressure zone (\u00b130%)\n5. Match tank fill/drain cycles over 24-48 hrs\n6. Run automated optimization to fine-tune\n7. Validate against separate fire flow events';
+        accuracy = 'Pressure: \u00b12-5 psi | Tank levels: \u00b11 ft | Fire flow: \u00b110%';
+      } else if (budget === 'extended') {
+        strategy = 'Automated Optimization (GA or SCE)';
+        steps = '1. Group pipes by material/age/diameter (6-10 groups)\n2. Set C bounds: 60-150 per group\n3. Set demand multiplier bounds: 0.7-1.3 per zone\n4. Minimize: \u03a3w\u1d62\u00b7(P_model - P_measured)\u00b2\n5. Run 5,000-10,000 iterations (~hours)\n6. Validate with reserved operational periods\n7. Check parameter sensitivity and uniqueness';
+        accuracy = 'Pressure: \u00b13-8 psi | Depends on data density';
+      } else {
+        strategy = 'C-Factor Grouping + Manual Adjustment';
+        steps = '1. Group pipes: New PVC (C=140-150), Aged DI (C=100-120),\n   Old CI (C=60-90), Cement-lined (C=120-140)\n2. Set demand multipliers per zone from billing data\n3. Match observed pressures at monitoring points\n4. Adjust C-factor groups to reduce residuals\n5. Check tank level match over 24-hr cycle\n6. Validate with a different operational period';
+        accuracy = 'Pressure: \u00b15-10 psi | Adequate for planning';
+      }
+      if (monitors === 'few') warning = 'With few pressure monitors, the system is under-determined. Consider fire flow tests to constrain C-factors directly.';
+    } else {
+      strategy = 'Hybrid: Sequential for Tree Portions + Grouped for Loops';
+      steps = '1. Identify tree branches vs looped sections\n2. Calibrate tree branches sequentially (upstream to downstream)\n3. Lock tree parameters\n4. Group looped pipe C-factors by material/age\n5. Match pressures in the looped sections\n6. Run optimization on loop parameters only\n7. Validate end-to-end';
+      accuracy = 'Depends on data quality. Trees: \u00b115-25% flow. Loops: \u00b15-10 psi pressure.';
+    }
+    if (budget === 'quick' && type === 'loop' && monitors === 'many')
+      warning += ' Quick budget with many monitors: consider Darwin Calibrator or PEST for efficient automated calibration.';
+    res.innerHTML = '<div style="margin-bottom:8px;font-weight:700;color:var(--accent-green);font-size:0.82rem;">' + strategy + '</div>' +
+      '<pre style="white-space:pre-wrap;color:var(--text-muted);font-size:0.68rem;margin-bottom:8px;">' + steps + '</pre>' +
+      '<div style="margin-bottom:6px;"><strong>Expected accuracy:</strong> ' + accuracy + '</div>' +
+      (warning ? '<div style="padding:8px;border-radius:6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:var(--epanet-amber);font-size:0.68rem;margin-top:6px;">\u26a0 ' + warning + '</div>' : '');
+  }
+
+  // === Event listeners for interactive features ===
+  const ftc = el('failTreeCanvas');
+  if (ftc) ftc.addEventListener('click', (e) => handleFailClick(e, 'failTreeCanvas', failTreeNodes, failTreePipes, false));
+  const flc = el('failLoopCanvas');
+  if (flc) flc.addEventListener('click', (e) => handleFailClick(e, 'failLoopCanvas', failLoopNodes, failLoopPipes, true));
+
   // === Tab Navigation (with ARIA + keyboard) ===
   const tabs = document.querySelectorAll('.nav-tab');
   const sections = document.querySelectorAll('.section');
@@ -6458,6 +6951,14 @@ Daily  0.6 0.5</div>
     // Auto-scroll active tab into view (mobile horizontal scroll)
     tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     if (target === 'fireflow' && typeof updateFireFlow === 'function') { setTimeout(updateFireFlow, 50); }
+    if (target === 'solver') { setTimeout(updateCFL, 50); }
+    if (target === 'topology') {
+      setTimeout(() => {
+        drawFailNetwork('failTreeCanvas', failTreeNodes, failTreePipes, failTreeBroken, false);
+        drawFailNetwork('failLoopCanvas', failLoopNodes, failLoopPipes, failLoopBroken, true);
+      }, 50);
+    }
+    if (target === 'calculator') { setTimeout(rqLoadQuestion, 50); }
     // Update URL hash with full state
     saveStateToHash();
     window.scrollTo({top: 200, behavior: 'smooth'});

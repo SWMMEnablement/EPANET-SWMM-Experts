@@ -1,0 +1,1640 @@
+# Part I: The Force Main Deep Dive — Complete Treatment
+
+## 1.1 What a Force Main Actually Is (First Principles)
+
+A force main is a philosophical contradiction in a gravity system. It is a pipe where gravity has failed — where the terrain or system layout requires water to be pushed uphill or across a flat area where gravity cannot provide sufficient slope. It is a pressurized island in a gravity ocean.
+
+```
+THE FORCE MAIN IN CONTEXT
+═════════════════════════
+
+UPSTREAM (Gravity World — SWMM5 Domain)
+────────────────────────────────────────
+Subcatchments → Laterals → Collectors → Trunk Sewer
+                                            ↓
+                                        WET WELL
+                                      (Storage Node)
+                                            ↓
+                                          PUMP
+                                            ↓
+═══════════════════════════════════════════════════════
+THE FORCE MAIN (Contested Zone — SWMM5 or EPANET?)
+═══════════════════════════════════════════════════════
+                                            ↓
+DOWNSTREAM (Gravity World — SWMM5 Domain)
+──────────────────────────────────────────
+                                     Gravity Manhole
+                                            ↓
+                                     Gravity Sewer → Outfall/WWTP
+
+Every component EXCEPT the force main and pump is 
+unambiguously SWMM5 territory (gravity, free surface).
+
+The force main operates under pressure, with full pipe flow,
+using Hazen-Williams or Darcy-Weisbach friction — 
+exactly like an EPANET pipe.
+
+But it's embedded in a SWMM5 system, connected to SWMM5 
+nodes, driven by SWMM5 pumps, and its operation depends 
+on the gravity system's behavior (inflow to wet well).
+
+THIS IS THE BOUNDARY BETWEEN THE TWO WORLDS.
+```
+
+### 1.2 The Five States of a Force Main
+
+A force main during normal operations cycles through states that span both the SWMM5 and EPANET domains:
+
+```
+STATE 1: EMPTY (Pump Off, Force Main Drained)
+═════════════════════════════════════════════
+
+Profile view:
+                          High Point
+    Pump ─────────╱╲──────────╱╲────────── Discharge
+    [OFF]        ╱  ╲        ╱  ╲          Manhole
+                ╱    ╲      ╱    ╲
+     ──────────╱      ╲────╱      ╲────────
+                        Air        Air
+    
+    The force main has drained back through the pump 
+    (if no check valve) or settled to low points.
+    High points contain air pockets.
+    
+    Physics: No flow, no hydraulics.
+    SWMM5 representation: conduit with depth ≈ 0
+    EPANET representation: Cannot model (pipe must be full)
+    
+    Duration: Between pump cycles (minutes to hours)
+    This state is INVISIBLE to EPANET.
+
+STATE 2: FILLING (Pump Just Turned On)
+══════════════════════════════════════
+
+Profile view:
+                          High Point
+    Pump ─────────╱╲──────────╱╲────────── Discharge
+    [ON] ████████╱  ╲        ╱  ╲          Manhole
+         ███████╱    ╲      ╱    ╲
+     ──────────╱  ←bore╲────╱      ╲────────
+                  front  Air        Air
+    
+    Water enters the force main from the pump.
+    A filling bore front advances through the pipe.
+    Air ahead of the bore must escape through air valves 
+    or compress against the downstream end.
+    
+    Physics: Two-phase flow (water advancing, air retreating)
+             Bore front propagation speed: 5-50 ft/s
+             Pressure behind bore: pump discharge head
+             Pressure ahead of bore: atmospheric (if air vented) 
+             or compressed (if air trapped)
+    
+    SWMM5 representation: Preissmann slot handles this approximately.
+      The slot creates a virtual free surface that advances 
+      through the conduit. The bore speed depends on the slot 
+      width (which determines the effective wave speed).
+      SWMM5's effective wave speed (~100-300 ft/s) is typically 
+      FASTER than the real bore (5-50 ft/s), so SWMM5 shows 
+      the pipe filling faster than reality.
+    
+    EPANET representation: CANNOT model this transition.
+      EPANET sees the pipe as either full or not in the model.
+      The filling process is invisible.
+    
+    Duration: Seconds to minutes (depends on pipe length and pump rate)
+    
+    DANGER: If air cannot escape:
+      Compressed air acts as a spring
+      When the bore front reaches a trapped air pocket:
+        Air compresses → pressure rises → 
+        air-water interface oscillates → 
+        potential pressure surge WORSE than water hammer
+      This is called DYNAMIC FILLING or PIPELINE PRIMING
+      and it is one of the least-understood transient phenomena.
+
+STATE 3: FULL AND FLOWING (Pump Running, Steady State)
+═════════════════════════════════════════════════════
+
+Profile view:
+                          High Point
+    Pump ─────────╱╲──────────╱╲────────── Discharge
+    [ON] ████████╱██╲████████╱██╲██████████ Manhole
+         ███████╱████╲██████╱████╲█████████
+     ──────────╱██████╲────╱██████╲────────
+    
+    Entire force main is full of water under pressure.
+    Steady flow from pump to discharge point.
+    
+    Physics: Pressurized full-pipe flow.
+      Headloss from Hazen-Williams or Darcy-Weisbach.
+      Pressure varies along the pipe based on elevation 
+      and friction losses.
+      Pump operating point: intersection of pump curve 
+      and system head curve.
+    
+    SWMM5 representation: Force main conduit with d/D = 1.0
+      SWMM5 uses H-W or D-W directly (NOT the equivalent n).
+      This is the state where SWMM5 and EPANET should give 
+      IDENTICAL results if properly configured.
+    
+    EPANET representation: Standard pipe flow.
+      This is EPANET's native domain. Head at each node,
+      flow in the pipe, pressure along the profile.
+      Results should match SWMM5 exactly.
+    
+    Duration: Minutes to hours (as long as pump runs)
+    
+    KEY COMPARISON POINT:
+      If SWMM5 and EPANET give different results for this state,
+      something is configured wrong in one of the models.
+      Check: pipe diameter, length, roughness (C vs n),
+      pump curve, node elevations, minor losses.
+
+STATE 4: DRAINING (Pump Just Turned Off)
+═══════════════════════════════════════
+
+Profile view (immediately after pump off):
+                          High Point
+    Pump ─────────╱╲──────────╱╲────────── Discharge
+    [OFF] ███████╱██╲████████╱██╲██████████ Manhole
+          ██████╱████╲██████╱████╲█████████
+     ──────────╱██████╲────╱██████╲────────
+    
+    Pump stops. Check valve closes (ideally gently).
+    Water momentum carries flow forward for a moment.
+    Then flow decelerates.
+    
+    At high points: pressure drops as water tries to 
+    separate. If pressure drops below atmospheric:
+      - Air valve opens, admitting air
+      - Water column separates into segments
+      - Each segment drains to the nearest low point
+    
+    Physics: Transient deceleration → column separation 
+             → gravity drainage of individual water columns.
+    
+    SWMM5 representation: Dynamic wave handles the deceleration.
+      Preissmann slot handles the transition from full to 
+      partially full as the pipe drains.
+      SWMM5 can model this transition (approximately).
+    
+    EPANET representation: CANNOT model this.
+      EPANET shows the pump off at the next timestep.
+      The pipe instantly has zero flow. No deceleration,
+      no column separation, no drainage process.
+    
+    Duration: Seconds (deceleration) to minutes (drainage)
+    
+    DANGER: 
+      Check valve slam: if the check valve closes abruptly,
+      the momentum of the water column creates a pressure 
+      surge (water hammer). ΔP = ρ × a × ΔV.
+      For a 4 ft/s flow in a 12" DI pipe:
+        ΔP = 1.94 × 3500 × 4 = 27,160 psf = 189 psi
+      THIS CAN BURST THE PIPE or damage the pump.
+      
+      Column separation at high points:
+      If pressure drops to vapor pressure, vapor cavity forms.
+      When the cavity collapses (water columns rejoin),
+      the secondary pressure spike can be WORSE than the 
+      initial hammer.
+
+STATE 5: PARTIALLY DRAINED (Between Cycles)
+═══════════════════════════════════════════
+
+Profile view:
+                          High Point
+    Pump ─────────╱╲──────────╱╲────────── Discharge
+    [OFF] ███████╱  ╲   air  ╱  ╲██████████ Manhole
+          ██████╱    ╲      ╱    ╲█████████
+     ──────────╱      ╲────╱      ╲────────
+              water at  air   water at
+              low point       low point
+    
+    Water has drained to low points.
+    Air occupies high points.
+    System is in equilibrium under gravity.
+    
+    Physics: Static — no flow, gravity-balanced water columns.
+    
+    SWMM5 representation: Partially full conduit segments.
+      Manning's equation applies to any residual flow.
+      The equivalent n from the H-W C conversion is used here.
+      This is the ONLY state where the equivalent n matters.
+    
+    EPANET representation: CANNOT model.
+      A partially drained force main doesn't exist in 
+      EPANET's world (all pipes are always full).
+    
+    Duration: Minutes to hours (until pump turns on again)
+    Significance: When the pump restarts (→ back to State 2),
+      it must push against air pockets AND accelerate the 
+      stationary water columns. The startup transient depends 
+      on how much air is trapped and where the water columns are.
+```
+
+### 1.3 The Flow Regime Transition in Detail
+
+```
+WHAT HAPPENS AT d/D = 1.0 — THE CRITICAL TRANSITION
+════════════════════════════════════════════════════
+
+This is the moment when the pipe transitions between 
+free-surface flow (Manning's domain) and pressurized flow 
+(Hazen-Williams or Darcy-Weisbach domain).
+
+SWMM5 handles this by:
+1. Computing friction slope from Manning's when d/D < 1.0
+2. Computing friction slope from H-W or D-W when d/D ≥ 1.0
+3. Ensuring CONTINUITY at d/D = 1.0 using the equivalent n
+
+THE EQUIVALENT n DERIVATION (from SWMM5 forcemain.c):
+═════════════════════════════════════════════════════
+
+At d/D = 1.0, Manning's velocity must equal H-W velocity:
+
+  Manning:  V = (φ/n) × R^(2/3) × Sf^(1/2)
+  H-W:     V = Cf × C × R^(0.63) × Sf^(0.54)
+
+Set equal and solve for n:
+
+  (φ/n) × R^(2/3) × Sf^(1/2) = Cf × C × R^(0.63) × Sf^(0.54)
+  
+  n = (φ / (Cf × C)) × R^(2/3 - 0.63) × Sf^(1/2 - 0.54)
+  n = (φ / (Cf × C)) × R^(0.0367) × Sf^(-0.04)
+
+SWMM5 DROPS the Sf^(-0.04) term because:
+  At typical slopes: Sf^(-0.04) ≈ 1.0 to 1.3
+  The error is small compared to other uncertainties
+  Making the conversion independent of flow conditions simplifies the code
+
+SWMM5's actual code (forcemain.c):
+  n = (PHI / Cf) × pow(R, 2.0/3.0 - 0.63) / C
+  
+  Where:
+    PHI = 1.486 (US) or 1.0 (SI) — Manning's constant
+    Cf  = 1.318 (US) or 0.8492 (SI) — H-W constant
+    R   = hydraulic radius at full depth = D/4
+    C   = Hazen-Williams coefficient
+
+EXAMPLE:
+  12-inch pipe (D = 1.0 ft), C = 130
+  R = D/4 = 0.25 ft
+  
+  n = (1.486 / 1.318) × 0.25^(0.0367) / 130
+  n = 1.127 × 0.9500 / 130
+  n = 0.00824
+  
+  This equivalent n is used for partially-full flow
+  in the force main (States 2, 4, 5 above).
+  
+  When the pipe is full (State 3), SWMM5 uses H-W directly
+  with C = 130, and this equivalent n is NEVER USED.
+
+THE TRANSITION DIAGRAM:
+══════════════════════
+
+  d/D:  0.0 ──── 0.5 ──── 0.8 ──── 1.0 ──── 1.2 ──── 1.5
+        │                           │                    │
+        ├─── Manning's equation ────┤                    │
+        │    (with equiv. n)        │                    │
+        │                           ├── H-W or D-W ─────┤
+        │                           │   (with C or ε)   │
+        │                           │                    │
+        ▼                           ▼                    ▼
+     Dry pipe                   Transition          Surcharged
+     (no flow)                  (both give           (pressurized)
+                                same Sf here)
+```
+
+### 1.4 Multi-Pump Force Main Systems — The Complex Case
+
+```
+SCENARIO: THREE PUMP STATIONS, MANIFOLDED FORCE MAIN
+═════════════════════════════════════════════════════
+
+Real-world situation common in sanitary sewer systems:
+Three neighborhoods at low elevation each have a pump station.
+All three discharge into a common force main that runs uphill 
+to the wastewater treatment plant (WWTP).
+
+                    ┌─── FM_A (12", 1500 ft) ───┐
+    PS_A (100 GPM) ─┤                            │
+                    └───────────────────────────┐ │
+                                                 │ │
+                    ┌─── FM_B (10", 2000 ft) ───┤ │
+    PS_B (80 GPM) ──┤                            ├─┼─→ Common FM
+                    └───────────────────────────┤ │    (16", 5000 ft)
+                                                 │ │         │
+                    ┌─── FM_C (8", 1000 ft) ────┤ │         │
+    PS_C (50 GPM) ──┤                            │ │         ↓
+                    └───────────────────────────┘ │       WWTP
+                                                   │    (Elev 150 ft)
+                                                   │
+                                              Manifold
+                                              Junction
+                                              (Elev 95 ft)
+
+HYDRAULIC INTERACTIONS:
+═══════════════════════
+
+When ONE pump runs alone:
+  PS_A alone: 100 GPM through FM_A + Common FM
+  System head = Static lift + hf(FM_A at 100) + hf(Common at 100)
+  
+  PS_B alone: 80 GPM through FM_B + Common FM
+  System head = Static lift + hf(FM_B at 80) + hf(Common at 80)
+
+When TWO pumps run simultaneously:
+  PS_A + PS_B: Total flow in Common FM = 100 + 80 = 180 GPM
+  
+  But headloss in Common FM at 180 GPM >> headloss at 100 GPM
+  (H-W: headloss ∝ Q^1.852 → 180^1.852/100^1.852 = 3.1× more headloss)
+  
+  The manifold junction pressure RISES.
+  This INCREASES the system head for both pumps.
+  Each pump's operating point shifts LEFT on its pump curve.
+  
+  PS_A actual flow: drops from 100 to ~85 GPM
+  PS_B actual flow: drops from 80 to ~68 GPM
+  Total: ~153 GPM (not 180 GPM — the pumps interact!)
+
+When ALL THREE pumps run simultaneously:
+  Even higher manifold pressure.
+  Even more flow reduction per pump.
+  PS_A: ~75 GPM, PS_B: ~58 GPM, PS_C: ~35 GPM
+  Total: ~168 GPM (not 230 GPM)
+  
+  The common force main is the bottleneck — its headloss 
+  limits how much all three pumps can deliver collectively.
+
+MODELING APPROACHES:
+═══════════════════
+
+EPANET APPROACH (recommended for steady-state analysis):
+────────────────────────────────────────────────────────
+
+[RESERVOIRS]  ;; Wet wells as fixed-head sources
+;;ID    Head
+WW_A   105    ;; Wet well A water surface elevation
+WW_B   102    ;; Wet well B water surface elevation  
+WW_C   98     ;; Wet well C water surface elevation
+
+[JUNCTIONS]
+;;ID       Elev    Demand
+Manifold   95      0
+WWTP       150     0       ;; Actually, make this an outfall reservoir
+
+[RESERVOIRS]
+WWTP_Res   155    ;; WWTP receives all flow (fixed head)
+
+[PIPES]
+;;ID     Node1    Node2     Length  Diam  Rough  MinorLoss
+FM_A     WW_A     Manifold  1500   12    130    2.5
+FM_B     WW_B     Manifold  2000   10    130    3.0
+FM_C     WW_C     Manifold  1000   8     130    2.0
+Common   Manifold WWTP_Res  5000   16    130    1.5
+
+[PUMPS]
+;;ID     Node1    Node2    Parameters
+Pump_A   WW_A     FM_A_up  HEAD PumpCurveA
+Pump_B   WW_B     FM_B_up  HEAD PumpCurveB
+Pump_C   WW_C     FM_C_up  HEAD PumpCurveC
+
+Run scenarios:
+  Scenario 1: Only Pump A → get Q_A, pressures
+  Scenario 2: Only Pump B → get Q_B, pressures
+  Scenario 3: Only Pump C → get Q_C, pressures
+  Scenario 4: A + B → get Q_A, Q_B (reduced), pressures
+  Scenario 5: A + C → get Q_A, Q_C (reduced), pressures
+  Scenario 6: B + C → get Q_B, Q_C (reduced), pressures
+  Scenario 7: All three → get all flows (all reduced), pressures
+
+THIS IS EXACTLY WHAT EPANET IS DESIGNED FOR.
+The simultaneous solution handles pump interaction naturally.
+Each scenario runs in < 1 second.
+
+SWMM5 APPROACH (necessary for pump cycling dynamics):
+─────────────────────────────────────────────────────
+
+[STORAGE]
+;;Name   Elev   MaxD  InitD  Shape         Params
+WW_A     90.0   15.0  8.0    FUNCTIONAL    100  0  0
+WW_B     88.0   14.0  7.0    FUNCTIONAL    80   0  0
+WW_C     85.0   12.0  6.0    FUNCTIONAL    60   0  0
+
+[PUMPS]
+;;Name    From    To      Curve     Status  Startup  Shutoff
+PumpA     WW_A    FM_A_up PumpCrvA  ON      10.0     3.0
+PumpB     WW_B    FM_B_up PumpCrvB  ON      9.0      3.0
+PumpC     WW_C    FM_C_up PumpCrvC  ON      8.0      2.5
+
+[CONDUITS]
+;;Name    From       To        Length  Roughness
+FM_A      FM_A_up    Manifold  1500   130
+FM_B      FM_B_up    Manifold  2000   130
+FM_C      FM_C_up    Manifold  1000   130
+Common    Manifold   Discharge 5000   130
+
+[XSECTIONS]
+;;Link    Shape       Geom1
+FM_A      FORCE_MAIN  1.0     ;; 12 inch
+FM_B      FORCE_MAIN  0.833   ;; 10 inch
+FM_C      FORCE_MAIN  0.667   ;; 8 inch
+Common    FORCE_MAIN  1.333   ;; 16 inch
+
+[DWF]  ;; Dry weather flow into each wet well
+;;Node   Type  AvgValue  Pattern
+WW_A     FLOW  0.15      Diurnal
+WW_B     FLOW  0.12      Diurnal
+WW_C     FLOW  0.08      Diurnal
+
+Run 48-hour simulation with dynamic wave routing.
+
+SWMM5 captures what EPANET cannot:
+  - Pump cycling patterns (when does each pump turn on/off?)
+  - Wet well level dynamics (how fast does each fill?)
+  - Force main fill/drain transitions (States 2, 4, 5)
+  - Interaction between pump cycling and manifold pressure
+  - Effect of DWF variation on pump runtime
+  - Peak hour behavior (all three pumps running simultaneously)
+```
+
+### 1.5 Practical Force Main Problems and Solutions
+
+```
+PROBLEM 1: FORCE MAIN DOESN'T STAY FULL IN SWMM5
+═════════════════════════════════════════════════
+
+Symptom: d/D oscillates between 0.8 and 1.0 even when pump is running.
+         Continuity errors increase. Flow doesn't match pump curve.
+
+Diagnosis: The downstream node's maximum depth is too low.
+  When the force main discharges into a gravity manhole,
+  the manhole's maximum depth limits the HGL.
+  If the HGL at the discharge point can't rise high enough,
+  the force main can't fully pressurize.
+
+Fixes:
+  a. Increase downstream node maximum depth (set to 50+ ft)
+  b. Add a "break node" just upstream of the discharge:
+     Set its invert to the force main invert elevation
+     Set its maximum depth to 30-50 ft
+     This allows the HGL to build up to full-pipe conditions
+  c. Ensure the downstream gravity pipe can accept the pump flow
+     If the gravity pipe downstream is too small, it surcharges,
+     which backs up into the force main junction — 
+     this is actually CORRECT physics (the tail condition matters)
+
+PROBLEM 2: HIGH CONTINUITY ERROR DURING PUMP CYCLING
+════════════════════════════════════════════════════
+
+Symptom: Continuity error spikes to 5-10% at pump on/off times,
+         then gradually recovers.
+
+Diagnosis: The rapid flow change violates the Courant condition 
+  in the force main. When the pump turns on, flow goes from 
+  0 to full pump capacity in one timestep. If Δt is too large,
+  the sudden change causes numerical oscillation.
+
+Fixes:
+  a. Reduce routing timestep to 1-5 seconds
+  b. Use SWMM5's variable timestep option:
+     [OPTIONS]
+     VARIABLE_STEP  0.75  ;; Courant safety factor
+     This automatically reduces Δt when conditions change rapidly
+  c. Add pump startup/shutoff ramp: instead of instantaneous on/off,
+     use control rules that modulate the pump setting:
+     RULE PumpRamp
+     IF NODE WW_A DEPTH > 10
+     AND PUMP PumpA SETTING < 1.0
+     THEN PUMP PumpA SETTING = SETTING + 0.1
+     (This gradually increases pump speed — more realistic too)
+
+PROBLEM 3: FORCE MAIN SEGMENTS AT HIGH POINTS REPORT OPEN CHANNEL FLOW
+══════════════════════════════════════════════════════════════════════
+
+Symptom: At high points in the force main profile, SWMM5 reports
+         d/D < 1.0 and uses Manning's equation, even when the 
+         pump is running and the rest of the force main is full.
+         (From OpenSWMM forum: "There is something fishy about 
+         the way SWMM5 handles forcemains.")
+
+Diagnosis: SWMM5's dynamic wave solver applies critical/normal 
+  depth at internal high points as a boundary condition.
+  If the high point node's maximum depth is not set correctly,
+  SWMM5 may compute the depth at the high point using 
+  open-channel assumptions instead of pressurized flow.
+
+Fixes:
+  a. Set ALL intermediate force main nodes' maximum depths 
+     to a very large value (50-100 ft)
+  b. Ensure the force main profile doesn't have unnecessary 
+     intermediate nodes at high points — combine segments 
+     into one long conduit if possible
+  c. If high points must be modeled (for air valve analysis),
+     set the invert elevation correctly but make sure max depth 
+     allows sufficient HGL buildup
+  d. Use the hot start file feature: run the model first to 
+     establish full-pipe conditions, save the state, then use 
+     that as initial conditions for the actual simulation
+
+PROBLEM 4: PUMP FLOW DOESN'T MATCH EXPECTED OPERATING POINT
+═══════════════════════════════════════════════════════════
+
+Symptom: You calculated the system head curve and pump curve 
+  intersection at 150 GPM, but SWMM5 shows the pump delivering 
+  only 120 GPM.
+
+Diagnosis possibilities:
+  a. Minor losses not accounted for in hand calculation
+     SWMM5 applies entrance/exit losses at nodes
+     Check [LOSSES] section for the force main conduit
+  b. Dynamic effects during pump cycling
+     The pump hasn't reached steady state yet
+     The force main is still filling (State 2)
+     Wait longer for the system to stabilize
+  c. Roughness mismatch
+     You calculated with C = 140 but entered C = 120 in SWMM5
+     (or worse: entered Manning's n instead of H-W C)
+  d. Downstream boundary effects
+     The gravity system downstream is partially surcharged,
+     increasing the effective static head the pump must overcome
+  e. Multiple pumps interacting
+     Another pump station's discharge is raising the manifold 
+     pressure, shifting this pump's operating point
+
+Verification:
+  Build the SAME system in EPANET.
+  Run steady-state with the same pipe properties and pump curve.
+  EPANET's result should match your hand calculation exactly.
+  If EPANET gives 150 GPM but SWMM5 gives 120 GPM:
+    The issue is in the SWMM5 setup, not the hydraulics.
+  If EPANET also gives 120 GPM:
+    Your hand calculation missed something (minor losses, 
+    downstream head, roughness value).
+```
+
+### 1.6 SWMM5 vs. EPANET Force Main Comparison Table
+
+```
+┌──────────────────────────┬─────────────────────┬─────────────────────┐
+│ Capability               │ SWMM5 Force Main    │ EPANET              │
+├──────────────────────────┼─────────────────────┼─────────────────────┤
+│ Full-pipe steady flow    │ ✅ (H-W or D-W)     │ ✅ (H-W, D-W, Mann) │
+│ Pump curve modeling      │ ✅ (Type 1-4)       │ ✅ (head-flow)      │
+│ Multiple pumps parallel  │ ✅ (but less stable) │ ✅ (very stable)    │
+│ Pump cycling dynamics    │ ✅ (native)          │ ⚠️ (EPS timestep)   │
+│ Wet well level dynamics  │ ✅ (storage node)    │ ⚠️ (tank, but no    │
+│                          │                     │     inflow hydrology)│
+│ Pipe filling/draining    │ ✅ (Preissmann slot) │ ❌                  │
+│ Partially full flow      │ ✅ (Manning's)       │ ❌ (always full)    │
+│ Air pocket effects       │ ❌                   │ ❌                  │
+│ Check valve modeling     │ ✅ (flap gate)       │ ✅ (CV pipe status)  │
+│ Minor losses (detailed)  │ ⚠️ (entry/exit only) │ ✅ (K per pipe)     │
+│ Pressure at high points  │ ⚠️ (convert from     │ ✅ (direct output)  │
+│                          │     depth)           │                     │
+│ System head curve        │ ⚠️ (must extract     │ ✅ (direct from     │
+│                          │     from results)    │     pump analysis)  │
+│ Energy/cost analysis     │ ❌                   │ ✅ (kWh, $/day)     │
+│ Variable speed pumps     │ ✅ (Type 4 curve)    │ ✅ (speed + affinity)│
+│ Water hammer transients  │ ❌ (wrong wave speed)│ ❌ (no transients)  │
+│ Integration with gravity │ ✅ (native — same    │ ❌ (separate model,  │
+│ sewer system             │     model)           │     manual coupling) │
+│ Downstream backwater     │ ✅ (DW routing)      │ ❌ (quasi-steady)   │
+│ Real-time control rules  │ ✅ (IF-THEN-ELSE)    │ ✅ (IF-THEN-ELSE)   │
+│ Convergence reliability  │ ⚠️ (can be unstable  │ ✅ (very reliable)  │
+│                          │     during cycling)  │                     │
+│ Setup complexity         │ HIGH (many settings  │ MODERATE (standard   │
+│                          │     to get right)    │     pipe/pump setup) │
+│ Runtime for 24-hr sim    │ Minutes (DW routing) │ Seconds             │
+└──────────────────────────┴─────────────────────┴─────────────────────┘
+```
+
+---
+
+## Part II: ML Architectures for Topology Differences
+
+### 2.1 The Core Insight: Network Topology Should Match Neural Architecture
+
+The fundamental principle connecting hydraulic network topology to machine learning architecture is this: **the information flow patterns in the physical system should match the information flow patterns in the neural network.**
+
+```
+PHYSICAL SYSTEM                    NEURAL ARCHITECTURE
+═══════════════                    ══════════════════
+
+Tree (SWMM5):                     Sequential/Temporal:
+  Information flows                  Information flows
+  upstream → downstream              through time (LSTM)
+  along one path                     or along sequence (1D CNN)
+  
+  Time is the dominant               Temporal dimension is 
+  variable (hydrograph               primary (sequence of
+  shape, peak timing)                rainfall → runoff values)
+
+Loop (EPANET):                     Graph/Spatial:
+  Information flows                  Information flows
+  all directions simultaneously      between neighbors
+  through the entire mesh            simultaneously (GNN)
+  
+  Space is the dominant              Spatial dimension is
+  variable (pressure                 primary (pressure at
+  distribution across                each node, flow in
+  the network)                       each pipe)
+```
+
+### 2.2 Architecture Deep Dive for SWMM5 (Tree Networks)
+
+```
+ARCHITECTURE 1: LSTM (Long Short-Term Memory)
+═════════════════════════════════════════════
+
+WHY IT MATCHES TREES:
+  SWMM5's primary output is a TIME SERIES (hydrograph).
+  The hydrograph shape depends on the SEQUENCE of rainfall:
+    intensity at t=0 → infiltration loss → runoff at t=Δt
+    → routing through pipes → peak flow at t=T_peak
+  
+  LSTM processes sequences naturally:
+    Input: [rainfall(t), rainfall(t-1), ..., rainfall(t-n)]
+    Hidden state: encodes the "memory" of the system
+    Output: [flow(t+1), depth(t+1)] at target nodes
+  
+  The LSTM's hidden state is analogous to SWMM5's state variables:
+    - Water stored in subcatchment depression storage
+    - Soil moisture deficit (infiltration state)
+    - Water depth in every junction and conduit
+  
+  As the LSTM processes the rainfall sequence, its hidden state 
+  evolves — capturing the filling of depression storage, the 
+  onset of runoff, the routing through the network, and the 
+  recession after rainfall stops.
+
+ARCHITECTURE:
+─────────────
+Input features (at each timestep):
+  • Rainfall intensity (mm/hr or in/hr)
+  • Cumulative rainfall
+  • Temperature (affects ET)
+  • Antecedent dry period (proxy for soil moisture)
+  • Time of day / day of week (for DWF patterns)
+  • Static subcatchment parameters (encoded once)
+    - Area, imperviousness, slope, CN, Manning's n
+
+Network structure:
+  Embedding layer: static params → 32-dim vector
+  LSTM layer 1: 128 units, input = rainfall + embedding
+  LSTM layer 2: 64 units
+  Dense layer: 32 units, ReLU activation
+  Output layer: N_target nodes × 2 (flow + depth)
+  
+  Total parameters: ~100,000-500,000
+  Training data: 1,000-5,000 SWMM5 simulations
+  Training time: 1-4 hours on GPU
+  Inference time: < 0.01 seconds per timestep
+
+EXAMPLE — Predicting Flow at Outfall:
+─────────────────────────────────────
+
+Training:
+  1. Generate 2,000 synthetic storms (varying intensity, 
+     duration, temporal pattern, antecedent conditions)
+  2. Run each through calibrated SWMM5 model
+  3. Extract: rainfall time series → outfall flow time series
+  4. Train LSTM: input = rainfall, output = flow
+  5. Validate on 500 held-out storms
+
+Performance (typical):
+  Nash-Sutcliffe Efficiency: 0.88-0.95
+  Peak flow error: 8-15%
+  Time to peak error: 1-3 timesteps (5-15 minutes)
+  Volume error: 3-8%
+  
+  Speedup: ~10,000× (0.01 sec vs. 5-10 min per simulation)
+
+LIMITATION:
+  The LSTM doesn't "know" the network topology.
+  It learns a black-box mapping from rainfall to outfall flow.
+  If you change the network (add a pipe, resize a conduit),
+  you must RETRAIN the LSTM from scratch.
+  
+  Solution: Physics-Informed LSTM (see Architecture 5)
+
+ARCHITECTURE 2: Tree-LSTM (Topology-Aware)
+══════════════════════════════════════════
+
+WHY IT'S BETTER FOR TREES:
+  Standard LSTM processes one sequence. But a SWMM5 tree has 
+  MULTIPLE branches that merge. A Tree-LSTM processes each 
+  branch separately, then MERGES the hidden states at junctions 
+  — exactly like SWMM5 merges flows at junctions.
+
+ARCHITECTURE:
+─────────────
+For a SWMM5 tree with 3 branches merging at a trunk:
+
+  Branch A rainfall → LSTM_A → hidden state h_A
+  Branch B rainfall → LSTM_B → hidden state h_B
+  Branch C rainfall → LSTM_C → hidden state h_C
+  
+  At junction: h_trunk = Merge(h_A, h_B, h_C)
+    Merge = learned weighted combination (attention mechanism)
+    or simple concatenation + dense layer
+  
+  Trunk routing → LSTM_trunk(h_trunk) → h_outfall
+  
+  Output: flow, depth at outfall (and at junction nodes)
+
+ADVANTAGE:
+  The neural architecture MIRRORS the physical network.
+  Each branch's LSTM learns the hydrology of its subcatchments.
+  The merge operation learns how flows combine at junctions.
+  
+  If you change Branch A's subcatchment parameters:
+    Only LSTM_A needs to be retrained (or fine-tuned).
+    LSTM_B, LSTM_C, and LSTM_trunk are unaffected.
+    This is exactly like SWMM5's sequential calibration advantage.
+
+LIMITATION:
+  More complex to implement than standard LSTM.
+  Requires defining the tree topology in the neural architecture.
+  Not available in standard ML libraries — must be custom-built.
+
+ARCHITECTURE 3: 1D Convolutional Neural Network (CNN)
+═══════════════════════════════════════════════════
+
+WHY IT WORKS FOR TREES:
+  A 1D CNN slides a kernel along the time dimension of the 
+  rainfall time series, detecting temporal patterns:
+    - Rising intensity (convective storm onset)
+    - Duration of high intensity (sustained vs. burst)
+    - Inter-event dry periods (soil recovery)
+  
+  These temporal patterns map directly to hydrograph features:
+    - Rising limb slope
+    - Peak magnitude and timing
+    - Recession rate
+    - Total volume
+
+ARCHITECTURE:
+─────────────
+  Input: [T × F] tensor (T timesteps, F features per step)
+  Conv1D layer 1: 64 filters, kernel size 5 (captures 25-min patterns)
+  Conv1D layer 2: 128 filters, kernel size 3 (captures 15-min patterns)
+  MaxPool: reduce temporal dimension by 2
+  Conv1D layer 3: 64 filters, kernel size 3
+  GlobalAveragePool: compress to fixed-size vector
+  Dense: 128 → 64 → N_outputs
+  
+  Output: peak flow, total volume, time to peak, max depth
+  (scalar outputs, not time series)
+
+ADVANTAGE:
+  Faster to train than LSTM (parallelizable convolutions).
+  Better at detecting local temporal patterns.
+  Good for predicting SUMMARY STATISTICS (peak, volume) 
+  rather than full hydrographs.
+
+LIMITATION:
+  Cannot easily produce time-series output.
+  For hydrograph prediction, LSTM is superior.
+  For optimization/screening (need peak flow only), CNN is ideal.
+```
+
+### 2.3 Architecture Deep Dive for EPANET (Looped Networks)
+
+```
+ARCHITECTURE 4: Graph Neural Network (GNN)
+══════════════════════════════════════════
+
+WHY IT MATCHES LOOPS:
+  EPANET's looped network is literally a GRAPH:
+    Nodes = junctions, tanks, reservoirs
+    Edges = pipes, pumps, valves
+  
+  A GNN processes graph-structured data by passing 
+  messages between connected nodes — exactly like 
+  EPANET's Gradient Algorithm passes information 
+  along pipes to find equilibrium.
+
+  The GNN's "message passing" is analogous to EPANET's 
+  Newton-Raphson iterations:
+    Round 1: Each node collects info from immediate neighbors
+    Round 2: Each node has 2-hop information
+    Round K: Each node has K-hop information
+    
+    After enough rounds, every node "knows" about the 
+    entire network — just like EPANET's converged solution 
+    where every node's head reflects the entire system.
+
+ARCHITECTURE:
+─────────────
+
+Input node features (per node):
+  • Elevation
+  • Base demand
+  • Demand pattern multiplier (current hour)
+  • Emitter coefficient (if any)
+  • Node type (junction/tank/reservoir — one-hot encoded)
+
+Input edge features (per pipe):
+  • Diameter
+  • Length
+  • Roughness (H-W C)
+  • Minor loss coefficient K
+  • Status (open/closed/CV)
+  • Link type (pipe/pump/valve — one-hot encoded)
+
+GNN layers (message passing):
+  
+  Round 1: For each node i:
+    m_i = Aggregate({MLP_edge(features_ij, features_j) : j ∈ neighbors(i)})
+    h_i = MLP_node(features_i, m_i)
+    
+    In words: Node i collects messages from all neighbors j.
+    Each message is computed by an edge MLP that considers 
+    the pipe properties and the neighbor's features.
+    The node updates its hidden state based on its own 
+    features plus the aggregated messages.
+  
+  Rounds 2-6: Repeat with updated hidden states.
+    After K rounds, each node's hidden state encodes 
+    information from all nodes within K hops.
+    For typical distribution networks, K=4-6 rounds 
+    captures the entire network's influence.
+  
+  Output layer: For each node:
+    Pressure_i = MLP_output(h_i)
+  
+  For each edge (optional):
+    Flow_ij = MLP_flow(h_i, h_j, features_ij)
+
+TRAINING:
+─────────
+  1. Generate 1,000-5,000 EPANET scenarios:
+     - Vary demands (random multipliers on base demands)
+     - Vary pump status (on/off combinations)
+     - Vary pipe status (close random pipes for break scenarios)
+     - Vary tank levels (different initial conditions)
+  
+  2. For each scenario, run EPANET → get pressures and flows
+  
+  3. Train GNN: input = (node features, edge features, graph structure)
+                output = (pressure at each node, flow in each pipe)
+  
+  4. Loss function: MSE(predicted pressure, EPANET pressure) 
+                  + λ × MSE(predicted flow, EPANET flow)
+     
+     OPTIONAL physics-informed loss:
+       + μ × Σ|ΣQ_in - ΣQ_out - Demand|²  (mass balance violation)
+       + ν × Σ|H_i - H_j - hf(Q_ij)|²     (energy equation violation)
+
+Performance (from recent research):
+  Pressure prediction: R² > 0.95, RMSE < 2 psi
+  Flow prediction: R² > 0.90, RMSE < 5% of mean flow
+  Speedup: 1,000-10,000×
+  
+  (Reference: Truong et al., "Graph Neural Networks for 
+   Pressure Estimation in Water Distribution Systems", 
+   Water Resources Research)
+
+CRITICAL ADVANTAGE — Transfer Learning:
+  
+  A GNN trained on Network A can be FINE-TUNED for Network B 
+  using much less training data (50-200 scenarios instead of 2,000).
+  
+  WHY: The message-passing operations learn GENERAL hydraulic 
+  relationships (headloss ∝ Q^1.85, mass balance at junctions) 
+  that are the SAME for any network. Only the specific pipe 
+  properties and topology differ.
+  
+  This is like a student who learned hydraulics on one system 
+  and can quickly adapt to another — the physics is the same, 
+  just the numbers change.
+  
+  For LSTM surrogates of SWMM5: transfer learning is MUCH harder 
+  because the hydrology (rainfall-runoff) is highly site-specific 
+  (soil types, slopes, imperviousness, depression storage).
+
+ARCHITECTURE 5: Graph Attention Network (GAT)
+═════════════════════════════════════════════
+
+IMPROVEMENT OVER BASIC GNN:
+  Not all neighbors contribute equally to a node's state.
+  A 48" transmission main contributes more to downstream 
+  pressure than a 6" service line.
+  
+  GAT learns ATTENTION WEIGHTS for each neighbor:
+    α_ij = softmax(LeakyReLU(a^T [Wh_i || Wh_j]))
+    
+    In words: the attention weight α_ij for neighbor j 
+    is learned based on both nodes' features.
+    Large pipes get high attention. Small pipes get low attention.
+    This mimics the hydraulic reality that flow preferentially 
+    follows low-resistance paths.
+
+ADVANTAGE:
+  Better performance than basic GNN, especially for networks 
+  with heterogeneous pipe sizes (mix of transmission and 
+  distribution mains).
+  
+  The attention weights are INTERPRETABLE:
+    High attention on a pipe = that pipe strongly influences 
+    the node's pressure = that pipe is hydraulically important.
+    This can identify CRITICAL PIPES without explicit analysis.
+
+ARCHITECTURE 6: Physics-Informed Neural Network (PINN)
+═════════════════════════════════════════════════════
+
+THE IDEA:
+  Embed the conservation laws (mass balance, energy equation) 
+  directly into the loss function. The neural network must 
+  satisfy the physics even where no training data exists.
+
+LOSS FUNCTION:
+  L = L_data + λ_mass × L_mass + λ_energy × L_energy
+  
+  L_data: MSE between predicted and EPANET-computed values 
+          (at training points only)
+  
+  L_mass: Σ_nodes |ΣQ_in - ΣQ_out - Demand|²
+          (mass balance must be satisfied at every node,
+           even nodes not in training data)
+  
+  L_energy: Σ_pipes |H_i - H_j - hf(Q)|²
+            (energy equation must be satisfied along every pipe)
+  
+  The physics losses act as REGULARIZERS:
+  They prevent the neural network from learning solutions 
+  that violate conservation of mass and energy.
+  
+  Result: better generalization with LESS training data.
+  
+  EPANET: L_energy uses Hazen-Williams headloss
+  SWMM5:  L_momentum uses Saint-Venant momentum equation 
+          (much more complex — PDE constraint instead of algebraic)
+
+ADVANTAGE:
+  Requires 3-10× LESS training data than standard GNN/LSTM.
+  Guaranteed to respect physics (within training tolerance).
+  Better extrapolation to unseen conditions.
+
+LIMITATION:
+  More complex to implement and train.
+  The physics loss terms require differentiable hydraulic 
+  equations — which H-W provides (Q^1.852 is differentiable) 
+  but Manning's with the depth-dependent A(y) is much harder.
+```
+
+### 2.4 Topology-ML Summary
+
+```
+┌───────────────────┬─────────────────────────┬─────────────────────────┐
+│ Dimension         │ SWMM5 (Trees)           │ EPANET (Loops)          │
+├───────────────────┼─────────────────────────┼─────────────────────────┤
+│ Dominant variable │ TIME (hydrograph)        │ SPACE (pressure field)  │
+│ Best architecture │ LSTM, Tree-LSTM, 1D CNN │ GNN, GAT, Spatial-temp  │
+│ Why it matches    │ Sequential processing   │ Simultaneous message    │
+│                   │ mirrors U/S→D/S routing │ passing mirrors solver  │
+│ Training data     │ 1,000-5,000 events     │ 500-2,000 scenarios     │
+│ Primary output    │ Flow hydrograph at nodes│ Pressure at all nodes   │
+│ Transfer learning │ HARD (site-specific     │ PROMISING (physics is   │
+│                   │ hydrology)              │ transferable)           │
+│ PINN feasibility  │ HARD (PDE constraints)  │ EASIER (algebraic       │
+│                   │                         │ constraints)            │
+│ Typical speedup   │ 10,000× over DW        │ 1,000× over EPANET     │
+│ Key application   │ Surrogate for           │ Real-time digital twin  │
+│                   │ optimization/screening  │ pressure estimation     │
+│ Interpretability  │ Low (black-box temporal)│ Higher (attention        │
+│                   │                         │ weights = pipe import.) │
+│ Maturity          │ Research + some practice│ Research + emerging     │
+│                   │                         │ practice                │
+└───────────────────┴─────────────────────────┴─────────────────────────┘
+```
+
+---
+
+## Part III: Interactive Feature Spec — The Topology Explorer
+
+### 3.1 Feature Name: **Network Topology Explorer & Simulator**
+
+### 3.2 Purpose
+
+An interactive tool that lets users build networks and experience how topology affects every aspect of modeling — solver behavior, failure propagation, calibration strategy, and performance — through real-time visual feedback.
+
+### 3.3 Core Functionality
+
+```
+THREE MODES:
+════════════
+
+MODE 1: BUILD & CLASSIFY
+  User draws a network by placing nodes and connecting them with pipes.
+  The tool automatically classifies the topology in real-time.
+
+MODE 2: SIMULATE FAILURE
+  User clicks on any element to "break" it.
+  The tool shows how failure propagates differently 
+  in tree vs. loop topologies.
+
+MODE 3: CALIBRATE
+  User has monitoring data (generated by the tool with hidden 
+  "true" parameters plus noise).
+  User adjusts parameters to match the data.
+  The tool demonstrates how calibration strategy differs 
+  by topology.
+```
+
+### 3.4 Mode 1: Build & Classify — Detailed Spec
+
+```
+CANVAS:
+═══════
+• 800×600 pixel interactive canvas
+• Grid snapping (optional, toggleable)
+• Zoom and pan controls
+
+TOOLS:
+══════
+• 🔵 Place Junction (click on canvas)
+• 🟢 Place Reservoir/Source (click on canvas)
+• 🔴 Place Outfall/Demand (click on canvas)
+• 🟫 Place Pipe (click source node, then destination node)
+• 🏊 Place Tank/Storage (click on canvas)
+• ⬆️ Place Pump (click source node, then destination node)
+• 🖱️ Select/Move (click and drag nodes)
+• 🗑️ Delete (click to remove element)
+
+NODE PROPERTIES (right-click panel):
+═══════════════════════════════════
+  Junction:
+    • Elevation (ft) — slider or text input
+    • Demand (GPM) — for EPANET mode
+    • Max Depth (ft) — for SWMM5 mode
+  
+  Reservoir:
+    • Head (ft) — fixed water surface elevation
+  
+  Outfall:
+    • Boundary type: Free / Fixed Stage
+
+PIPE PROPERTIES (right-click panel):
+════════════════════════════════════
+  • Diameter (inches) — slider, 4-48"
+  • Length (ft) — auto-calculated from node positions, editable
+  • Roughness — Manning's n (SWMM5) or H-W C (EPANET)
+  • Type: Gravity / Force Main / Pressurized
+
+REAL-TIME TOPOLOGY ANALYSIS (right sidebar):
+════════════════════════════════════════════
+
+As the user builds, the tool continuously computes and displays:
+
+  ┌─────────────────────────────────────────────┐
+  │  📊 TOPOLOGY ANALYSIS                       │
+  │                                             │
+  │  Network Type:  🌳 TREE  /  🔄 LOOPED       │
+  │                                             │
+  │  Nodes:         12                          │
+  │  Links:         11  (tree)  /  14  (looped) │
+  │  Loops:         0   (tree)  /  3   (looped) │
+  │  Dead Ends:     5   (tree)  /  2   (looped) │
+  │  Connectivity:  1.83 links/node             │
+  │                                             │
+  │  Critical Links: 3  (removal disconnects)   │
+  │  Redundancy:     LOW / MODERATE / HIGH      │
+  │                                             │
+  │  Recommended Solver:                        │
+  │    🟢 Kinematic Wave (tree, no backwater)    │
+  │    🟡 Dynamic Wave (loops or backwater)      │
+  │    🔵 Gradient Algorithm (pressurized)       │
+  │                                             │
+  │  ⚠️ Shortest pipe: 50 ft                   │
+  │  ⚠️ Max Courant Δt: 3.5 sec               │
+  │                                             │
+  └─────────────────────────────────────────────┘
+
+COLOR CODING ON CANVAS:
+═══════════════════════
+
+  Pipe colors:
+    🟢 Green:  Tree segment (one path to outlet)
+    🔵 Blue:   Loop segment (part of a closed loop)
+    🔴 Red:    Critical link (removal disconnects network)
+    🟡 Yellow: Dead end (terminal branch)
+    🟣 Purple: Force main (pressurized)
+  
+  Node colors:
+    ⬜ White:  Normal junction (≥2 connections)
+    🔴 Red:   Articulation point (removal disconnects graph)
+    🟡 Yellow: Dead-end node (1 connection)
+    🟢 Green:  Source (reservoir/inflow)
+    🔵 Blue:   Sink (outfall/demand)
+
+ALGORITHMS RUNNING IN REAL-TIME:
+════════════════════════════════
+
+  1. Cycle detection (DFS): identifies all loops
+  2. Bridge detection (Tarjan's): identifies critical links
+  3. Articulation point detection: identifies critical nodes
+  4. Connectivity classification: tree / looped / disconnected
+  5. Dead-end identification: nodes with degree 1
+  6. Topological sort (if tree): processing order for KW solver
+  7. Loop count: number of independent loops (L = E - N + C)
+     where E = edges, N = nodes, C = connected components
+  8. Courant analysis: max stable timestep based on pipe lengths
+
+DEMO NETWORKS (prebuilt):
+═════════════════════════
+
+  🌳 "Simple Tree" — 8 nodes, dendritic, typical collection system
+  🔄 "Simple Loop" — 8 nodes, one loop, shows basic redundancy
+  🏙️ "Urban Grid" — 25 nodes, 5×5 grid, typical distribution
+  🌳🔄 "Hybrid" — collection system with force main loop
+  🏘️ "Suburban Dead Ends" — distribution with vulnerability zones
+  🏗️ "Dual Drainage" — surface + underground parallel paths
+```
+
+### 3.5 Mode 2: Simulate Failure — Detailed Spec
+
+```
+ACTIVATION:
+═══════════
+User clicks the "⚡ Simulate Failure" button to enter failure mode.
+Clicking any pipe or node "breaks" it (shown as ✕ with red flash).
+
+TWO SIMULTANEOUS VIEWS:
+═══════════════════════
+
+The canvas splits into left and right panels:
+
+  LEFT PANEL: GRAVITY VIEW (SWMM5-style)
+  ────────────────────────────────────────
+  Shows the same network interpreted as a gravity collection system.
+  Flow goes from sources (subcatchments) toward the outfall.
+  
+  When a pipe fails (breaks/blocks):
+    1. Flow accumulates upstream of the break
+    2. Depth rises at upstream junctions (shown as fill level)
+    3. Backwater propagates upstream (animated wave)
+    4. Junctions flood when depth exceeds max (⛲ icon)
+    5. Flooding cascades upstream through the subtree
+  
+  Animation:
+    - Water level bars at each junction (rising/falling)
+    - Flow arrows on pipes (thickness = flow magnitude)
+    - Red glow on surcharged pipes (d/D > 1.0)
+    - ⛲ icons on flooded junctions
+    - Animated backwater wave propagating upstream
+  
+  Metrics displayed:
+    - Number of flooded junctions: X
+    - Total flooding volume: X gallons
+    - Affected upstream area: X subcatchments
+    - Time to first flood: X minutes (simulated)
+
+  RIGHT PANEL: PRESSURE VIEW (EPANET-style)
+  ──────────────────────────────────────────
+  Shows the same network interpreted as a pressurized distribution system.
+  Flow goes from reservoirs toward demand junctions.
+  
+  When a pipe fails (isolated):
+    1. Flow redistributes through alternate paths
+    2. Pressure drops near the break (shown as color change)
+    3. Pressure gradient radiates outward (animated)
+    4. Far nodes barely affected (remain green)
+    5. Dead ends downstream of break lose all pressure (red)
+  
+  Animation:
+    - Node color gradient: green (>40 psi) → yellow (20-40) → 
+      orange (10-20) → red (<10) → black (negative)
+    - Flow arrows on pipes (direction may reverse!)
+    - Pipe thickness = flow magnitude
+    - Animated pressure wave radiating from break
+  
+  Metrics displayed:
+    - Number of nodes below min pressure: X
+    - Minimum pressure in system: X psi
+    - Service maintained: X% of demand nodes
+    - Available fire flow at nearest hydrant: X GPM
+
+COMPARISON PANEL (bottom):
+══════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │  📊 FAILURE COMPARISON                                      │
+  │                                                             │
+  │             Gravity (SWMM5)         Pressure (EPANET)       │
+  │  Propagation: Upstream cascade      Outward redistribution  │
+  │  Affected:    8 of 12 junctions    3 of 12 junctions       │
+  │  Severity:    Flooding at 3 nodes   Low pressure at 3 nodes │
+  │  Redundancy:  0 alternate paths     2 alternate paths       │
+  │  Recovery:    When storm ends       When pipe is repaired   │
+  │                                                             │
+  │  💡 In the tree, ONE broken pipe affects the ENTIRE         │
+  │     upstream subtree. In the loop, the SAME break only      │
+  │     affects the immediate neighborhood.                     │
+  └─────────────────────────────────────────────────────────────┘
+
+INTERACTIVE ELEMENTS:
+═══════════════════
+
+  • Click different pipes to break them → see how impact changes
+  • Click multiple pipes simultaneously → compound failure
+  • Slider: "Storm Intensity" (left panel) → varies inflow
+  • Slider: "Demand Level" (right panel) → varies demand
+  • Toggle: "Show Fire Flow" → adds fire demand at clicked hydrant
+  • Button: "Add Cross-Connection" → user can add a pipe to create 
+    a loop in the tree, then see how failure response changes
+  • Button: "Remove Cross-Connection" → user removes a loop from 
+    the mesh, then sees how vulnerability increases
+  • Button: "Reset" → restore all pipes to normal
+```
+
+### 3.6 Mode 3: Calibrate — Detailed Spec
+
+```
+CONCEPT:
+════════
+
+The tool generates a "true" network with hidden parameters.
+It produces synthetic monitoring data (with realistic noise).
+The user must adjust parameters to match the data.
+The tool shows how the calibration challenge differs by topology.
+
+SETUP:
+══════
+
+Two side-by-side calibration challenges:
+
+  LEFT: TREE CALIBRATION (SWMM5-style)
+  ─────────────────────────────────────
+  A tree network with 4 subcatchments feeding 2 branches 
+  that merge into a trunk leading to an outfall.
+  
+  Monitoring data provided:
+    • Flow hydrograph at Branch 1 junction (5-min intervals)
+    • Flow hydrograph at Branch 2 junction (5-min intervals)
+    • Flow hydrograph at outfall (5-min intervals)
+  
+  "True" parameters (hidden from user):
+    • Subcatchment A imperviousness: 45%
+    • Subcatchment B imperviousness: 62%
+    • Subcatchment C imperviousness: 38%
+    • Subcatchment D imperviousness: 55%
+    • Trunk Manning's n: 0.015
+  
+  User adjusts:
+    • 4 imperviousness sliders (0-100%)
+    • 1 roughness slider (0.010-0.030)
+  
+  Real-time feedback:
+    • Modeled hydrograph overlaid on "observed" (true + noise)
+    • Nash-Sutcliffe Efficiency (NSE) score: updates live
+    • Peak flow error %: updates live
+    • Volume error %: updates live
+  
+  GUIDANCE BOX:
+  "Start with Branch 1. Adjust Subcatchments A and B until 
+   the modeled hydrograph at Monitor 1 matches the observed.
+   Then move to Branch 2. Notice that adjusting Branch 2 
+   parameters does NOT change the Branch 1 results."
+
+  RIGHT: LOOP CALIBRATION (EPANET-style)
+  ───────────────────────────────────────
+  A looped network with 8 junctions in a 2×4 grid,
+  fed by one reservoir, with demands at each junction.
+  
+  Monitoring data provided:
+    • Pressure at 3 junction nodes (hourly, 24 hours)
+    • Tank level at 1 tank (hourly, 24 hours)
+  
+  "True" parameters (hidden from user):
+    • Pipe Group 1 (old cast iron) C: 82
+    • Pipe Group 2 (new ductile iron) C: 135
+    • Demand multiplier Zone A: 1.15
+    • Demand multiplier Zone B: 0.90
+  
+  User adjusts:
+    • 2 C-factor sliders (60-150)
+    • 2 demand multiplier sliders (0.5-1.5)
+  
+  Real-time feedback:
+    • Modeled pressures overlaid on "observed" at monitor nodes
+    • Modeled tank level overlaid on "observed"
+    • RMSE of pressure (psi): updates live
+    • RMSE of tank level (ft): updates live
+  
+  GUIDANCE BOX:
+  "Notice that adjusting C for Pipe Group 1 changes the 
+   pressure at ALL three monitors simultaneously. You cannot 
+   calibrate one pipe group independently — they interact 
+   through the loops. Try adjusting both C-factors and both 
+   demand multipliers together."
+
+LEARNING MOMENTS:
+═════════════════
+
+After 2 minutes of calibration, pop up insight:
+
+  🌳 TREE INSIGHT:
+  "You probably calibrated Branch 1 first, then Branch 2,
+   then the trunk. Each step was independent. This is the 
+   SEQUENTIAL CALIBRATION advantage of tree topology."
+  
+  🔄 LOOP INSIGHT:
+  "You probably found that fixing one monitor's pressure 
+   threw off another monitor. This is the SIMULTANEOUS 
+   CALIBRATION challenge of looped topology. Everything 
+   is coupled."
+
+ADVANCED FEATURES:
+══════════════════
+
+  • "Auto-Calibrate" button: runs a simple optimization 
+    (gradient descent or GA) and shows the algorithm searching 
+    the parameter space. For the tree, it processes branch by 
+    branch. For the loop, it adjusts all parameters simultaneously.
+  
+  • "Sensitivity Map": highlights which parameters most affect 
+    which monitors. For the tree, the map is block-diagonal 
+    (each block = one branch). For the loop, the map is dense 
+    (everything affects everything).
+  
+  • "Add Monitor": user can place additional monitoring points.
+    Shows how more data improves calibration — especially 
+    in the loop where each monitor constrains the entire system.
+  
+  • "Fire Flow Test" (loop only): simulates a fire flow test 
+    by adding a large demand at a node and showing the pressure 
+    response. User can see how this single test strongly 
+    constrains the C-factors along the supply path.
+```
+
+### 3.7 Technical Implementation
+
+```
+TECHNOLOGY STACK:
+═════════════════
+
+Frontend:
+  • HTML5 Canvas or SVG for network rendering
+  • JavaScript for real-time interaction and computation
+  • Web Workers for background computation (graph algorithms)
+  • CSS animations for fluid visual effects
+
+Hydraulic Engine:
+  • JavaScript implementation of simplified solvers:
+    - Manning's equation for gravity flow
+    - Hazen-Williams for pressurized flow
+    - Simple gradient algorithm for looped networks
+    - Explicit routing for tree networks
+  
+  • NOT full SWMM5/EPANET — simplified for real-time response
+  • Sufficient for demonstrating topology effects
+  • Target: < 50ms per solution (20 fps visual update)
+
+Graph Algorithms (real-time):
+  • DFS for cycle detection: O(V + E)
+  • Tarjan's for bridges/articulation points: O(V + E)
+  • Topological sort (for tree processing order): O(V + E)
+  • Connected components: O(V + E)
+  • All fast enough for real-time with networks up to ~100 nodes
+
+CANVAS RENDERING:
+═════════════════
+
+Nodes:
+  • Circle, radius proportional to importance
+  • Fill color = current state (pressure level, depth level)
+  • Border color = topology classification
+  • Tooltip on hover: all properties + current state values
+  • Right-click: property editor panel
+
+Pipes:
+  • Line connecting two nodes
+  • Width proportional to diameter
+  • Color = topology classification (see Mode 1 spec)
+  • Animated dashes for flow direction + magnitude
+  • Animated fill level (for gravity mode):
+    A pipe drawn as a rectangle with a blue fill level 
+    showing depth relative to diameter
+  • Tooltip on hover: all properties + current flow/headloss
+
+Flow Animation:
+  • Particles moving along pipes in flow direction
+  • Particle speed proportional to velocity
+  • Particle density proportional to flow rate
+  • Color: blue (normal), orange (high velocity), red (surcharge)
+
+Failure Animation:
+  • Red X on broken element
+  • Ripple effect radiating from break point
+  • For tree (gravity): blue wave propagating upstream
+  • For loop (pressure): color gradient radiating outward
+
+DATA STRUCTURES:
+════════════════
+
+class Network {
+  nodes: Map<string, Node>     // ID → Node object
+  links: Map<string, Link>     // ID → Link object
+  adjacency: Map<string, Set>  // node ID → set of connected node IDs
+  
+  // Topology analysis (computed on every change)
+  isTree: boolean
+  loops: Array<Array<string>>  // list of cycle paths
+  bridges: Set<string>         // link IDs that are bridges
+  articulationPoints: Set<string>  // node IDs
+  deadEnds: Set<string>        // node IDs with degree 1
+  topoOrder: Array<string>     // topological sort (if tree)
+  connectivityIndex: number    // links/nodes ratio
+}
+
+class Node {
+  id: string
+  x: number, y: number        // canvas position
+  elevation: number            // ft
+  type: 'junction' | 'reservoir' | 'outfall' | 'tank' | 'storage'
+  
+  // SWMM5 properties
+  maxDepth: number
+  currentDepth: number         // simulation state
+  isFlooding: boolean
+  
+  // EPANET properties
+  demand: number               // GPM
+  currentPressure: number      // psi (simulation state)
+  currentHead: number          // ft
+}
+
+class Link {
+  id: string
+  fromNode: string
+  toNode: string
+  type: 'pipe' | 'pump' | 'force_main'
+  
+  diameter: number             // inches
+  length: number               // ft
+  roughness: number            // Manning's n or H-W C
+  
+  currentFlow: number          // simulation state
+  currentVelocity: number
+  currentDepthRatio: number    // d/D (SWMM5)
+  currentHeadloss: number      // ft (EPANET)
+  
+  // Topology classification
+  isBridge: boolean
+  isInLoop: boolean
+  isDeadEnd: boolean
+}
+
+SIMPLIFIED SOLVERS:
+═══════════════════
+
+// Gravity (tree) solver — simplified kinematic wave
+function solveGravityTree(network, rainfall) {
+  const order = network.topoOrder  // upstream → downstream
+  
+  for (const nodeId of order) {
+    const node = network.nodes.get(nodeId)
+    
+    // Sum all incoming flows
+    let totalInflow = getSubcatchmentRunoff(node, rainfall)
+    for (const upstreamLink of getIncomingLinks(node)) {
+      totalInflow += upstreamLink.currentFlow
+    }
+    
+    // Add to node storage, compute new depth
+    node.currentDepth += (totalInflow - outflow) * dt / surfaceArea
+    
+    // Check for flooding
+    if (node.currentDepth > node.maxDepth) {
+      node.isFlooding = true
+      node.floodingVolume += overflow * dt
+    }
+    
+    // Compute outflow through downstream pipe(s) using Manning's
+    for (const downstreamLink of getOutgoingLinks(node)) {
+      downstreamLink.currentFlow = manningFlow(
+        downstreamLink, node.currentDepth)
+    }
+  }
+}
+
+// Pressure (loop) solver — simplified gradient algorithm
+function solvePressureLoop(network) {
+  let converged = false
+  let iteration = 0
+  
+  while (!converged && iteration < 50) {
+    // For each node: compute flow imbalance
+    for (const [nodeId, node] of network.nodes) {
+      let flowBalance = -node.demand
+      for (const link of getConnectedLinks(node)) {
+        flowBalance += getSignedFlow(link, node)
+      }
+      node.imbalance = flowBalance
+    }
+    
+    // Assemble and solve linearized system [A]{ΔH} = {b}
+    const {A, b} = assembleMatrix(network)
+    const deltaH = solveLinearSystem(A, b)  // sparse solver
+    
+    // Update heads
+    for (const [i, nodeId] of junctionNodes.entries()) {
+      network.nodes.get(nodeId).currentHead += deltaH[i]
+    }
+    
+    // Update flows from heads
+    for (const [linkId, link] of network.links) {
+      const dH = getHeadDifference(link)
+      link.currentFlow = hazenWilliamsFlow(link, dH)
+    }
+    
+    // Compute pressures
+    for (const [nodeId, node] of network.nodes) {
+      node.currentPressure = (node.currentHead - node.elevation) * 0.433
+    }
+    
+    // Check convergence
+    converged = Math.max(...Array.from(network.nodes.values())
+      .map(n => Math.abs(n.imbalance))) < 0.01
+    
+    iteration++
+  }
+}
+
+PERFORMANCE TARGETS:
+═══════════════════
+• Network up to 50 nodes: solution in < 50ms
+• Network up to 100 nodes: solution in < 200ms
+• Animation: 20 fps minimum
+• Canvas rendering: 60 fps for interaction (pan/zoom/drag)
+• Topology analysis: < 10ms (triggered on every network change)
+```
+
+### 3.8 Educational Outcomes
+
+```
+AFTER USING THE TOPOLOGY EXPLORER, USERS WILL UNDERSTAND:
+═════════════════════════════════════════════════════════
+
+1. WHY gravity systems are trees and pressure systems are loops
+   (experienced by trying to build loops in gravity mode 
+    and seeing they don't work)
+
+2. HOW failure propagates differently
+   (experienced by breaking pipes and watching the cascade 
+    vs. redistribution)
+
+3. WHY calibration strategies differ
+   (experienced by struggling with coupled parameters 
+    in the loop vs. sequential independence in the tree)
+
+4. WHY solver choice matters
+   (experienced by seeing the topology analysis recommend 
+    different solvers as the network structure changes)
+
+5. WHERE the SWMM5/EPANET boundary lies
+   (experienced by adding a force main to a gravity tree 
+    and seeing it classified as a hybrid)
+
+6. WHAT redundancy means hydraulically
+   (experienced by adding/removing cross-connections 
+    and seeing the failure response change dramatically)
+```
+
+### 3.9 Integration with Existing App
+
+```
+PLACEMENT IN EPANET-FOR-SWMM5-EXPERTS APP:
+═══════════════════════════════════════════
+
+The Topology Explorer would be a new major section, 
+accessible from the main navigation:
+
+  The Big Flip │ Objects Map │ Demands │ Hydraulics │ 
+  The Solver │ Water Quality │ Rules & Controls │ 
+  File Format │ Calculator │ Gotchas │ Which Tool? │ 
+  Force Mains │ Treatment │ First Principles │ 
+  Reference │ 🆕 TOPOLOGY EXPLORER
+
+Or as an embedded interactive within the existing 
+"First Principles" or "The Big Flip" section — 
+since topology IS the first principle that drives 
+every other difference between the two models.
+
+CROSS-REFERENCES:
+═════════════════
+
+The Topology Explorer would link to:
+  • "The Big Flip" section (gravity vs. pressure)
+  • The Manning vs. H-W calculator (roughness in tree vs. loop)
+  • The force main n↔C converter (force mains as hybrid elements)
+  • The solver comparison (why trees can use KW, loops need GGA)
+  • The decision guide (which tool for which analysis)
+```
+
+This spec provides enough detail for a developer to implement the feature while ensuring it serves its educational purpose — making the abstract concept of "trees for gravity, loops for pressure" tangible, interactive, and unforgettable.

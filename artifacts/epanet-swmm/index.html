@@ -6796,7 +6796,7 @@ Daily  0.6 0.5</div>
       '</div>';
   }
   ['cflLength','cflVelocity','cflCelerity','cflTimestep','cflDepthRatio'].forEach(id => {
-    const e = el(id);
+    const e = document.getElementById(id);
     if (e) e.addEventListener('input', updateCFL);
   });
 

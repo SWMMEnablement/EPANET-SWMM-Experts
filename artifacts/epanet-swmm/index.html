@@ -1346,9 +1346,10 @@ Chart.register({
         <text x="175" y="248" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="9">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf = 0</text>
         <text x="175" y="264" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono, Consolas, monospace" font-size="7">Sf from Manning: (nQ/1.49AR²ᐟ³)²</text>
         <rect x="390" y="195" width="270" height="75" rx="8" fill="rgba(245,158,11,0.06)" stroke="rgba(245,158,11,0.2)" stroke-width="1"/>
-        <text x="525" y="214" text-anchor="middle" fill="#f59e0b" font-family="JetBrains Mono, Consolas, monospace" font-size="10">Hazen-Williams Equation</text>
-        <text x="525" y="236" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="9">hf = 4.727·L·Q¹·⁸⁵²/(C¹·⁸⁵²·d⁴·⁸⁷)</text>
-        <text x="525" y="258" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono, Consolas, monospace" font-size="7">Steady-state energy balance per pipe</text>
+        <text x="525" y="210" text-anchor="middle" fill="#f59e0b" font-family="JetBrains Mono, Consolas, monospace" font-size="10">Hazen-Williams (empirical)</text>
+        <text x="525" y="229" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono, Consolas, monospace" font-size="9">hf = 4.727·L·Q¹·⁸⁵²/(C¹·⁸⁵²·d⁴·⁸⁷)</text>
+        <text x="525" y="246" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono, Consolas, monospace" font-size="7">US-CFS form: Q in ft³/s, d in ft, L in ft</text>
+        <text x="525" y="262" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono, Consolas, monospace" font-size="6.5">Also supports Darcy-Weisbach (theoretically correct)</text>
       </svg>
     </div>
   </div>
@@ -1658,8 +1659,13 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
         <div class="accordion-content">
           <div class="accordion-body">
             <p><strong>Demand-driven (DDA)</strong> — traditional EPANET: demands are always fully satisfied regardless of available pressure. Even if pressure goes negative, the full demand is withdrawn. This is like SWMM always accepting all inflows at a junction even when it's flooding.</p>
-            <p><strong>Pressure-driven (PDA)</strong> — EPANET 2.2+: demands are partially satisfied based on available pressure. Below a minimum pressure, demand drops to zero. Between minimum and required pressure, demand scales with a power function. Above required pressure, full demand is met.</p>
-            <p>PDA is much more realistic for low-pressure scenarios (pipe breaks, fire flow, pump failures). It's analogous to how SWMM's surcharge algorithm limits inflow when a junction can't accept more water — the system "pushes back." If you're modeling emergency scenarios in EPANET, always use PDA.</p>
+            <p><strong>Pressure-driven (PDA)</strong> — EPANET 2.2+: demands are partially satisfied based on available pressure using the Wagner equation:</p>
+            <div style="font-family:var(--font-mono);font-size:0.9rem;color:var(--accent-green);text-align:center;padding:12px;background:rgba(16,185,129,0.08);border-radius:8px;margin:10px 0;">D = D<sub>f</sub> &times; [(P &minus; P<sub>min</sub>) / (P<sub>req</sub> &minus; P<sub>min</sub>)]<sup>P<sub>exp</sub></sup> &nbsp;&nbsp; for P<sub>min</sub> &lt; P &lt; P<sub>req</sub></div>
+            <div style="font-size:0.78rem;color:var(--text-dim);line-height:1.7;margin-bottom:10px;">
+              D<sub>f</sub> = full demand &nbsp;|&nbsp; P = available pressure &nbsp;|&nbsp; P<sub>min</sub> = minimum pressure (zero demand below this, default 0 psi) &nbsp;|&nbsp; P<sub>req</sub> = required pressure (full demand above this, default 0.1 psi) &nbsp;|&nbsp; P<sub>exp</sub> = pressure exponent (default 0.5).<br>
+              Set these via <code style="color:var(--accent-cyan);font-size:0.75rem;">MINIMUM PRESSURE</code>, <code style="color:var(--accent-cyan);font-size:0.75rem;">REQUIRED PRESSURE</code>, and <code style="color:var(--accent-cyan);font-size:0.75rem;">PRESSURE EXPONENT</code> in the [OPTIONS] section. Typical values: P<sub>min</sub> = 0&ndash;5 psi, P<sub>req</sub> = 25&ndash;40 psi, P<sub>exp</sub> = 0.5.
+            </div>
+            <p>PDA is much more realistic for low-pressure scenarios (pipe breaks, fire flow, pump failures). It&rsquo;s analogous to how SWMM&rsquo;s surcharge algorithm limits inflow when a junction can&rsquo;t accept more water &mdash; the system &ldquo;pushes back.&rdquo; If you&rsquo;re modeling emergency scenarios in EPANET, always use PDA.</p>
           </div>
         </div>
       </div>
@@ -1689,6 +1695,7 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
         <div class="equation-block">
           <span class="eq-label">Hazen-Williams Headloss</span>
           <div class="eq">h<sub>f</sub> = 4.727 · L · Q<sup>1.852</sup> / (C<sup>1.852</sup> · d<sup>4.87</sup>)</div>
+          <div style="font-size:0.7rem;color:var(--text-dim);margin-top:4px;font-family:var(--font-mono);">US form: Q in ft&sup3;/s, d in ft, L in ft, h<sub>f</sub> in ft &nbsp;|&nbsp; SI form uses constant 10.67 with Q in m&sup3;/s, d in m</div>
         </div>
         <p>Where C = Hazen-Williams coefficient (higher = smoother, opposite of Manning's n!). C=150 for new pipe, C=100 for old corroded pipe. EPANET also supports Darcy-Weisbach and Chezy-Manning as options.</p>
       </div>
@@ -1738,7 +1745,7 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
           <div class="accordion-body">
             <p>EPANET gives you three headloss options in [OPTIONS]:</p>
             <p><strong>1. Hazen-Williams</strong> (default, most common in US practice) — empirical, only valid for water at normal temperatures. Roughness = C coefficient.</p>
-            <p><strong>2. Darcy-Weisbach</strong> (most physically correct) — uses friction factor from Moody diagram. Roughness = ε (pipe wall roughness height in mm or ft). This is more "universal" and works for any fluid.</p>
+            <p><strong>2. Darcy-Weisbach</strong> (theoretically correct — the only headloss formula derived from dimensional analysis and the Navier-Stokes equations, not an empirical curve fit) — uses friction factor from the Moody diagram via Colebrook-White. Roughness = ε (pipe wall roughness height in mm or ft). Unlike H-W, D-W is valid for any fluid, any temperature, any pipe size, and any Reynolds number. H-W and Manning are empirical fits valid over limited ranges of Re, diameter (~3&Prime; to ~72&Prime; for H-W), and temperature (~60°F water). For anything outside those ranges, D-W is the only defensible choice.</p>
             <p><strong>3. Chezy-Manning</strong> — yes, your old friend! Uses Manning's n. EPANET applies it to full-pipe flow. So if you really want, you can use Manning's n in EPANET and feel right at home.</p>
           </div>
         </div>
@@ -1774,13 +1781,17 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
 
     <div class="equation-block" style="margin-bottom:20px;">
       <span class="eq-label">2. Momentum Equation (Conservation of Momentum)</span>
-      <div class="eq">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·S<sub>f</sub> + gA·h<sub>L</sub> = 0</div>
+      <div class="eq">∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x = gA·(S₀ − S<sub>f</sub>) − gA·h<sub>L</sub></div>
       <div style="color:var(--text-muted);font-size:0.8rem;margin-top:10px;line-height:1.8;">
         ∂Q/∂t → <strong>Local acceleration</strong>: how flow changes over time at a fixed point<br>
         ∂(Q²/A)/∂x → <strong>Convective acceleration</strong>: how momentum changes along the pipe as velocity and area vary<br>
-        gA·∂H/∂x → <strong>Pressure/gravity force</strong>: the hydraulic gradient driving flow (H = water surface elevation)<br>
+        gA·∂y/∂x → <strong>Pressure gradient</strong>: force from water depth variation along the conduit<br>
+        gA·S₀ → <strong>Gravity</strong>: bed slope driving the flow (S₀ = −∂z₀/∂x)<br>
         gA·S<sub>f</sub> → <strong>Friction force</strong>: resistance from Manning's equation, S<sub>f</sub> = (n·Q / (1.49·A·R<sup>2/3</sup>))²<br>
         gA·h<sub>L</sub> → <strong>Local losses</strong>: entrance, exit, and junction losses (K·V²/2g form)
+      </div>
+      <div style="color:var(--text-dim);font-size:0.72rem;margin-top:8px;font-family:var(--font-mono);line-height:1.6;border-top:1px solid rgba(100,116,139,0.15);padding-top:8px;">
+        <strong>Convention note:</strong> This uses the SWMM5 Reference Manual (Vol.&nbsp;II) convention with depth y and bed slope S₀ separated. The equivalent compact form using total head H (where H = z₀ + y, so ∂H/∂x = ∂y/∂x − S₀) is: ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·S<sub>f</sub> + gA·h<sub>L</sub> = 0. Both forms are identical; this document uses the y-based form throughout.
       </div>
     </div>
 
@@ -1904,9 +1915,9 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
         <p style="margin-top:8px;"><strong>Unknowns at each timestep:</strong> Flow in every link + Head at every node</p>
       </div>
       <div class="compare-col epanet-side">
-        <div class="compare-header epanet">EPANET — Gradient Algorithm (Todini &amp; Pilati, 1988)</div>
+        <div class="compare-header epanet">EPANET — Global Gradient Algorithm</div>
         <h3>Steady-state, iterative, equilibrium-finding</h3>
-        <p>At each timestep, solves for <strong>hydraulic equilibrium</strong> using the "Global Gradient Algorithm" (GGA) developed by Todini and Pilati and later refined by Todini. This is the engine behind EPANET:</p>
+        <p>At each timestep, solves for <strong>hydraulic equilibrium</strong> using the "Global Gradient Algorithm" (GGA). The theoretical foundation was laid by Todini and Pilati (1988), but EPANET&rsquo;s implementation is based on Rossman&rsquo;s 2000 reformulation, which exploits the sparse network structure for computational efficiency&nbsp;&mdash; the algorithm in EPANET is not a direct implementation of the 1988 paper.</p>
         <ul>
           <li>Mass balance at every node: ΣQ<sub>in</sub> = ΣQ<sub>out</sub> + Demand</li>
           <li>Energy along every pipe: H<sub>i</sub> - H<sub>j</sub> = h<sub>f</sub>(Q) + h<sub>m</sub>(Q)</li>
@@ -2040,7 +2051,7 @@ walking from leaves to root, filling in each row.</pre>
     <div class="vf-card">
       <div class="vf-card-title">The Global Gradient Algorithm: Why Loops Demand It</div>
       <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
-        <p>In a tree network, you can solve pipe-by-pipe from upstream to downstream &mdash; each pipe&rsquo;s flow is known from mass balance. In a <strong>looped</strong> network, multiple paths exist between source and demand, and you must solve for all flows simultaneously. This is what Todini &amp; Pilati&rsquo;s 1988 Global Gradient Algorithm does.</p>
+        <p>In a tree network, you can solve pipe-by-pipe from upstream to downstream &mdash; each pipe&rsquo;s flow is known from mass balance. In a <strong>looped</strong> network, multiple paths exist between source and demand, and you must solve for all flows simultaneously. This is what the Global Gradient Algorithm does (Todini &amp; Pilati 1988, with EPANET&rsquo;s implementation based on Rossman&rsquo;s 2000 sparse-matrix reformulation).</p>
         <pre style="font-family:var(--font-mono);font-size:0.68rem;color:var(--accent-cyan);background:rgba(15,23,42,0.5);padding:12px;border-radius:6px;white-space:pre;overflow-x:auto;">For each pipe connecting nodes i and j:
   Q_ij = f(H_i - H_j)    [flow is a function of head difference]
 
@@ -2468,6 +2479,14 @@ T1    200   10       0       20      50</div>
           <div style="font-size:0.72rem;color:var(--text-dim);margin-top:4px;">—</div>
         </div>
       </div>
+    </div>
+
+    <div id="calcSteps" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-top:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);">Intermediate Steps <span style="font-size:0.65rem;text-transform:none;letter-spacing:0;opacity:0.7;">(verify by hand)</span></div>
+        <button onclick="document.getElementById('calcStepsBody').style.display=document.getElementById('calcStepsBody').style.display==='none'?'block':'none';this.textContent=document.getElementById('calcStepsBody').style.display==='none'?'Show':'Hide'" style="font-size:0.7rem;color:var(--accent-cyan);background:none;border:1px solid rgba(6,182,212,0.3);border-radius:6px;padding:2px 10px;cursor:pointer;font-family:var(--font-mono);">Show</button>
+      </div>
+      <div id="calcStepsBody" style="display:none;font-family:'JetBrains Mono',monospace;font-size:0.75rem;line-height:1.8;color:var(--text-muted);white-space:pre-wrap;"></div>
     </div>
 
     <!-- Bar chart comparison -->
@@ -2974,8 +2993,9 @@ Pump1   WetWell FM-1    PumpCurve1</div>
 
     <div class="insight warn">
       <div class="insight-label">⚠️ Gotcha #4</div>
-      <h3>No dynamic routing — water travels instantly</h3>
-      <p>In SWMM's dynamic wave, flow propagates through the network at a finite speed governed by wave celerity. In EPANET's hydraulic solver, changing a pump status or valve setting affects the <strong>entire network simultaneously</strong> at that timestep. Only the water quality solver tracks travel time (advection through pipes).</p>
+      <h3>Hydraulic changes propagate instantly — but quality transport does not</h3>
+      <p>In SWMM&rsquo;s dynamic wave, flow propagates through the network at a finite speed governed by wave celerity. In EPANET&rsquo;s <strong>hydraulic</strong> solver, changing a pump status or valve setting affects the entire network simultaneously at that timestep &mdash; there is no wave travel time.</p>
+      <p style="margin-top:8px;"><strong>However, EPANET absolutely does track finite transport time</strong> for water quality. The quality solver uses advective transport through pipes with a quality timestep (typically 5 minutes) specifically to capture travel time, mixing at junctions, and reaction kinetics along the flow path. A parcel of water entering a 10,000-ft main at 2 ft/s takes ~83 minutes to traverse it, and EPANET models this correctly. The distinction is: <em>hydraulic equilibrium</em> is instantaneous, <em>constituent transport</em> is time-dependent.</p>
     </div>
 
     <div class="insight warn">
@@ -3582,7 +3602,7 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
       </div>
       <div class="fm-conv-danger-box" style="border-radius:12px;padding:20px;">
         <h4 style="font-weight:600;color:var(--accent-red);margin-bottom:8px;">Temperature Critical</h4>
-        <p style="font-size:0.85rem;color:var(--text-muted);"><strong>H-W has no temperature term.</strong> At 60°C vs 15°C, D-W accounts for 50% viscosity drop, H-W does not.</p>
+        <p style="font-size:0.85rem;color:var(--text-muted);"><strong>H-W has no temperature term</strong> and is an empirical fit valid only for water near ~60°F (15°C). Errors begin well below 60°C &mdash; at 40°C, kinematic viscosity drops ~35% from 15°C, which D-W captures but H-W ignores entirely. At 60°C the discrepancy reaches ~50%. D-W is the only theoretically correct choice for non-ambient temperatures.</p>
       </div>
     </div>
 
@@ -3634,8 +3654,36 @@ Daily   1.1 0.9 0.7 0.6 0.5</div>
 
   <!-- ===== SECTION: TREATMENT EDITOR ===== -->
   <div class="section" id="sec-treatment">
-    <h2 class="section-title">SWMM5 Treatment Expression Editor</h2>
-    <p class="section-intro">Visual expression builder with live simulation. SWMM5 treatment expressions set effluent concentration (<code style="color:var(--accent-green)">C = f(...)</code>) or fractional removal (<code style="color:var(--accent-green)">R = f(...)</code>) at any node. Build, test, and export expressions with instant feedback.</p>
+    <h2 class="section-title">Water Quality: SWMM5 Treatment vs EPANET Reactions</h2>
+    <p class="section-intro">SWMM5 and EPANET handle water quality through fundamentally different mechanisms. SWMM5 uses <strong>node-based treatment expressions</strong> &mdash; algebraic formulas that set effluent concentration or removal fraction at any node. EPANET uses <strong>bulk and wall reaction coefficients</strong> that model first-order (or power-law) decay/growth along pipes and in tanks, plus <strong>EPANET-MSX</strong> (Multi-Species Extension) for complex multi-constituent reactions. The treatment editor below is a SWMM5-specific tool, included here because understanding SWMM&rsquo;s approach helps clarify what EPANET&rsquo;s simpler reaction model cannot do &mdash; and vice versa.</p>
+    <div class="insight key" style="margin-bottom:20px;">
+      <div class="insight-label">🔑 EPANET vs SWMM5 Water Quality</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:0.82rem;">
+        <div>
+          <div style="color:var(--epanet-amber);font-weight:600;margin-bottom:6px;">EPANET Reactions</div>
+          <ul style="margin:0;padding-left:16px;color:var(--text-muted);line-height:1.7;">
+            <li>Bulk decay: dC/dt = K<sub>b</sub>·C<sup>n</sup> (in pipe volume)</li>
+            <li>Wall decay: rate = K<sub>w</sub>·C (at pipe wall, mass-transfer limited)</li>
+            <li>Tank reactions with mixing models (FIFO, LIFO, 2-compartment)</li>
+            <li>Source injection (concentration, mass, flow-paced, setpoint)</li>
+            <li>Single constituent per simulation</li>
+            <li><strong>EPANET-MSX</strong>: multi-species, arbitrary reaction expressions</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color:var(--swmm-glow);font-weight:600;margin-bottom:6px;">SWMM5 Treatment</div>
+          <ul style="margin:0;padding-left:16px;color:var(--text-muted);line-height:1.7;">
+            <li>Node-based expressions: C = f(C_in, HRT, DT, Q, ...)</li>
+            <li>Fractional removal: R = f(...)</li>
+            <li>Multiple pollutants with co-pollutant dependencies</li>
+            <li>Buildup/washoff on subcatchments</li>
+            <li>No in-pipe reaction kinetics (transport only)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <h3 style="font-size:1.05rem;margin-bottom:8px;">SWMM5 Treatment Expression Editor</h3>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">Visual expression builder with live simulation. SWMM5 treatment expressions set effluent concentration (<code style="color:var(--accent-green)">C = f(...)</code>) or fractional removal (<code style="color:var(--accent-green)">R = f(...)</code>) at any node. Build, test, and export expressions with instant feedback.</p>
 
     <!-- Pollutant Tabs -->
     <div class="tx-poll-tabs" id="txPollTabs"></div>
@@ -4340,7 +4388,8 @@ Pump P1  Pattern      Pattern2    ;; Time-varying speed pattern</pre>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="vf-card">
           <div class="vf-card-title">PDA vs DDA Simulator</div>
-          <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;">PDA reduces demand at low pressures. DDA assumes full demand regardless &mdash; producing unrealistic negative pressures.</p>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">PDA uses the Wagner equation: D = D<sub>f</sub> &times; [(P &minus; P<sub>min</sub>) / (P<sub>req</sub> &minus; P<sub>min</sub>)]<sup>P<sub>exp</sub></sup></p>
+          <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:8px;">Set P<sub>min</sub>, P<sub>req</sub>, P<sub>exp</sub> in [OPTIONS]. DDA assumes full demand regardless of pressure &mdash; producing unrealistic negative pressures.</p>
           <div class="vf-slider-row">
             <span class="vf-slider-label">Full-Demand Pressure (psi):</span>
             <input type="range" id="dmNormalP" min="20" max="60" value="40" step="1" oninput="dmUpdatePDA()" style="flex:1;">
@@ -5326,8 +5375,9 @@ WORKED EXAMPLE:
 
   Path: 5,000 ft of 12&quot; main from reservoir to hydrant
 
-  Solving Hazen-Williams for C:
-  62 = 4.727 &times; 5,000 &times; Q^1.852 / (C^1.852 &times; 1.0^4.87)
+  Solving Hazen-Williams for C (US-CFS form: Q in ft³/s, d in ft):
+  Q = 1,200 GPM ÷ 448.831 = 2.673 ft³/s, d = 12&quot; ÷ 12 = 1.0 ft
+  62 = 4.727 &times; 5,000 &times; 2.673^1.852 / (C^1.852 &times; 1.0^4.87)
   &rarr; C &asymp; 95 (moderately corroded)
 
 WHY THIS IS BEST:
@@ -5874,7 +5924,7 @@ THEN PUMP Pump1 STATUS IS OPEN</pre>
           <tbody>
             <tr><td>C1</td><td>The system reaches steady-state at each time step (EPS)</td><td>Extended Period Simulation</td></tr>
             <tr><td>C2</td><td>Time steps are long (minutes to hours) and benign</td><td>Quasi-steady assumption</td></tr>
-            <tr><td>C3</td><td>The solver always converges if the model is "reasonable"</td><td>Todini-Pilati gradient method</td></tr>
+            <tr><td>C3</td><td>The solver always converges if the model is &ldquo;reasonable&rdquo;</td><td>Global Gradient Algorithm (Todini-Pilati / Rossman)</td></tr>
             <tr><td>C4</td><td>Courant number, CFL condition — never heard of it</td><td>Irrelevant to steady-state</td></tr>
             <tr><td>C5</td><td>Mass balance is automatic and exact</td><td>Algebraic constraint</td></tr>
           </tbody>
@@ -6159,7 +6209,7 @@ THEN PUMP Pump1 STATUS IS OPEN</pre>
           <li><strong style="color:var(--text-bright);">Missing surcharge/flooding</strong> (because you're looking for "pressure" output that doesn't exist)</li>
           <li><strong style="color:var(--text-bright);">Underestimating calibration difficulty</strong> (because EPANET calibration is comparatively trivial)</li>
         </ul>
-        <p style="margin-top:12px;font-size:0.9rem;color:var(--text-bright);font-weight:600;">SWMM5 is not EPANET with rain. It is a rainfall-runoff + unsteady open-channel flow + water quality simulator. EPANET is a steady-state pressurized network solver. They share the word "pipe" and approximately nothing else at the physics level.</p>
+        <p style="margin-top:12px;font-size:0.9rem;color:var(--text-bright);font-weight:600;">SWMM5 is not EPANET with rain. It is a rainfall-runoff + unsteady open-channel flow + water quality simulator. EPANET is a steady-state pressurized network solver. They share conservation of mass, conservation of momentum (EPANET&rsquo;s is a degenerate form of SWMM&rsquo;s), Manning&rsquo;s equation (EPANET offers it), the concept of head as energy per unit weight, the minor loss formulation K·V²/2g, pump curves, rule-based controls, and the .INP file philosophy &mdash; but the governing equations, solver architecture, and modeling paradigm are fundamentally different.</p>
       </div>
     </div>
 
@@ -6248,13 +6298,19 @@ Simple WQ (tracer)       →            WQ = buildup, washoff, treatment, transp
       <p>SWMM5 solves the one-dimensional Saint-Venant equations for unsteady, non-uniform flow:</p>
 <div class="ref-eq">Continuity:  ∂A/∂t + ∂Q/∂x = q_lat
 
-Momentum:   ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf + gA·hL = 0
+Momentum (SWMM5 convention):
+  ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x = gA·(S₀ − Sf) − gA·hL
+
+Equivalent H-based form (H = z₀ + y, so ∂H/∂x = ∂y/∂x − S₀):
+  ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf + gA·hL = 0
 
 Where:
   A  = cross-sectional flow area (varies with depth and position)
   Q  = volumetric flow rate
   q_lat = lateral inflow per unit length
-  H  = water surface elevation
+  y  = water depth
+  S₀ = bed slope = −∂z₀/∂x
+  H  = water surface elevation = z₀ + y
   Sf = friction slope (from Manning's equation)
   hL = local (minor) losses
   g  = gravitational acceleration
@@ -6280,7 +6336,15 @@ Where:
   S = friction slope</div>
 
       <h4>1.3 Hazen-Williams Equation (EPANET Default)</h4>
-<div class="ref-eq">Headloss:  hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)
+<div class="ref-eq">Headloss (four common forms — same equation, different constants for different unit combos):
+
+  US-CFS:   hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)       Q in ft³/s, d in ft, L in ft, hf in ft
+  US-GPM:   hf = 10.44 · L · Q^1.852 / (C^1.852 · d^4.87)        Q in GPM, d in inches, L in ft, hf in ft
+  SI:       hf = 10.67 · L · Q^1.852 / (C^1.852 · d^4.87)        Q in m³/s, d in m, L in m, hf in m
+  SI-L/s:   hf = 1.131e10 · L · Q^1.852 / (C^1.852 · d^4.87)     Q in L/s, d in mm, L in m, hf in m
+
+  ⚠ This calculator uses the US-CFS form (4.727) internally.
+    User inputs (GPM, inches or L/s, mm) are converted to CFS & ft before computation.
 
 Velocity:
   US: V = 1.318 · C · R^0.63 · Sf^0.54
@@ -6317,7 +6381,8 @@ Swamee-Jain (explicit approximation):
     <div class="ref-section" id="ref-2">
       <h3>2. EPANET Solver — Gradient Algorithm</h3>
 
-      <h4>2.1 Todini-Pilati Global Gradient Algorithm (1988)</h4>
+      <h4>2.1 Global Gradient Algorithm (Todini &amp; Pilati 1988, Rossman 2000)</h4>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;">The theoretical foundation was laid by Todini and Pilati (1988). EPANET&rsquo;s implementation uses Rossman&rsquo;s 2000 reformulation, which restructures the GGA to exploit sparse matrix techniques and the topological structure of pipe networks for computational efficiency.</p>
 <div class="ref-eq">At each hydraulic timestep, EPANET solves simultaneously:
 
 Node continuity:    ΣQ_in - ΣQ_out = Demand    (at every junction)
@@ -6528,7 +6593,7 @@ Example: 48-inch pipe, c=1000 ft/s
         <tr><td>Flow type</td><td>Partial, free surface</td><td>Full, pressurized</td></tr>
         <tr><td>Driving force</td><td>Gravity (elevation)</td><td>Pressure (head)</td></tr>
         <tr><td>Roughness</td><td>Manning's n (↑ = rougher)</td><td>H-W C (↑ = smoother)</td></tr>
-        <tr><td>Solver</td><td>Dynamic wave (Saint-Venant)</td><td>Gradient Algorithm (Todini-Pilati)</td></tr>
+        <tr><td>Solver</td><td>Dynamic wave (Saint-Venant)</td><td>Global Gradient Algorithm (Todini-Pilati / Rossman)</td></tr>
         <tr><td>Timestep</td><td>Seconds (Courant-limited)</td><td>Hours (unconditionally stable)</td></tr>
         <tr><td>Water input</td><td>Rainfall → subcatchments → inflows</td><td>Demands at junctions</td></tr>
         <tr><td>Junction elevation</td><td>Invert (bottom of pipe)</td><td>Ground level</td></tr>
@@ -6691,6 +6756,56 @@ Daily  0.6 0.5</div>
         <tr><td>CIRCULAR 2.0 → Diam 24</td><td>SWMM: shape + ft. EPANET: diameter in inches, no [XSECTIONS] needed.</td></tr>
         <tr><td>Δt = 30s → Δt = 1hr</td><td>120× larger timestep — no wave propagation to track.</td></tr>
       </table>
+    </div>
+
+      <h4>14.4 Accuracy Verification — Hand Calculation Cross-Check</h4>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">For the working example above, here is a hand-calculated verification showing that SWMM5 and EPANET produce <strong>equivalent headloss</strong> for the same pipe at the same flow when using equivalent roughness parameters. This is the single most important test: if the numbers don&rsquo;t match, something is configured wrong.</p>
+
+      <div class="ref-note" style="border-left:3px solid var(--accent-green);margin-bottom:16px;">
+        <strong style="color:var(--accent-green);">Verification Problem: Single Pipe, Full Flow, Steady State</strong>
+        <div style="font-size:0.82rem;color:var(--text-muted);margin-top:8px;line-height:1.8;">
+          <strong>Given:</strong> 24-inch (2-ft) diameter pipe, 500 ft long, full flow at Q = 1.114 CFS (500 GPM)<br>
+          <strong>SWMM5:</strong> Manning&rsquo;s n = 0.013, full-pipe flow<br>
+          <strong>EPANET:</strong> Hazen-Williams C = 130
+        </div>
+      </div>
+
+<div class="ref-eq" style="font-size:0.82rem;line-height:2.0;">
+STEP 1: Common geometry
+  D = 2.0 ft,  A = π·D²/4 = 3.1416 ft²,  R = D/4 = 0.5 ft
+  V = Q/A = 1.114 / 3.1416 = 0.3546 ft/s
+
+STEP 2: Manning headloss (SWMM5)
+  Sf = (n·Q / (1.49·A·R^⅔))²
+     = (0.013 × 1.114 / (1.49 × 3.1416 × 0.6300))²
+     = (0.01448 / 2.9488)² = (0.004911)² = 2.412 × 10⁻⁵ ft/ft
+  hf = Sf × L = 2.412×10⁻⁵ × 500 = 0.01206 ft
+
+STEP 3: Hazen-Williams headloss (EPANET, US-CFS form)
+  hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)
+     = 4.727 × 500 × 1.114^1.852 / (130^1.852 × 2.0^4.87)
+     = 4.727 × 500 × 1.2213 / (8222.9 × 29.24)
+     = 2886.6 / 240,458 = 0.01200 ft
+
+STEP 4: Compare
+  Manning:  hf = 0.01206 ft (0.145 in)
+  H-W:     hf = 0.01200 ft (0.144 in)
+  Difference: 0.5% ✓
+
+  At this particular diameter (24") and flow (500 GPM), the common
+  approximation n=0.013 ≈ C=130 gives nearly identical results.
+  The match degrades for smaller pipes (< 6") or larger flows where
+  the empirical fits diverge. The n ↔ C mapping is not a constant —
+  it depends on diameter and friction slope (see converter tool above).
+
+  For exact agreement, use Darcy-Weisbach in both models with the same
+  ε (roughness height). D-W is the only equation with a theoretical
+  basis, and both EPANET and SWMM5 support it.
+</div>
+
+      <div class="ref-note" style="margin-top:12px;">
+        <strong style="color:var(--text-bright);">Bottom line:</strong> When both models use the <em>same</em> headloss equation (e.g., D-W with ε = 0.5 mm), they produce identical results for full-pipe steady flow. Any discrepancy means a configuration error — check diameter units (in vs ft), roughness type (n vs C vs ε), flow units (CFS vs GPM), and elevation convention.
+      </div>
     </div>
 
     <!-- REF 15 -->
@@ -8105,6 +8220,53 @@ Daily  0.6 0.5</div>
     const scale = 120 / maxH;
     document.getElementById('barManning').style.height = Math.max(4, hf_manning_per1000 * scale) + 'px';
     document.getElementById('barHW').style.height = Math.max(4, hf_hw_per1000 * scale) + 'px';
+
+    var stepsEl = document.getElementById('calcStepsBody');
+    if (stepsEl) {
+      var s = '';
+      if (unitSystem === 'us') {
+        s += '── Unit Conversions ──\n';
+        s += 'D = ' + rawDiam + ' in ÷ 12 = ' + D_ft.toFixed(4) + ' ft\n';
+        s += 'Q = ' + rawFlow + ' GPM ÷ 448.831 = ' + Q_cfs.toFixed(6) + ' ft³/s\n';
+        s += 'L = ' + rawLen + ' ft\n';
+      } else {
+        s += '── Unit Conversions ──\n';
+        s += 'D = ' + rawDiam + ' mm → ' + (rawDiam/1000).toFixed(4) + ' m × 3.28084 = ' + D_ft.toFixed(4) + ' ft\n';
+        s += 'Q = ' + rawFlow + ' L/s → ' + (rawFlow/1000).toFixed(6) + ' m³/s × 35.3147 = ' + Q_cfs.toFixed(6) + ' ft³/s\n';
+        s += 'L = ' + rawLen + ' m × 3.28084 = ' + L_ft.toFixed(2) + ' ft\n';
+      }
+      s += '\n── Common Values ──\n';
+      s += 'A = π·D²/4 = π·' + D_ft.toFixed(4) + '²/4 = ' + A.toFixed(6) + ' ft²\n';
+      s += 'V = Q/A = ' + Q_cfs.toFixed(6) + ' / ' + A.toFixed(6) + ' = ' + V_fps.toFixed(4) + ' ft/s\n';
+      s += 'R = D/4 = ' + D_ft.toFixed(4) + '/4 = ' + R.toFixed(4) + ' ft\n';
+      s += 'Re = V·D/ν = ' + V_fps.toFixed(4) + '·' + D_ft.toFixed(4) + ' / 1.217e-5 = ' + Re.toFixed(0) + '\n';
+      s += '\n── Manning (using US-CFS form, constant 1.49) ──\n';
+      s += 'n = ' + n.toFixed(3) + '\n';
+      s += 'Sf = (n·Q / (1.49·A·R^⅔))²\n';
+      s += '   = (' + n.toFixed(3) + '·' + Q_cfs.toFixed(6) + ' / (1.49·' + A.toFixed(6) + '·' + Math.pow(R,2/3).toFixed(6) + '))²\n';
+      s += '   = ' + Sf_manning.toExponential(4) + ' ft/ft\n';
+      s += 'hf/1000ft = Sf × 1000 = ' + hf_manning_per1000.toFixed(4) + ' ft/1000ft\n';
+      if (unitSystem === 'si') s += '         → × 0.3048 = ' + (hf_manning_per1000*0.3048).toFixed(4) + ' m/1000m\n';
+      s += '\n── Hazen-Williams (using US-CFS form, constant 4.727) ──\n';
+      s += 'C = ' + C + '\n';
+      s += 'hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)\n';
+      s += '   = 4.727 · ' + L_ft.toFixed(2) + ' · ' + Q_cfs.toFixed(6) + '^1.852 / (' + C + '^1.852 · ' + D_ft.toFixed(4) + '^4.87)\n';
+      var Qpow = Math.pow(Q_cfs, 1.852);
+      var Cpow = Math.pow(C, 1.852);
+      var Dpow = Math.pow(D_ft, 4.87);
+      s += '   = 4.727 · ' + L_ft.toFixed(2) + ' · ' + Qpow.toExponential(4) + ' / (' + Cpow.toFixed(2) + ' · ' + Dpow.toExponential(4) + ')\n';
+      s += '   = ' + hf_hw_total.toFixed(4) + ' ft (total over ' + L_ft.toFixed(0) + ' ft)\n';
+      s += 'hf/1000ft = ' + hf_hw_total.toFixed(4) + ' / ' + L_ft.toFixed(0) + ' × 1000 = ' + hf_hw_per1000.toFixed(4) + ' ft/1000ft\n';
+      if (unitSystem === 'si') s += '         → × 0.3048 = ' + (hf_hw_per1000*0.3048).toFixed(4) + ' m/1000m\n';
+      s += '\n── Cross-check: US-GPM form (constant 10.44) ──\n';
+      var d_in = unitSystem === 'us' ? rawDiam : rawDiam / 25.4;
+      var Q_gpm = unitSystem === 'us' ? rawFlow : rawFlow * 15.8503;
+      var L_check = unitSystem === 'us' ? rawLen : rawLen * 3.28084;
+      var hf_gpm = 10.44 * L_check * Math.pow(Q_gpm, 1.852) / (Math.pow(C, 1.852) * Math.pow(d_in, 4.87));
+      s += 'hf = 10.44 · ' + L_check.toFixed(2) + ' · ' + Q_gpm.toFixed(2) + '^1.852 / (' + C + '^1.852 · ' + d_in.toFixed(3) + '^4.87)\n';
+      s += '   = ' + hf_gpm.toFixed(4) + ' ft  ← should match ' + hf_hw_total.toFixed(4) + ' ft ✓\n';
+      stepsEl.textContent = s;
+    }
   }
 
   ids.forEach(id => {
@@ -9192,13 +9354,19 @@ Generated ${new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',
 <p>SWMM5 solves the one-dimensional Saint-Venant equations for unsteady, non-uniform flow:</p>
 <div class="eq">Continuity:  ∂A/∂t + ∂Q/∂x = q_lat
 
-Momentum:   ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf + gA·hL = 0
+Momentum (y-based, per SWMM5 Reference Manual Vol II):
+  ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂y/∂x = gA·(S₀ − Sf) − gA·hL
+
+Equivalently (H-based, where H = z_b + y):
+  ∂Q/∂t + ∂(Q²/A)/∂x + gA·∂H/∂x + gA·Sf + gA·hL = 0
 
 Where:
   A  = cross-sectional flow area (varies with depth and position)
   Q  = volumetric flow rate
   q_lat = lateral inflow per unit length
-  H  = water surface elevation
+  y  = water depth above invert
+  H  = water surface elevation (= z_b + y)
+  S₀ = bed slope (= −∂z_b/∂x)
   Sf = friction slope (from Manning's equation)
   hL = local (minor) losses
   g  = gravitational acceleration
@@ -9206,8 +9374,9 @@ Where:
 Momentum equation terms:
   ∂Q/∂t        → Local acceleration
   ∂(Q²/A)/∂x   → Convective acceleration
-  gA·∂H/∂x     → Pressure/gravity force
-  gA·Sf         → Friction force
+  gA·∂y/∂x     → Pressure gradient (depth-based)
+  gA·S₀        → Gravity driving force (bed slope)
+  gA·Sf         → Friction resistance
   gA·hL         → Local losses</div>
 
 <h2>1.2 Manning's Equation (SWMM5 Friction)</h2>
@@ -9224,7 +9393,15 @@ Where:
   S = friction slope</div>
 
 <h2>1.3 Hazen-Williams Equation (EPANET Default)</h2>
-<div class="eq">Headloss:  hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)
+<div class="eq">Headloss (four common forms — same equation, different constants for different unit combos):
+
+  US-CFS:   hf = 4.727 · L · Q^1.852 / (C^1.852 · d^4.87)       Q in ft³/s, d in ft, L in ft, hf in ft
+  US-GPM:   hf = 10.44 · L · Q^1.852 / (C^1.852 · d^4.87)        Q in GPM, d in inches, L in ft, hf in ft
+  SI:       hf = 10.67 · L · Q^1.852 / (C^1.852 · d^4.87)        Q in m³/s, d in m, L in m, hf in m
+  SI-L/s:   hf = 1.131e10 · L · Q^1.852 / (C^1.852 · d^4.87)     Q in L/s, d in mm, L in m, hf in m
+
+  ⚠ This calculator uses the US-CFS form (4.727) internally.
+    User inputs (GPM, inches or L/s, mm) are converted to CFS & ft before computation.
 
 Velocity:
   US: V = 1.318 · C · R^0.63 · Sf^0.54
@@ -9258,7 +9435,7 @@ Swamee-Jain (explicit approximation):
 
 <h1>2. EPANET Solver — Gradient Algorithm</h1>
 
-<h2>2.1 Todini-Pilati Global Gradient Algorithm (1988)</h2>
+<h2>2.1 Global Gradient Algorithm (Todini &amp; Pilati 1988, Rossman 2000)</h2>
 <div class="eq">At each hydraulic timestep, EPANET solves simultaneously:
 
 Node continuity:    ΣQ_in - ΣQ_out = Demand    (at every junction)

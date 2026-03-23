@@ -4743,6 +4743,55 @@ Chlorine maintained. No stagnation. No complaints.</pre>
         </div>
         <div class="vf-note" style="margin-top:12px;"><strong>Physics-Informed Neural Networks (PINNs):</strong> Embed conservation laws (mass balance, energy equation) into the loss function. The network must satisfy physics even where no training data exists. Requires 3&ndash;10&times; less training data. EPANET&rsquo;s H-W is easily differentiable (Q<sup>1.852</sup>); SWMM5&rsquo;s Manning&rsquo;s with depth-dependent area is much harder to embed as a constraint.</div>
       </div>
+
+      <div class="vf-card" style="border-color:rgba(139,92,246,0.4);">
+        <div class="vf-card-title" style="color:var(--gravity-purple);">Topology Explorer &mdash; Build, Classify, Break</div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;">Build a network interactively. Place nodes, connect pipes, and watch real-time topology classification. Then break pipes to see how failure propagates differently in trees vs loops.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="te-tool-btn te-tool-active" data-te-tool="junction" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:rgba(59,130,246,0.15);color:var(--epanet-blue);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">+ Junction</button>
+          <button class="te-tool-btn" data-te-tool="reservoir" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">+ Reservoir</button>
+          <button class="te-tool-btn" data-te-tool="tank" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">+ Tank</button>
+          <button class="te-tool-btn" data-te-tool="pipe" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Connect Pipe</button>
+          <button class="te-tool-btn" data-te-tool="break" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Break Pipe</button>
+          <button class="te-tool-btn" data-te-tool="delete" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Delete</button>
+          <span style="border-left:1px solid var(--border);margin:0 4px;"></span>
+          <button id="teClear" style="padding:5px 12px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444;cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Clear All</button>
+          <button id="tePresetTree" style="padding:5px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);color:var(--epanet-amber);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Load Tree</button>
+          <button id="tePresetLoop" style="padding:5px 12px;border-radius:6px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.08);color:var(--epanet-blue);cursor:pointer;font-family:var(--font-mono);font-size:0.72rem;">Load Loop</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 280px;gap:14px;">
+          <div>
+            <canvas id="teCanvas" width="700" height="420" style="width:100%;border-radius:8px;background:#0d1117;border:1px solid var(--border);cursor:crosshair;"></canvas>
+            <div id="teHint" style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;text-align:center;">Click canvas to place a junction. Use toolbar to switch modes.</div>
+          </div>
+          <div id="teAnalysis" style="font-size:0.72rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+            <div style="font-weight:700;color:var(--gravity-purple);font-size:0.8rem;border-bottom:1px solid var(--border);padding-bottom:4px;">Topology Analysis</div>
+            <div id="teStats" style="display:flex;flex-direction:column;gap:6px;">
+              <div>Nodes: <strong id="teNodeCount">0</strong></div>
+              <div>Pipes: <strong id="tePipeCount">0</strong></div>
+              <div>Loops: <strong id="teLoopCount">0</strong></div>
+              <div>Dead ends: <strong id="teDeadEnds">0</strong></div>
+              <div>Connected: <strong id="teConnected">&mdash;</strong></div>
+            </div>
+            <div style="font-weight:700;color:var(--gravity-purple);font-size:0.8rem;border-bottom:1px solid var(--border);padding-bottom:4px;margin-top:4px;">Classification</div>
+            <div id="teClassification" style="padding:8px;border-radius:6px;background:rgba(15,23,42,0.5);border:1px solid var(--border);font-family:var(--font-mono);text-align:center;">&mdash;</div>
+            <div style="font-weight:700;color:var(--gravity-purple);font-size:0.8rem;border-bottom:1px solid var(--border);padding-bottom:4px;margin-top:4px;">Bridge Pipes</div>
+            <div id="teBridges" style="font-size:0.7rem;">None &mdash; all pipes are redundant</div>
+            <div style="font-weight:700;color:var(--gravity-purple);font-size:0.8rem;border-bottom:1px solid var(--border);padding-bottom:4px;margin-top:4px;">Failure Impact</div>
+            <div id="teFailureInfo" style="font-size:0.7rem;">Break a pipe to see impact</div>
+            <div style="font-weight:700;color:var(--gravity-purple);font-size:0.8rem;border-bottom:1px solid var(--border);padding-bottom:4px;margin-top:4px;">Legend</div>
+            <div style="display:flex;flex-direction:column;gap:3px;font-size:0.68rem;">
+              <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#3B82F6;vertical-align:middle;margin-right:4px;"></span> Junction</div>
+              <div><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#0EA5E9;vertical-align:middle;margin-right:4px;"></span> Reservoir</div>
+              <div><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#10B981;vertical-align:middle;margin-right:4px;"></span> Tank</div>
+              <div><span style="display:inline-block;width:12px;height:3px;background:#3B82F6;vertical-align:middle;margin-right:4px;"></span> Looped pipe</div>
+              <div><span style="display:inline-block;width:12px;height:3px;background:#F59E0B;vertical-align:middle;margin-right:4px;"></span> Tree-only pipe</div>
+              <div><span style="display:inline-block;width:12px;height:3px;background:#EF4444;vertical-align:middle;margin-right:4px;"></span> Bridge (critical)</div>
+              <div><span style="display:inline-block;width:12px;height:3px;background:#EF4444;vertical-align:middle;margin-right:4px;border-top:2px dashed #EF4444;"></span> Broken pipe</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -6902,7 +6951,7 @@ Daily  0.6 0.5</div>
   function getNode(nodes, id) { return nodes.find(n => n.id === id); }
 
   function drawFailNetwork(canvasId, nodes, pipes, brokenIdx, isLoop) {
-    const canvas = el(canvasId);
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
@@ -6993,7 +7042,7 @@ Daily  0.6 0.5</div>
   }
 
   function handleFailClick(e, canvasId, nodes, pipes, isLoop) {
-    const canvas = el(canvasId);
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -7377,6 +7426,506 @@ Daily  0.6 0.5</div>
   if (ftc) ftc.addEventListener('click', (e) => handleFailClick(e, 'failTreeCanvas', failTreeNodes, failTreePipes, false));
   const flc = document.getElementById('failLoopCanvas');
   if (flc) flc.addEventListener('click', (e) => handleFailClick(e, 'failLoopCanvas', failLoopNodes, failLoopPipes, true));
+
+  // === Topology Explorer Interactive Tool ===
+  (function() {
+    var teCanvas = document.getElementById('teCanvas');
+    if (!teCanvas) return;
+    var ctx = teCanvas.getContext('2d');
+    var teNodes = [];
+    var tePipes = [];
+    var teTool = 'junction';
+    var tePipeStart = null;
+    var teNextId = 1;
+    var teBrokenPipes = {};
+
+    function teGetDPR() { return window.devicePixelRatio || 1; }
+
+    function teInitCanvas() {
+      var dpr = teGetDPR();
+      var rect = teCanvas.getBoundingClientRect();
+      teCanvas.width = rect.width * dpr;
+      teCanvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    teInitCanvas();
+
+    var teToolBtns = document.querySelectorAll('.te-tool-btn');
+    teToolBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        teToolBtns.forEach(function(b) {
+          b.classList.remove('te-tool-active');
+          b.style.background = 'var(--bg-card)';
+          b.style.color = 'var(--text-muted)';
+        });
+        btn.classList.add('te-tool-active');
+        btn.style.background = 'rgba(59,130,246,0.15)';
+        btn.style.color = 'var(--epanet-blue)';
+        teTool = btn.getAttribute('data-te-tool');
+        tePipeStart = null;
+        var hints = {
+          junction: 'Click canvas to place a junction node.',
+          reservoir: 'Click canvas to place a reservoir (source).',
+          tank: 'Click canvas to place a tank (storage).',
+          pipe: 'Click a node to start, then click another node to connect.',
+          break: 'Click a pipe to break it and see failure impact.',
+          delete: 'Click a node or pipe to remove it.'
+        };
+        document.getElementById('teHint').textContent = hints[teTool] || '';
+      });
+    });
+
+    function teNodeAt(x, y, r) {
+      r = r || 18;
+      for (var i = 0; i < teNodes.length; i++) {
+        var dx = teNodes[i].x - x, dy = teNodes[i].y - y;
+        if (dx * dx + dy * dy < r * r) return teNodes[i];
+      }
+      return null;
+    }
+
+    function tePipeAt(x, y) {
+      var best = null, bestDist = 12;
+      for (var i = 0; i < tePipes.length; i++) {
+        var p = tePipes[i];
+        var n1 = teGetNode(p.from), n2 = teGetNode(p.to);
+        if (!n1 || !n2) continue;
+        var d = tePointToSeg(x, y, n1.x, n1.y, n2.x, n2.y);
+        if (d < bestDist) { bestDist = d; best = p; }
+      }
+      return best;
+    }
+
+    function tePointToSeg(px, py, x1, y1, x2, y2) {
+      var dx = x2 - x1, dy = y2 - y1;
+      var len2 = dx * dx + dy * dy;
+      if (len2 === 0) return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+      var t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+      var projX = x1 + t * dx, projY = y1 + t * dy;
+      return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+    }
+
+    function teGetNode(id) {
+      for (var i = 0; i < teNodes.length; i++) {
+        if (teNodes[i].id === id) return teNodes[i];
+      }
+      return null;
+    }
+
+    function tePipeExists(a, b) {
+      for (var i = 0; i < tePipes.length; i++) {
+        if ((tePipes[i].from === a && tePipes[i].to === b) || (tePipes[i].from === b && tePipes[i].to === a)) return true;
+      }
+      return false;
+    }
+
+    function teAdj() {
+      var adj = {};
+      teNodes.forEach(function(n) { adj[n.id] = []; });
+      tePipes.forEach(function(p) {
+        if (teBrokenPipes[p.id]) return;
+        if (adj[p.from]) adj[p.from].push(p.to);
+        if (adj[p.to]) adj[p.to].push(p.from);
+      });
+      return adj;
+    }
+
+    function teFindCycles() {
+      if (teNodes.length === 0) return 0;
+      var adj = teAdj();
+      var visited = {};
+      var cycles = 0;
+      function dfs(node, parent) {
+        visited[node] = true;
+        var neighbors = adj[node] || [];
+        for (var i = 0; i < neighbors.length; i++) {
+          var nb = neighbors[i];
+          if (!visited[nb]) { dfs(nb, node); }
+          else if (nb !== parent) { cycles++; }
+        }
+      }
+      teNodes.forEach(function(n) {
+        if (!visited[n.id]) dfs(n.id, -1);
+      });
+      return Math.floor(cycles / 2);
+    }
+
+    function teFindBridges() {
+      if (teNodes.length === 0) return [];
+      var adj = teAdj();
+      var disc = {}, low = {}, parent = {};
+      var timer = { v: 0 };
+      var bridges = [];
+      function dfs(u) {
+        disc[u] = low[u] = timer.v++;
+        var neighbors = adj[u] || [];
+        for (var i = 0; i < neighbors.length; i++) {
+          var v = neighbors[i];
+          if (disc[v] === undefined) {
+            parent[v] = u;
+            dfs(v);
+            low[u] = Math.min(low[u], low[v]);
+            if (low[v] > disc[u]) {
+              for (var j = 0; j < tePipes.length; j++) {
+                var p = tePipes[j];
+                if (!teBrokenPipes[p.id] && ((p.from === u && p.to === v) || (p.from === v && p.to === u))) {
+                  bridges.push(p.id);
+                }
+              }
+            }
+          } else if (v !== parent[u]) {
+            low[u] = Math.min(low[u], disc[v]);
+          }
+        }
+      }
+      teNodes.forEach(function(n) {
+        if (disc[n.id] === undefined) dfs(n.id);
+      });
+      return bridges;
+    }
+
+    function teDeadEnds() {
+      var adj = teAdj();
+      var count = 0;
+      teNodes.forEach(function(n) {
+        if ((adj[n.id] || []).length === 1) count++;
+      });
+      return count;
+    }
+
+    function teIsConnected() {
+      if (teNodes.length <= 1) return true;
+      var adj = teAdj();
+      var visited = {};
+      var queue = [teNodes[0].id];
+      visited[teNodes[0].id] = true;
+      while (queue.length > 0) {
+        var cur = queue.shift();
+        var neighbors = adj[cur] || [];
+        for (var i = 0; i < neighbors.length; i++) {
+          if (!visited[neighbors[i]]) {
+            visited[neighbors[i]] = true;
+            queue.push(neighbors[i]);
+          }
+        }
+      }
+      for (var i = 0; i < teNodes.length; i++) {
+        if (!visited[teNodes[i].id]) return false;
+      }
+      return true;
+    }
+
+    function teConnComponents() {
+      var adj = teAdj();
+      var visited = {};
+      var comps = [];
+      teNodes.forEach(function(n) {
+        if (!visited[n.id]) {
+          var comp = [];
+          var queue = [n.id];
+          visited[n.id] = true;
+          while (queue.length > 0) {
+            var cur = queue.shift();
+            comp.push(cur);
+            (adj[cur] || []).forEach(function(nb) {
+              if (!visited[nb]) { visited[nb] = true; queue.push(nb); }
+            });
+          }
+          comps.push(comp);
+        }
+      });
+      return comps;
+    }
+
+    function teAnalyze() {
+      var activePipes = tePipes.filter(function(p) { return !teBrokenPipes[p.id]; });
+      document.getElementById('teNodeCount').textContent = teNodes.length;
+      document.getElementById('tePipeCount').textContent = activePipes.length;
+      var loops = teFindCycles();
+      document.getElementById('teLoopCount').textContent = loops;
+      document.getElementById('teDeadEnds').textContent = teDeadEnds();
+      var conn = teIsConnected();
+      var connEl = document.getElementById('teConnected');
+      if (teNodes.length <= 1) {
+        connEl.innerHTML = '&mdash;';
+      } else {
+        connEl.innerHTML = conn ? '<span style="color:var(--accent-green);">Yes</span>' : '<span style="color:#ef4444;">No (' + teConnComponents().length + ' components)</span>';
+      }
+      var classEl = document.getElementById('teClassification');
+      if (teNodes.length === 0) {
+        classEl.innerHTML = '&mdash;';
+      } else if (loops === 0) {
+        classEl.innerHTML = '<span style="color:var(--epanet-amber);font-weight:700;">TREE (Dendritic)</span><br><span style="font-size:0.68rem;">Typical SWMM5 topology</span>';
+      } else if (loops === 1) {
+        classEl.innerHTML = '<span style="color:var(--epanet-blue);font-weight:700;">SINGLE LOOP</span><br><span style="font-size:0.68rem;">Minimal redundancy</span>';
+      } else {
+        var density = (activePipes.length > 0 && teNodes.length > 0) ? (loops / teNodes.length).toFixed(2) : '0';
+        classEl.innerHTML = '<span style="color:var(--epanet-blue);font-weight:700;">LOOPED NETWORK</span><br><span style="font-size:0.68rem;">' + loops + ' loops, density ' + density + '<br>Typical EPANET topology</span>';
+      }
+      var bridges = teFindBridges();
+      var bridgeEl = document.getElementById('teBridges');
+      if (activePipes.length === 0) {
+        bridgeEl.textContent = 'No pipes to analyze';
+      } else if (bridges.length === 0) {
+        bridgeEl.innerHTML = '<span style="color:var(--accent-green);">None &mdash; all pipes are redundant</span>';
+      } else {
+        bridgeEl.innerHTML = '<span style="color:#ef4444;">' + bridges.length + ' bridge pipe(s) &mdash; breaking any disconnects the network</span>';
+      }
+      return bridges;
+    }
+
+    function teDraw() {
+      var rect = teCanvas.getBoundingClientRect();
+      var w = rect.width, h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      var bridges = teAnalyze();
+      var bridgeSet = {};
+      bridges.forEach(function(id) { bridgeSet[id] = true; });
+
+      tePipes.forEach(function(p) {
+        var n1 = teGetNode(p.from), n2 = teGetNode(p.to);
+        if (!n1 || !n2) return;
+        ctx.beginPath();
+        ctx.moveTo(n1.x, n1.y);
+        ctx.lineTo(n2.x, n2.y);
+        if (teBrokenPipes[p.id]) {
+          ctx.strokeStyle = '#EF4444';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 4]);
+        } else if (bridgeSet[p.id]) {
+          ctx.strokeStyle = '#EF4444';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([]);
+        } else {
+          var inLoop = teFindCycles() > 0 && !bridgeSet[p.id];
+          ctx.strokeStyle = inLoop ? '#3B82F6' : '#F59E0B';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (teBrokenPipes[p.id]) {
+          var mx = (n1.x + n2.x) / 2, my = (n1.y + n2.y) / 2;
+          ctx.font = '14px sans-serif';
+          ctx.fillStyle = '#EF4444';
+          ctx.textAlign = 'center';
+          ctx.fillText('\u2716', mx, my + 5);
+        }
+      });
+
+      if (tePipeStart !== null) {
+        var sn = teGetNode(tePipeStart);
+        if (sn) {
+          ctx.beginPath();
+          ctx.arc(sn.x, sn.y, 14, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(139,92,246,0.6)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      teNodes.forEach(function(n) {
+        if (n.type === 'reservoir') {
+          ctx.fillStyle = '#0EA5E9';
+          ctx.fillRect(n.x - 10, n.y - 7, 20, 14);
+          ctx.strokeStyle = '#0EA5E9';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(n.x - 10, n.y - 7, 20, 14);
+          ctx.font = '8px monospace';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.fillText('RES', n.x, n.y + 3);
+        } else if (n.type === 'tank') {
+          ctx.fillStyle = '#10B981';
+          ctx.fillRect(n.x - 10, n.y - 7, 20, 14);
+          ctx.strokeStyle = '#10B981';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(n.x - 10, n.y - 7, 20, 14);
+          ctx.font = '8px monospace';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.fillText('TNK', n.x, n.y + 3);
+        } else {
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#3B82F6';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.font = '9px monospace';
+        ctx.fillStyle = 'rgba(148,163,184,0.7)';
+        ctx.textAlign = 'center';
+        ctx.fillText('N' + n.id, n.x, n.y - 13);
+      });
+    }
+
+    teCanvas.addEventListener('click', function(e) {
+      var rect = teCanvas.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+
+      if (teTool === 'junction' || teTool === 'reservoir' || teTool === 'tank') {
+        if (teNodeAt(x, y, 20)) return;
+        teNodes.push({ id: teNextId++, x: x, y: y, type: teTool });
+        teDraw();
+      } else if (teTool === 'pipe') {
+        var clickedNode = teNodeAt(x, y, 20);
+        if (!clickedNode) return;
+        if (tePipeStart === null) {
+          tePipeStart = clickedNode.id;
+          teDraw();
+          document.getElementById('teHint').textContent = 'Now click another node to complete the pipe.';
+        } else {
+          if (clickedNode.id !== tePipeStart && !tePipeExists(tePipeStart, clickedNode.id)) {
+            tePipes.push({ id: teNextId++, from: tePipeStart, to: clickedNode.id });
+          }
+          tePipeStart = null;
+          teDraw();
+          document.getElementById('teHint').textContent = 'Click a node to start a new pipe connection.';
+        }
+      } else if (teTool === 'break') {
+        var pipe = tePipeAt(x, y);
+        if (pipe && !teBrokenPipes[pipe.id]) {
+          teBrokenPipes[pipe.id] = true;
+          teDraw();
+          teShowFailureImpact(pipe);
+        }
+      } else if (teTool === 'delete') {
+        var nodeHit = teNodeAt(x, y, 20);
+        if (nodeHit) {
+          tePipes = tePipes.filter(function(p) { return p.from !== nodeHit.id && p.to !== nodeHit.id; });
+          teNodes = teNodes.filter(function(n) { return n.id !== nodeHit.id; });
+          Object.keys(teBrokenPipes).forEach(function(k) {
+            var found = false;
+            tePipes.forEach(function(p) { if (p.id === parseInt(k)) found = true; });
+            if (!found) delete teBrokenPipes[k];
+          });
+          teDraw();
+        } else {
+          var pipeHit = tePipeAt(x, y);
+          if (pipeHit) {
+            tePipes = tePipes.filter(function(p) { return p.id !== pipeHit.id; });
+            delete teBrokenPipes[pipeHit.id];
+            teDraw();
+          }
+        }
+      }
+    });
+
+    function teShowFailureImpact(brokenPipe) {
+      var comps = teConnComponents();
+      var failInfo = document.getElementById('teFailureInfo');
+      if (comps.length === 1) {
+        failInfo.innerHTML = '<span style="color:var(--accent-green);font-weight:600;">Network remains connected.</span><br>This pipe had a redundant path (loop). Flow reroutes automatically. This is the EPANET advantage of looped networks.';
+      } else {
+        var isolated = 0;
+        var hasSrc = comps.map(function(comp) {
+          var src = false;
+          comp.forEach(function(nid) {
+            var n = teGetNode(nid);
+            if (n && (n.type === 'reservoir' || n.type === 'tank')) src = true;
+          });
+          return src;
+        });
+        comps.forEach(function(comp, i) {
+          if (!hasSrc[i]) isolated += comp.length;
+        });
+        failInfo.innerHTML = '<span style="color:#ef4444;font-weight:600;">Network SPLIT into ' + comps.length + ' parts!</span><br>' + (isolated > 0 ? isolated + ' node(s) lost supply &mdash; no source in their component.' : 'All components still have a source.') + '<br><span style="font-size:0.68rem;">In a tree topology (SWMM5), every pipe break disconnects downstream nodes. In a looped topology (EPANET), redundant paths keep flow going.</span>';
+      }
+    }
+
+    function teLoadPreset(type) {
+      teNodes = [];
+      tePipes = [];
+      teBrokenPipes = {};
+      teNextId = 1;
+      tePipeStart = null;
+      var rect = teCanvas.getBoundingClientRect();
+      var w = rect.width, h = rect.height;
+      if (type === 'tree') {
+        teNodes = [
+          { id: 1, x: w * 0.5, y: h * 0.9, type: 'reservoir' },
+          { id: 2, x: w * 0.5, y: h * 0.7, type: 'junction' },
+          { id: 3, x: w * 0.3, y: h * 0.5, type: 'junction' },
+          { id: 4, x: w * 0.7, y: h * 0.5, type: 'junction' },
+          { id: 5, x: w * 0.15, y: h * 0.3, type: 'junction' },
+          { id: 6, x: w * 0.38, y: h * 0.3, type: 'junction' },
+          { id: 7, x: w * 0.62, y: h * 0.3, type: 'junction' },
+          { id: 8, x: w * 0.85, y: h * 0.3, type: 'junction' },
+          { id: 9, x: w * 0.08, y: h * 0.12, type: 'junction' },
+          { id: 10, x: w * 0.22, y: h * 0.12, type: 'junction' },
+          { id: 11, x: w * 0.78, y: h * 0.12, type: 'junction' },
+          { id: 12, x: w * 0.92, y: h * 0.12, type: 'junction' }
+        ];
+        tePipes = [
+          { id: 13, from: 1, to: 2 },
+          { id: 14, from: 2, to: 3 },
+          { id: 15, from: 2, to: 4 },
+          { id: 16, from: 3, to: 5 },
+          { id: 17, from: 3, to: 6 },
+          { id: 18, from: 4, to: 7 },
+          { id: 19, from: 4, to: 8 },
+          { id: 20, from: 5, to: 9 },
+          { id: 21, from: 5, to: 10 },
+          { id: 22, from: 8, to: 11 },
+          { id: 23, from: 8, to: 12 }
+        ];
+        teNextId = 24;
+      } else {
+        teNodes = [
+          { id: 1, x: w * 0.08, y: h * 0.5, type: 'reservoir' },
+          { id: 2, x: w * 0.25, y: h * 0.25, type: 'junction' },
+          { id: 3, x: w * 0.25, y: h * 0.75, type: 'junction' },
+          { id: 4, x: w * 0.5, y: h * 0.25, type: 'junction' },
+          { id: 5, x: w * 0.5, y: h * 0.5, type: 'junction' },
+          { id: 6, x: w * 0.5, y: h * 0.75, type: 'junction' },
+          { id: 7, x: w * 0.75, y: h * 0.25, type: 'junction' },
+          { id: 8, x: w * 0.75, y: h * 0.5, type: 'junction' },
+          { id: 9, x: w * 0.75, y: h * 0.75, type: 'junction' },
+          { id: 10, x: w * 0.92, y: h * 0.5, type: 'tank' }
+        ];
+        tePipes = [
+          { id: 11, from: 1, to: 2 },
+          { id: 12, from: 1, to: 3 },
+          { id: 13, from: 2, to: 3 },
+          { id: 14, from: 2, to: 4 },
+          { id: 15, from: 3, to: 6 },
+          { id: 16, from: 4, to: 5 },
+          { id: 17, from: 5, to: 6 },
+          { id: 18, from: 4, to: 7 },
+          { id: 19, from: 5, to: 8 },
+          { id: 20, from: 6, to: 9 },
+          { id: 21, from: 7, to: 8 },
+          { id: 22, from: 8, to: 9 },
+          { id: 23, from: 7, to: 10 },
+          { id: 24, from: 8, to: 10 },
+          { id: 25, from: 2, to: 5 },
+          { id: 26, from: 5, to: 9 }
+        ];
+        teNextId = 27;
+      }
+      document.getElementById('teFailureInfo').textContent = 'Break a pipe to see impact';
+      teDraw();
+    }
+
+    document.getElementById('teClear').addEventListener('click', function() {
+      teNodes = [];
+      tePipes = [];
+      teBrokenPipes = {};
+      teNextId = 1;
+      tePipeStart = null;
+      document.getElementById('teFailureInfo').textContent = 'Break a pipe to see impact';
+      teDraw();
+    });
+    document.getElementById('tePresetTree').addEventListener('click', function() { teLoadPreset('tree'); });
+    document.getElementById('tePresetLoop').addEventListener('click', function() { teLoadPreset('loop'); });
+
+    window._teInitExplorer = function() { teInitCanvas(); teDraw(); };
+    teDraw();
+  })();
 
   // === Tab Navigation (with ARIA + keyboard) ===
   const tabs = document.querySelectorAll('.nav-tab');
@@ -10204,6 +10753,7 @@ Daily  0.6 0.5</div>
       case 'aging': agingUpdate(); break;
       case 'transient': trUpdate(); break;
       case 'forcemains': initFmStateCanvas(); break;
+      case 'topology': if (window._teInitExplorer) window._teInitExplorer(); break;
     }
   }
 

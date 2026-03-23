@@ -291,6 +291,24 @@
 
   .nav-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
+  .fm-state-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    transition: all 0.2s;
+  }
+  .fm-state-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .fm-state-btn.fm-state-active {
+    border-color: rgba(34,211,238,0.5);
+    background: rgba(34,211,238,0.12);
+    color: var(--accent-cyan);
+  }
+
   .rq-btn {
     padding: 6px 14px;
     border-radius: 6px;
@@ -3985,6 +4003,136 @@ V5      N50      N51      12        GPV   Curve1   0.0</pre>
       </div>
       <div class="vf-note"><strong>Storage implication:</strong> Your EPANET model must verify that tanks/reservoirs can sustain fire flow for the required duration while also serving normal demands. This means running a time-extended simulation with the fire flow added at the critical node during peak demand hour.</div>
     </div>
+
+    <h2 class="section-title" style="margin-top:48px;">The Force Main Deep Dive</h2>
+    <p class="section-intro">A force main is a <strong>pressurized island in a gravity ocean</strong> &mdash; a pipe where gravity has failed and water must be pushed uphill. It is the exact boundary between the SWMM5 and EPANET worlds. Understanding its five operational states is essential for correct modeling.</p>
+
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="vf-card">
+        <div class="vf-card-title">The Five States of a Force Main</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">A force main cycles through five distinct hydraulic states during pump operation. Only <strong>State 3</strong> can be modeled identically in both SWMM5 and EPANET. States 1, 2, 4, and 5 are invisible to EPANET.</p>
+        <canvas id="fmStateCanvas" width="700" height="380" style="width:100%;border-radius:8px;background:#0d1117;border:1px solid var(--border);"></canvas>
+        <div style="display:flex;justify-content:center;gap:6px;margin-top:12px;flex-wrap:wrap;">
+          <button class="fm-state-btn fm-state-active" onclick="fmSetState(1)">1 &bull; Empty</button>
+          <button class="fm-state-btn" onclick="fmSetState(2)">2 &bull; Filling</button>
+          <button class="fm-state-btn" onclick="fmSetState(3)">3 &bull; Full Flow</button>
+          <button class="fm-state-btn" onclick="fmSetState(4)">4 &bull; Draining</button>
+          <button class="fm-state-btn" onclick="fmSetState(5)">5 &bull; Partial</button>
+        </div>
+        <div id="fmStateDesc" style="margin-top:14px;padding:14px;border-radius:8px;background:rgba(15,23,42,0.6);border:1px solid var(--border);">
+          <div id="fmStateTitle" style="font-weight:700;font-size:0.95rem;color:var(--accent-cyan);margin-bottom:6px;">State 1: Empty (Pump Off)</div>
+          <div id="fmStateText" style="font-size:0.82rem;color:var(--text-muted);line-height:1.6;"></div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Flow Regime Transition at d/D = 1.0</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">SWMM5 switches friction equations at the exact moment the pipe transitions from free-surface to pressurized flow:</p>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>d/D Range</th><th>Equation Used</th><th>Roughness Parameter</th><th>Physics</th></tr></thead>
+            <tbody>
+              <tr><td>0 &ndash; 1.0</td><td>Manning&rsquo;s</td><td>Equivalent n (from C)</td><td>Free-surface, open-channel</td></tr>
+              <tr><td>&ge; 1.0</td><td>Hazen-Williams or Darcy-Weisbach</td><td>C or &epsilon; directly</td><td>Full-pipe, pressurized</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="vf-note" style="margin-top:12px;"><strong>Key insight:</strong> At d/D = 1.0, SWMM5 forces Manning&rsquo;s and H-W to give the <em>same</em> friction slope. The equivalent n ensures continuity at the transition. The equivalent n is used <em>only</em> during partially-full conditions (States 2, 4, 5). When the pipe is full (State 3), SWMM5 uses H-W or D-W directly &mdash; the equivalent n is never invoked.</div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Multi-Pump Force Main Interaction</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">When multiple pump stations discharge into a common force main, the pumps interact hydraulically. Each pump&rsquo;s operating point shifts as other pumps turn on/off:</p>
+        <div style="overflow-x:auto;">
+          <table class="vf-table">
+            <thead><tr><th>Scenario</th><th>PS-A Flow</th><th>PS-B Flow</th><th>PS-C Flow</th><th>Total</th><th>Reduction</th></tr></thead>
+            <tbody>
+              <tr><td>A alone</td><td style="color:var(--accent-green);">100 GPM</td><td>&mdash;</td><td>&mdash;</td><td>100 GPM</td><td>&mdash;</td></tr>
+              <tr><td>B alone</td><td>&mdash;</td><td style="color:var(--accent-green);">80 GPM</td><td>&mdash;</td><td>80 GPM</td><td>&mdash;</td></tr>
+              <tr><td>C alone</td><td>&mdash;</td><td>&mdash;</td><td style="color:var(--accent-green);">50 GPM</td><td>50 GPM</td><td>&mdash;</td></tr>
+              <tr><td>A + B</td><td style="color:var(--epanet-amber);">85 GPM</td><td style="color:var(--epanet-amber);">68 GPM</td><td>&mdash;</td><td>153 GPM</td><td style="color:var(--accent-red);">-15%</td></tr>
+              <tr><td>All three</td><td style="color:var(--accent-red);">75 GPM</td><td style="color:var(--accent-red);">58 GPM</td><td style="color:var(--accent-red);">35 GPM</td><td>168 GPM</td><td style="color:var(--accent-red);">-27%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="vf-note" style="margin-top:12px;"><strong>Why EPANET excels here:</strong> EPANET&rsquo;s simultaneous solution handles pump interaction naturally &mdash; run each combination scenario in &lt; 1 second. SWMM5 captures pump cycling dynamics (wet well filling, on/off timing) that EPANET cannot, but requires minutes of runtime with dynamic wave routing.</div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">Common Force Main Modeling Problems</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+          <div style="padding:16px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);">
+            <div style="font-weight:700;color:var(--accent-red);font-size:0.88rem;margin-bottom:8px;">Problem 1: FM Won&rsquo;t Stay Full</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;"><strong>Symptom:</strong> d/D oscillates 0.8&ndash;1.0 with pump on.<br><strong>Cause:</strong> Downstream node max depth too low, limiting HGL.<br><strong>Fix:</strong> Set downstream node max depth to 50+ ft; add a break node with high max depth upstream of discharge.</div>
+          </div>
+          <div style="padding:16px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);">
+            <div style="font-weight:700;color:var(--accent-red);font-size:0.88rem;margin-bottom:8px;">Problem 2: High Continuity Error</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;"><strong>Symptom:</strong> Continuity error spikes 5&ndash;10% at pump on/off.<br><strong>Cause:</strong> Rapid flow change violates Courant condition.<br><strong>Fix:</strong> Reduce &Delta;t to 1&ndash;5 sec, use VARIABLE_STEP 0.75, or add pump ramp-up rules.</div>
+          </div>
+          <div style="padding:16px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);">
+            <div style="font-weight:700;color:var(--accent-red);font-size:0.88rem;margin-bottom:8px;">Problem 3: Open Channel at High Points</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;"><strong>Symptom:</strong> d/D &lt; 1.0 at FM high points with pump running.<br><strong>Cause:</strong> SWMM5 applies open-channel boundary at internal high-point nodes.<br><strong>Fix:</strong> Set all FM node max depths to 50&ndash;100 ft; combine segments to remove unnecessary intermediate nodes.</div>
+          </div>
+          <div style="padding:16px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);">
+            <div style="font-weight:700;color:var(--accent-red);font-size:0.88rem;margin-bottom:8px;">Problem 4: Flow &ne; Expected OP</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;"><strong>Symptom:</strong> Expected 150 GPM from pump curve, get 120 GPM.<br><strong>Cause:</strong> Unaccounted minor losses, dynamic effects, or downstream surcharge.<br><strong>Fix:</strong> Build same system in EPANET to verify. If EPANET also gives 120 GPM, your hand calc missed something.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vf-card">
+        <div class="vf-card-title">SWMM5 vs. EPANET Force Main Capability Matrix</div>
+        <div style="overflow-x:auto;">
+          <table class="vf-table" style="font-size:0.78rem;">
+            <thead><tr><th>Capability</th><th style="color:var(--epanet-amber);">SWMM5</th><th style="color:var(--epanet-blue);">EPANET</th></tr></thead>
+            <tbody>
+              <tr><td>Full-pipe steady flow</td><td>&check; H-W or D-W</td><td>&check; H-W, D-W, Manning</td></tr>
+              <tr><td>Pump curve modeling</td><td>&check; Type 1&ndash;4</td><td>&check; Head-flow</td></tr>
+              <tr><td>Multiple pumps parallel</td><td>&check; (less stable)</td><td>&check; (very stable)</td></tr>
+              <tr><td>Pump cycling dynamics</td><td>&check; native</td><td>&sim; EPS timestep only</td></tr>
+              <tr><td>Wet well level dynamics</td><td>&check; storage node</td><td>&sim; tank (no inflow hydrology)</td></tr>
+              <tr><td>Pipe filling / draining</td><td>&check; Preissmann slot</td><td>&cross;</td></tr>
+              <tr><td>Partially full flow</td><td>&check; Manning&rsquo;s</td><td>&cross; (always full)</td></tr>
+              <tr><td>Check valve modeling</td><td>&check; flap gate</td><td>&check; CV pipe status</td></tr>
+              <tr><td>Minor losses (detailed)</td><td>&sim; entry/exit only</td><td>&check; K per pipe</td></tr>
+              <tr><td>System head curve</td><td>&sim; extract from results</td><td>&check; direct from pump analysis</td></tr>
+              <tr><td>Energy / cost analysis</td><td>&cross;</td><td>&check; kWh, $/day</td></tr>
+              <tr><td>Variable speed pumps</td><td>&check; Type 4 curve</td><td>&check; speed + affinity laws</td></tr>
+              <tr><td>Integration with gravity sewer</td><td>&check; same model</td><td>&cross; separate model</td></tr>
+              <tr><td>Downstream backwater</td><td>&check; DW routing</td><td>&cross; quasi-steady</td></tr>
+              <tr><td>Convergence reliability</td><td>&sim; can be unstable</td><td>&check; very reliable</td></tr>
+              <tr><td>Setup complexity</td><td>HIGH</td><td>MODERATE</td></tr>
+              <tr><td>Runtime (24-hr sim)</td><td>Minutes</td><td>Seconds</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(139,92,246,0.3);">
+        <div class="vf-card-title" style="color:var(--gravity-purple);">Force Main Transient Dangers</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="padding:14px;border-radius:8px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);">
+            <div style="font-weight:700;color:var(--accent-red);font-size:0.88rem;margin-bottom:6px;">Check Valve Slam</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;">When the pump stops and the check valve closes abruptly, the momentum of the water column creates a pressure surge (water hammer).</div>
+            <div style="font-family:var(--font-mono);font-size:0.78rem;margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;color:var(--accent-red);">
+              &Delta;P = &rho; &times; a &times; &Delta;V<br>
+              = 1.94 &times; 3500 &times; 4 = 27,160 psf<br>
+              = <strong>189 psi</strong> (can burst pipe!)
+            </div>
+          </div>
+          <div style="padding:14px;border-radius:8px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);">
+            <div style="font-weight:700;color:var(--accent-red);font-size:0.88rem;margin-bottom:6px;">Column Separation</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;">At high points, pressure drops to vapor pressure forming a vapor cavity. When the water columns rejoin, the secondary pressure spike can be <strong>worse</strong> than the initial hammer.</div>
+            <div style="font-family:var(--font-mono);font-size:0.78rem;margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;color:var(--epanet-amber);">
+              Neither SWMM5 nor EPANET can model this.<br>
+              Requires: HAMMER, AFT Impulse, or Hytran.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <!-- ===== SECTION: PUMP ENERGY ===== -->
@@ -4561,6 +4709,39 @@ Chlorine maintained. No stagnation. No complaints.</pre>
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div class="vf-card" style="border-color:rgba(139,92,246,0.3);">
+        <div class="vf-card-title" style="color:var(--gravity-purple);">ML Architectures: Topology Dictates Neural Network Design</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">The information flow in the physical system should match the information flow in the neural network. Tree networks process sequentially (upstream &rarr; downstream); looped networks process simultaneously (all nodes at once). This maps directly to different ML architectures:</p>
+        <div style="overflow-x:auto;">
+          <table class="vf-table" style="font-size:0.78rem;">
+            <thead><tr><th>Dimension</th><th style="color:var(--epanet-amber);">SWMM5 (Trees)</th><th style="color:var(--epanet-blue);">EPANET (Loops)</th></tr></thead>
+            <tbody>
+              <tr><td>Dominant variable</td><td>TIME (hydrograph)</td><td>SPACE (pressure field)</td></tr>
+              <tr><td>Best ML architecture</td><td>LSTM, Tree-LSTM, 1D CNN</td><td>GNN, Graph Attention Net</td></tr>
+              <tr><td>Why it matches</td><td>Sequential processing mirrors U/S&rarr;D/S routing</td><td>Simultaneous message passing mirrors solver iterations</td></tr>
+              <tr><td>Training data needed</td><td>1,000&ndash;5,000 storm events</td><td>500&ndash;2,000 demand scenarios</td></tr>
+              <tr><td>Primary output</td><td>Flow hydrograph at nodes</td><td>Pressure at all nodes</td></tr>
+              <tr><td>Transfer learning</td><td>HARD (site-specific hydrology)</td><td>PROMISING (physics is transferable)</td></tr>
+              <tr><td>Physics-informed feasibility</td><td>HARD (PDE constraints from Saint-Venant)</td><td>EASIER (algebraic H-W constraints)</td></tr>
+              <tr><td>Typical speedup</td><td>10,000&times; over DW routing</td><td>1,000&times; over EPANET</td></tr>
+              <tr><td>Key application</td><td>Surrogate for optimization / screening</td><td>Real-time digital twin pressure estimation</td></tr>
+              <tr><td>Interpretability</td><td>Low (black-box temporal)</td><td>Higher (attention weights = pipe importance)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+          <div style="padding:14px;border-radius:8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
+            <div style="font-weight:700;color:var(--epanet-amber);font-size:0.85rem;margin-bottom:6px;">LSTM for Trees</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;">Processes rainfall sequences &rarr; predicts flow hydrographs. Hidden state evolves like SWMM5 state variables (soil moisture, pipe depths). NSE typically 0.88&ndash;0.95. Inference &lt; 0.01 sec vs 5&ndash;10 min per SWMM5 run. Limitation: must retrain if network topology changes.</div>
+          </div>
+          <div style="padding:14px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);">
+            <div style="font-weight:700;color:var(--epanet-blue);font-size:0.85rem;margin-bottom:6px;">GNN for Loops</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;">Message passing between graph nodes mirrors EPANET&rsquo;s Newton-Raphson iterations. After K rounds, each node &ldquo;knows&rdquo; about the entire network. Pressure R&sup2; &gt; 0.95, RMSE &lt; 2 psi. Key advantage: transferable between networks (physics is the same, only numbers change).</div>
+          </div>
+        </div>
+        <div class="vf-note" style="margin-top:12px;"><strong>Physics-Informed Neural Networks (PINNs):</strong> Embed conservation laws (mass balance, energy equation) into the loss function. The network must satisfy physics even where no training data exists. Requires 3&ndash;10&times; less training data. EPANET&rsquo;s H-W is easily differentiable (Q<sup>1.852</sup>); SWMM5&rsquo;s Manning&rsquo;s with depth-dependent area is much harder to embed as a constraint.</div>
       </div>
     </div>
   </div>
@@ -6586,15 +6767,16 @@ Daily  0.6 0.5</div>
 
   // === CFL Calculator ===
   function updateCFL() {
-    const L = parseFloat(el('cflLength')?.value) || 200;
-    const V = parseFloat(el('cflVelocity')?.value) || 5;
-    const c = parseFloat(el('cflCelerity')?.value) || 15;
-    const dt = parseFloat(el('cflTimestep')?.value) || 30;
-    const dD = parseFloat(el('cflDepthRatio')?.value) || 0.5;
+    var _g = function(id) { return document.getElementById(id); };
+    const L = parseFloat(_g('cflLength')?.value) || 200;
+    const V = parseFloat(_g('cflVelocity')?.value) || 5;
+    const c = parseFloat(_g('cflCelerity')?.value) || 15;
+    const dt = parseFloat(_g('cflTimestep')?.value) || 30;
+    const dD = parseFloat(_g('cflDepthRatio')?.value) || 0.5;
     const dtMax = L / (V + c);
     const courant = (V + c) * dt / L;
     const stable = courant <= 1.0;
-    const res = el('cflResult');
+    const res = _g('cflResult');
     if (!res) return;
     const theta = 2 * Math.acos(1 - 2 * dD);
     const AoverD2 = (theta - Math.sin(theta)) / 8;
@@ -6632,14 +6814,14 @@ Daily  0.6 0.5</div>
   let rqIdx = 0, rqCorrect = 0, rqTotal = 0, rqSelections = {};
 
   function rqLoadQuestion() {
-    const qEl = el('rqQuestion');
+    const qEl = document.getElementById('rqQuestion');
     if (!qEl) return;
     qEl.textContent = rqQuestions[rqIdx].q;
     rqSelections = {};
     document.querySelectorAll('.rq-btn').forEach(b => {
       b.classList.remove('selected','correct','wrong');
     });
-    const fb = el('rqFeedback');
+    const fb = document.getElementById('rqFeedback');
     if (fb) fb.style.display = 'none';
   }
 
@@ -6668,7 +6850,7 @@ Daily  0.6 0.5</div>
     });
     rqTotal++;
     if (correct === total) rqCorrect++;
-    const fb = el('rqFeedback');
+    const fb = document.getElementById('rqFeedback');
     if (fb) {
       fb.style.display = 'block';
       fb.style.background = correct === total ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
@@ -6676,7 +6858,7 @@ Daily  0.6 0.5</div>
       fb.style.color = 'var(--text-muted)';
       fb.innerHTML = '<strong style="color:' + (correct === total ? 'var(--accent-green)' : '#ef4444') + ';">' + correct + '/4 correct</strong><br>' + rqQuestions[rqIdx].tip;
     }
-    const sc = el('rqScore');
+    const sc = document.getElementById('rqScore');
     if (sc) sc.textContent = 'Score: ' + rqCorrect + '/' + rqTotal;
   }
 
@@ -6841,7 +7023,7 @@ Daily  0.6 0.5</div>
           const bFrom = getNode(failLoopNodes,bp.from), bTo = getNode(failLoopNodes,bp.to);
           return Math.min(Math.hypot(n.x-bFrom.x,n.y-bFrom.y), Math.hypot(n.x-bTo.x,n.y-bTo.y)) < 80;
         });
-        el('failSimResult').innerHTML = '<span style="color:var(--epanet-blue);">LOOP:</span> Pipe ' + bp.from + '-' + bp.to + ' broken. ' +
+        document.getElementById('failSimResult').innerHTML = '<span style="color:var(--epanet-blue);">LOOP:</span> Pipe ' + bp.from + '-' + bp.to + ' broken. ' +
           '<strong style="color:#ef4444;">' + severe.length + ' nodes</strong> with severe pressure drop, ' +
           '<strong style="color:#f59e0b;">' + (affected.length - severe.length) + ' nodes</strong> with moderate drop. ' +
           'Service continues via alternate paths. Impact attenuates with distance.';
@@ -6852,7 +7034,7 @@ Daily  0.6 0.5</div>
         let upCount = 0;
         function countUp(nodeId) { upCount++; failTreePipes.forEach((p,i) => { if (i !== closestPipe && p.to === nodeId) countUp(p.from); }); }
         countUp(bp.from);
-        el('failSimResult').innerHTML = '<span style="color:var(--epanet-amber);">TREE:</span> Pipe ' + bp.from + '-' + bp.to + ' blocked. ' +
+        document.getElementById('failSimResult').innerHTML = '<span style="color:var(--epanet-amber);">TREE:</span> Pipe ' + bp.from + '-' + bp.to + ' blocked. ' +
           '<strong style="color:#ef4444;">' + upCount + ' upstream nodes</strong> experience backwater cascade. ' +
           'ALL upstream junctions affected &mdash; no alternate path exists. Flooding at shallowest points.';
       }
@@ -6863,17 +7045,296 @@ Daily  0.6 0.5</div>
     failTreeBroken = -1; failLoopBroken = -1;
     drawFailNetwork('failTreeCanvas', failTreeNodes, failTreePipes, -1, false);
     drawFailNetwork('failLoopCanvas', failLoopNodes, failLoopPipes, -1, true);
-    el('failSimResult').innerHTML = 'Click any pipe segment to simulate a break';
+    document.getElementById('failSimResult').innerHTML = 'Click any pipe segment to simulate a break';
+  }
+
+  var fmCurrentState = 1;
+  var fmAnimFrame = 0;
+  var fmAnimId = null;
+  var fmStateInited = false;
+
+  var fmStateData = [
+    { title: 'State 1: Empty (Pump Off, Drained)',
+      text: 'The force main has drained back through the pump (if no check valve) or settled to low points. High points contain air pockets. <strong>Physics:</strong> No flow, no hydraulics. <strong>SWMM5:</strong> Conduit with depth \u2248 0. <strong>EPANET:</strong> Cannot model \u2014 pipes must always be full. This state is <em>invisible</em> to EPANET. <strong>Duration:</strong> Between pump cycles (minutes to hours).',
+      swmm: true, epanet: false },
+    { title: 'State 2: Filling (Pump Just Turned On)',
+      text: 'Water enters from the pump as a filling bore front advancing through the pipe. Air ahead must escape through air valves or compress. <strong>Physics:</strong> Two-phase flow (water advancing, air retreating). Bore speed 5\u201350 ft/s. <strong>SWMM5:</strong> Preissmann slot handles this approximately, but effective wave speed (~100\u2013300 ft/s) is typically faster than the real bore. <strong>EPANET:</strong> Cannot model. <strong>DANGER:</strong> Trapped air acts as a spring \u2014 compressed air-water oscillations can cause pressure surges worse than water hammer.',
+      swmm: true, epanet: false },
+    { title: 'State 3: Full & Flowing (Steady State)',
+      text: 'Entire force main is full under pressure. Steady flow from pump to discharge. <strong>Physics:</strong> Standard pressurized full-pipe flow. Headloss from H-W or D-W. <strong>SWMM5:</strong> d/D = 1.0, uses H-W or D-W directly. <strong>EPANET:</strong> Standard pipe flow \u2014 native domain. <strong>If SWMM5 and EPANET give different results in this state, something is configured wrong.</strong> Check diameter, length, roughness (C vs n), pump curve, node elevations. <strong>Duration:</strong> Minutes to hours.',
+      swmm: true, epanet: true },
+    { title: 'State 4: Draining (Pump Just Off)',
+      text: 'Pump stops, check valve closes. Water momentum carries flow forward briefly, then decelerates. At high points pressure drops \u2014 if below atmospheric, air valve opens and water column separates into segments. <strong>SWMM5:</strong> Dynamic wave handles deceleration; Preissmann slot handles transition from full to partially full. <strong>EPANET:</strong> Cannot model \u2014 pipe instantly shows zero flow at next timestep. <strong>DANGER:</strong> Check valve slam creates water hammer. Column separation at high points can cause secondary pressure spikes <em>worse</em> than the initial hammer.',
+      swmm: true, epanet: false },
+    { title: 'State 5: Partially Drained (Between Cycles)',
+      text: 'Water has settled to low points; air occupies high points. System in gravitational equilibrium. <strong>Physics:</strong> Static, no flow. <strong>SWMM5:</strong> Partially full conduit segments using Manning\u2019s with the equivalent n. This is the <em>only</em> state where the equivalent n matters. <strong>EPANET:</strong> Cannot model \u2014 partially drained pipes don\u2019t exist in EPANET\u2019s world. <strong>Significance:</strong> When pump restarts, it must push against air pockets AND accelerate stationary water columns. The startup transient depends on trapped air location.',
+      swmm: true, epanet: false }
+  ];
+
+  function fmSetState(s) {
+    fmCurrentState = s;
+    document.querySelectorAll('.fm-state-btn').forEach(function(b, i) {
+      b.classList.toggle('fm-state-active', i === s - 1);
+    });
+    var d = fmStateData[s - 1];
+    document.getElementById('fmStateTitle').textContent = d.title;
+    var swmmTag = d.swmm ? '<span style="color:var(--accent-green);font-size:0.75rem;font-weight:600;border:1px solid rgba(16,185,129,0.4);padding:1px 6px;border-radius:3px;margin-right:4px;">SWMM5 \u2713</span>' : '<span style="color:var(--accent-red);font-size:0.75rem;font-weight:600;border:1px solid rgba(239,68,68,0.4);padding:1px 6px;border-radius:3px;margin-right:4px;">SWMM5 \u2717</span>';
+    var epaTag = d.epanet ? '<span style="color:var(--accent-green);font-size:0.75rem;font-weight:600;border:1px solid rgba(16,185,129,0.4);padding:1px 6px;border-radius:3px;">EPANET \u2713</span>' : '<span style="color:var(--accent-red);font-size:0.75rem;font-weight:600;border:1px solid rgba(239,68,68,0.4);padding:1px 6px;border-radius:3px;">EPANET \u2717</span>';
+    document.getElementById('fmStateText').innerHTML = '<div style="margin-bottom:8px;">' + swmmTag + epaTag + '</div>' + d.text;
+    fmAnimFrame = 0;
+  }
+
+  function initFmStateCanvas() {
+    if (fmStateInited) return;
+    fmStateInited = true;
+    fmSetState(1);
+    fmAnimateCycle();
+  }
+
+  function fmAnimateCycle() {
+    fmAnimFrame++;
+    fmDrawState();
+    fmAnimId = requestAnimationFrame(fmAnimateCycle);
+  }
+
+  function fmDrawState() {
+    var c = document.getElementById('fmStateCanvas');
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var W = c.width, H = c.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var pipeY = H * 0.45;
+    var pipeH = 40;
+    var leftX = 80, rightX = W - 60;
+    var pumpX = leftX, dischX = rightX;
+
+    var hp1x = leftX + (rightX - leftX) * 0.3;
+    var hp2x = leftX + (rightX - leftX) * 0.65;
+    var hp1y = pipeY - 50;
+    var hp2y = pipeY - 35;
+    var lp1y = pipeY + 20;
+
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pumpX, pipeY);
+    ctx.lineTo(hp1x - 30, pipeY);
+    ctx.lineTo(hp1x, hp1y);
+    ctx.lineTo(hp1x + 40, pipeY + 10);
+    ctx.lineTo(hp2x - 20, pipeY + 10);
+    ctx.lineTo(hp2x, hp2y);
+    ctx.lineTo(hp2x + 30, pipeY);
+    ctx.lineTo(dischX, pipeY);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = pipeH;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pumpX, pipeY);
+    ctx.lineTo(hp1x - 30, pipeY);
+    ctx.lineTo(hp1x, hp1y);
+    ctx.lineTo(hp1x + 40, pipeY + 10);
+    ctx.lineTo(hp2x - 20, pipeY + 10);
+    ctx.lineTo(hp2x, hp2y);
+    ctx.lineTo(hp2x + 30, pipeY);
+    ctx.lineTo(dischX, pipeY);
+    ctx.stroke();
+
+    var s = fmCurrentState;
+    var t = (fmAnimFrame % 180) / 180;
+    ctx.lineWidth = pipeH - 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (s === 1) {
+      ctx.strokeStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(pumpX, pipeY);
+      ctx.lineTo(hp1x - 30, pipeY);
+      ctx.lineTo(hp1x, hp1y);
+      ctx.lineTo(hp1x + 40, pipeY + 10);
+      ctx.lineTo(hp2x - 20, pipeY + 10);
+      ctx.lineTo(hp2x, hp2y);
+      ctx.lineTo(hp2x + 30, pipeY);
+      ctx.lineTo(dischX, pipeY);
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px monospace';
+      ctx.fillText('air', hp1x - 5, hp1y + 4);
+      ctx.fillText('air', hp2x - 5, hp2y + 4);
+    } else if (s === 2) {
+      var fillFrac = t;
+      var totalLen = dischX - pumpX;
+      var fillEnd = pumpX + totalLen * fillFrac;
+      ctx.strokeStyle = 'rgba(59,130,246,0.5)';
+      ctx.beginPath();
+      ctx.moveTo(pumpX, pipeY);
+      var segs = [[pumpX, pipeY],[hp1x-30,pipeY],[hp1x,hp1y],[hp1x+40,pipeY+10],[hp2x-20,pipeY+10],[hp2x,hp2y],[hp2x+30,pipeY],[dischX,pipeY]];
+      var cumLen = 0, segLens = [];
+      for (var i = 1; i < segs.length; i++) {
+        var dx = segs[i][0]-segs[i-1][0], dy = segs[i][1]-segs[i-1][1];
+        segLens.push(Math.sqrt(dx*dx+dy*dy));
+        cumLen += segLens[i-1];
+      }
+      var targetLen = fillFrac * cumLen;
+      var drawn = 0;
+      ctx.moveTo(segs[0][0], segs[0][1]);
+      for (var i = 1; i < segs.length; i++) {
+        if (drawn + segLens[i-1] <= targetLen) {
+          ctx.lineTo(segs[i][0], segs[i][1]);
+          drawn += segLens[i-1];
+        } else {
+          var rem = targetLen - drawn;
+          var frac = rem / segLens[i-1];
+          var ex = segs[i-1][0] + (segs[i][0]-segs[i-1][0])*frac;
+          var ey = segs[i-1][1] + (segs[i][1]-segs[i-1][1])*frac;
+          ctx.lineTo(ex, ey);
+          break;
+        }
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('\u25B6 bore front', Math.min(fillEnd, dischX - 60), pipeY - pipeH/2 - 6);
+    } else if (s === 3) {
+      ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+      ctx.beginPath();
+      ctx.moveTo(pumpX, pipeY);
+      ctx.lineTo(hp1x - 30, pipeY);
+      ctx.lineTo(hp1x, hp1y);
+      ctx.lineTo(hp1x + 40, pipeY + 10);
+      ctx.lineTo(hp2x - 20, pipeY + 10);
+      ctx.lineTo(hp2x, hp2y);
+      ctx.lineTo(hp2x + 30, pipeY);
+      ctx.lineTo(dischX, pipeY);
+      ctx.stroke();
+      var particleOffset = (fmAnimFrame * 2) % 30;
+      ctx.fillStyle = 'rgba(96,165,250,0.7)';
+      for (var px = pumpX + particleOffset; px < dischX; px += 30) {
+        var frac = (px - pumpX) / (dischX - pumpX);
+        var py = pipeY;
+        if (frac < 0.2) py = pipeY;
+        else if (frac < 0.35) py = pipeY + (hp1y - pipeY) * ((frac-0.2)/0.15);
+        else if (frac < 0.5) py = hp1y + (pipeY+10-hp1y)*((frac-0.35)/0.15);
+        else if (frac < 0.65) py = pipeY + 10;
+        else if (frac < 0.75) py = pipeY+10+(hp2y-pipeY-10)*((frac-0.65)/0.1);
+        else py = hp2y + (pipeY-hp2y)*((frac-0.75)/0.25);
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (s === 4) {
+      var drainFrac = 1 - t;
+      ctx.strokeStyle = 'rgba(59,130,246,' + (0.2 + drainFrac * 0.4) + ')';
+      ctx.beginPath();
+      ctx.moveTo(pumpX, pipeY);
+      ctx.lineTo(hp1x - 30, pipeY);
+      ctx.lineTo(hp1x, hp1y);
+      ctx.lineTo(hp1x + 40, pipeY + 10);
+      ctx.lineTo(hp2x - 20, pipeY + 10);
+      ctx.lineTo(hp2x, hp2y);
+      ctx.lineTo(hp2x + 30, pipeY);
+      ctx.lineTo(dischX, pipeY);
+      ctx.stroke();
+      if (t > 0.3) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px monospace';
+        ctx.fillText('air entering', hp1x - 18, hp1y - 8);
+      }
+      if (t > 0.5) {
+        ctx.fillText('air entering', hp2x - 18, hp2y - 8);
+      }
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText('\u2716 PUMP OFF', pumpX - 10, pipeY + pipeH/2 + 18);
+    } else if (s === 5) {
+      ctx.strokeStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(pumpX, pipeY);
+      ctx.lineTo(hp1x - 30, pipeY);
+      ctx.lineTo(hp1x, hp1y);
+      ctx.lineTo(hp1x + 40, pipeY + 10);
+      ctx.lineTo(hp2x - 20, pipeY + 10);
+      ctx.lineTo(hp2x, hp2y);
+      ctx.lineTo(hp2x + 30, pipeY);
+      ctx.lineTo(dischX, pipeY);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(59,130,246,0.5)';
+      ctx.lineWidth = pipeH - 10;
+      ctx.beginPath();
+      ctx.moveTo(pumpX, pipeY);
+      ctx.lineTo(hp1x - 30, pipeY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(hp1x + 40, pipeY + 10);
+      ctx.lineTo(hp2x - 20, pipeY + 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(hp2x + 30, pipeY);
+      ctx.lineTo(dischX, pipeY);
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px monospace';
+      ctx.fillText('air', hp1x - 5, hp1y + 4);
+      ctx.fillText('air', hp2x - 5, hp2y + 4);
+      ctx.fillStyle = 'rgba(59,130,246,0.4)';
+      ctx.font = '9px monospace';
+      ctx.fillText('water at low point', pumpX + 10, pipeY + pipeH/2 + 14);
+      ctx.fillText('water at low point', hp1x + 50, pipeY + 10 + pipeH/2 + 8);
+      ctx.fillText('water at low point', hp2x + 35, pipeY + pipeH/2 + 14);
+    }
+
+    ctx.fillStyle = s === 1 || s === 4 || s === 5 ? '#ef4444' : '#22c55e';
+    ctx.beginPath();
+    ctx.arc(pumpX - 15, pipeY, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('P', pumpX - 15, pipeY + 4);
+    ctx.textAlign = 'start';
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px monospace';
+    ctx.fillText('Pump', pumpX - 25, pipeY + 30);
+    ctx.fillText('Discharge MH', dischX - 40, pipeY + 30);
+    ctx.fillText('High Pt', hp1x - 12, hp1y - 18);
+    ctx.fillText('High Pt', hp2x - 12, hp2y - 18);
+
+    var stateLabel = ['EMPTY','FILLING','FULL FLOW','DRAINING','PARTIAL'][s-1];
+    var stateColor = ['#64748b','#f59e0b','#22c55e','#ef4444','#94a3b8'][s-1];
+    ctx.fillStyle = stateColor;
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('STATE ' + s + ': ' + stateLabel, W/2, 28);
+    ctx.textAlign = 'start';
+
+    var pumpState = (s === 2 || s === 3) ? 'ON' : 'OFF';
+    ctx.fillStyle = pumpState === 'ON' ? '#22c55e' : '#ef4444';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText('Pump: ' + pumpState, 20, H - 20);
+
+    var canModel = s === 3 ? '\u2713 SWMM5 & EPANET agree' : (s === 2 || s === 4 ? '\u2248 SWMM5 only (approx.)' : '\u2717 EPANET cannot model');
+    var modelColor = s === 3 ? '#22c55e' : (s === 2 || s === 4 ? '#f59e0b' : '#ef4444');
+    ctx.fillStyle = modelColor;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(canModel, W - 20, H - 20);
+    ctx.textAlign = 'start';
   }
 
   // === Calibration Strategy Advisor ===
   function runCalAdvisor() {
-    const type = el('calType')?.value || 'tree';
-    const monitors = el('calMonitors')?.value || 'few';
-    const data = el('calData')?.value || 'flow';
-    const budget = el('calBudget')?.value || 'quick';
-    const events = el('calEvents')?.value || '1';
-    const res = el('calAdvResult');
+    var _el = function(id) { return document.getElementById(id); };
+    const type = _el('calType')?.value || 'tree';
+    const monitors = _el('calMonitors')?.value || 'few';
+    const data = _el('calData')?.value || 'flow';
+    const budget = _el('calBudget')?.value || 'quick';
+    const events = _el('calEvents')?.value || '1';
+    const res = _el('calAdvResult');
     if (!res) return;
     res.style.display = 'block';
     let strategy = '', steps = '', accuracy = '', warning = '';
@@ -6912,9 +7373,9 @@ Daily  0.6 0.5</div>
   }
 
   // === Event listeners for interactive features ===
-  const ftc = el('failTreeCanvas');
+  const ftc = document.getElementById('failTreeCanvas');
   if (ftc) ftc.addEventListener('click', (e) => handleFailClick(e, 'failTreeCanvas', failTreeNodes, failTreePipes, false));
-  const flc = el('failLoopCanvas');
+  const flc = document.getElementById('failLoopCanvas');
   if (flc) flc.addEventListener('click', (e) => handleFailClick(e, 'failLoopCanvas', failLoopNodes, failLoopPipes, true));
 
   // === Tab Navigation (with ARIA + keyboard) ===
@@ -9742,6 +10203,7 @@ Daily  0.6 0.5</div>
       case 'skeleton': skelUpdate(); break;
       case 'aging': agingUpdate(); break;
       case 'transient': trUpdate(); break;
+      case 'forcemains': initFmStateCanvas(); break;
     }
   }
 

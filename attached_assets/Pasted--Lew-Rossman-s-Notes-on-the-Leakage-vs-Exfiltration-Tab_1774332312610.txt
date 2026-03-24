@@ -1,0 +1,520 @@
+# Lew Rossman's Notes on the Leakage vs. Exfiltration Tab
+
+*From the desk of someone who added emitters to EPANET specifically because real networks lose 15–30% of their water and nobody had a clean way to model it.*
+
+---
+
+## First: Why This Tab Matters
+
+This is one of the genuinely important comparisons you can make between the two systems because **leakage and exfiltration are the same physical phenomenon viewed from opposite directions of the urban water cycle.**
+
+In EPANET, treated water leaks *out* of pressurized distribution mains into the surrounding soil. In SWMM5, groundwater and surface water leak *into* (infiltration) or *out of* (exfiltration) gravity sewers. The driving force in EPANET is internal pressure. The driving force in SWMM5 is the head difference between the water in the pipe and the water table outside it.
+
+They are both "water crossing the pipe wall through defects." One system pushes water out under pressure. The other can go either direction depending on relative heads. The physics is fundamentally the same — Darcy's law, orifice flow, or some empirical approximation thereof — but the modeling approaches are completely different because the hydraulic regimes are different.
+
+Here's how I'd structure the tab.
+
+---
+
+## The Fundamental Physics Side-by-Side
+
+```
+EPANET — PRESSURE LEAKAGE                SWMM5 — EXFILTRATION / INFILTRATION
+═══════════════════════════               ════════════════════════════════════
+
+    ┌─────────────────────┐                   ┌─────────────────────┐
+    │  PIPE (always full)  │                   │  PIPE (partial/full) │
+    │                     │                   │  ~~~water~~~        │
+    │   P = 60 psi        │──→ Leak           │                     │──→ Exfiltration
+    │   (pressure drives   │   Q = C·P^γ      │   Head > GW table   │   (head-driven)
+    │    water OUT)        │                   │                     │
+    │                     │                   │                     │←── Infiltration
+    └─────────────────────┘                   │   Head < GW table   │   (reverse flow!)
+                                              └─────────────────────┘
+    
+    ALWAYS OUTWARD                            BIDIRECTIONAL
+    (pressure > atmospheric)                  (depends on head difference)
+    
+    Driving force: INTERNAL PRESSURE          Driving force: HEAD DIFFERENCE
+    P = HGL - Elevation                       ΔH = Pipe_Head - GW_Table
+```
+
+This bidirectionality is the single most important conceptual difference. EPANET leakage only goes out — you can't have water leaking *into* a pressurized main from the soil (well, you can during depressurization events, which is a contamination concern, but EPANET doesn't model that). SWMM5 handles both directions natively through the groundwater module.
+
+---
+
+## Equation Comparison — Every Formula
+
+### EPANET Emitter Equation (Current Standard)
+
+```
+Q_leak = C_e × P^γ
+
+Where:
+  Q_leak = leakage flow rate (GPM or LPS)
+  C_e    = emitter coefficient (flow units at 1 psi or 1 m head)
+  P      = pressure at node (psi or m)
+  γ      = pressure exponent (global setting, default = 0.5)
+
+When γ = 0.5:  Q = C_e × √P     ← orifice equation (fixed-area leak)
+When γ = 1.0:  Q = C_e × P       ← linear (background seepage)
+When γ = 1.5:  Q = C_e × P^1.5   ← variable-area leak (crack expands with pressure)
+```
+
+This is what I implemented in the original EPANET. The emitter coefficient lives at the **node**, not the pipe. So if you have a 1,000-ft pipe with a leak at the midpoint, you assign half the leakage coefficient to each end node. This is an approximation — the pressure varies along the pipe, but the node-based approach averages it.
+
+### EPANET FAVAD Model (EPANET 2.2+)
+
+The FAVAD (Fixed and Variable Area Discharge) model was added to address a real limitation: different pipe materials leak differently.
+
+```
+Q_leak = C_f × P^0.5 + C_v × P^1.5
+
+Where:
+  C_f = fixed-area leak coefficient    (rigid pipes: cast iron, concrete)
+  C_v = variable-area leak coefficient (flexible pipes: PVC, PE, AC)
+  P   = average pressure along the pipe
+
+Physical basis:
+  - Fixed-area leaks (cracks in rigid pipes): area doesn't change with pressure
+    → orifice flow: Q ∝ √P  (exponent = 0.5)
+    
+  - Variable-area leaks (joints in flexible pipes): area EXPANDS with pressure
+    → Q ∝ P^1.5  (area ∝ P^1.0 × √P velocity)
+
+The FAVAD leakage is computed PER PIPE (not per node):
+  P_avg = (P_upstream + P_downstream) / 2
+  Q_pipe = C_f × P_avg^0.5 + C_v × P_avg^1.5
+  
+  Then split evenly between the pipe's two end nodes:
+  Q_node_i += Q_pipe / 2
+  Q_node_j += Q_pipe / 2
+```
+
+This is a meaningful improvement because it puts leakage on the **pipe** (where it physically occurs) rather than the node. The average pressure along the pipe determines the leak rate, which is more physically correct than using the node pressure.
+
+### SWMM5 Storage Node Seepage
+
+SWMM5 has direct exfiltration only on **storage nodes** — not on junctions or conduits.
+
+```
+[STORAGE]
+;;Name   Elev  MaxDepth  InitDepth  Shape  ... Seepage_Params
+Tank1    100   10        0          TABULAR     Suction  Ksat  IMD
+
+Seepage uses Green-Ampt parameters:
+  Suction   = soil suction head (in or mm)
+  Ksat      = saturated hydraulic conductivity (in/hr or mm/hr)  
+  IMD       = initial moisture deficit (fraction, 0-1)
+
+Seepage rate per unit area:
+  f = Ksat × (1 + Suction × IMD / F)
+
+Where:
+  F = cumulative infiltrated depth
+  
+At long times (saturated soil): f → Ksat
+
+Total seepage from storage node:
+  Q_seep = f × A_wetted
+
+Where:
+  A_wetted = wetted area of the storage node 
+           = bottom area + wetted perimeter × depth (for lined/unlined)
+```
+
+This is the same Green-Ampt equation I used in EPANET for evaluating soil conditions, but applied to the floor and walls of a storage basin. It's physically correct for exfiltration through soil — the rate depends on soil properties and decreases over time as the wetting front advances.
+
+### SWMM5 Groundwater Module (Bidirectional)
+
+This is where SWMM5 gets interesting — the groundwater module handles **both** infiltration (into pipe) and exfiltration (out of pipe) through a single equation:
+
+```
+[GROUNDWATER]
+;;Subcatch  Aquifer  Node  Esurf  A1   B1   A2   B2   A3
+
+Lateral groundwater flow to/from node:
+  Q_gw = A1×(D_gw - E)^B1 - A2×(D_sw - E)^B2 + A3×D_gw×D_sw
+
+Where:
+  D_gw = depth of groundwater table above aquifer bottom (ft or m)
+  D_sw = depth of water at the node above aquifer bottom
+  E    = threshold elevation (node invert, typically)
+  A1, B1 = groundwater influence coefficients
+  A2, B2 = surface water (pipe) influence coefficients  
+  A3     = interaction term
+
+The critical insight:
+  
+  Term 1: A1×(D_gw - E)^B1  
+    → POSITIVE when GW table > threshold
+    → This is INFILTRATION into the pipe
+    → Water enters the sewer from high groundwater
+    
+  Term 2: -A2×(D_sw - E)^B2
+    → NEGATIVE (subtracts) when pipe water > threshold  
+    → This is EXFILTRATION out of the pipe
+    → Water leaves the sewer when pipe level is high
+    
+  Term 3: A3×D_gw×D_sw
+    → Interaction: flow depends on BOTH levels simultaneously
+
+Net flow can be positive (infiltration) or negative (exfiltration)
+depending on the relative heads. This is the bidirectional model.
+```
+
+This is fundamentally more sophisticated than EPANET's emitter because it accounts for the **external water table** as a boundary condition. EPANET assumes the exterior is at atmospheric pressure (P_external = 0). SWMM5 knows that there's a groundwater table outside the pipe, and the direction of flow depends on which side has more head.
+
+### SWMM5 Conduit Exfiltration — The Gap
+
+Here's the honest truth: **standard EPA SWMM5 does NOT have pipe-level exfiltration on conduits.** This is a genuine gap in the model.
+
+```
+What SWMM5 HAS for pipes:
+  ✓ Manning's friction (flow computation)
+  ✓ Entry/exit losses
+  ✓ Surcharge behavior
+  ✗ NO exfiltration parameter on conduits
+  ✗ NO seepage rate on conduits
+  ✗ NO leakage coefficient on conduits
+
+What you CAN do (workarounds):
+  1. Use storage nodes with seepage in series with conduits
+     → Clunky, adds extra nodes, changes hydraulics
+     
+  2. Use the groundwater module on connected subcatchments
+     → Models I/I at node level, not distributed along pipe
+     
+  3. Use RDII with negative R-values (infiltration only, not exfiltration)
+     → Only models inflow, not outflow
+     
+  4. Use InfoWorks ICM (which HAS conduit exfiltration)
+     → Different software, proprietary engine
+
+What EPANET 2.2 HAS for pipes (via FAVAD):
+  ✓ Pipe-level leakage coefficients (C_f, C_v)
+  ✓ Pressure-averaged along pipe length
+  ✓ Split between end nodes automatically
+  ✓ Two-component model (fixed + variable area)
+```
+
+This is actually one area where EPANET is **ahead** of SWMM5. I can model leakage at the pipe level with the FAVAD coefficients. SWMM5 can only model exfiltration at storage nodes or through the lumped groundwater module. For a detailed sewer exfiltration study, you'd need InfoWorks ICM or a workaround.
+
+---
+
+## The Complete Comparison Table
+
+This is what I'd put in your tab:
+
+| Aspect | EPANET | SWMM5 | Notes |
+|--------|--------|-------|-------|
+| **What it's called** | Leakage | Exfiltration / Infiltration | Same physics, different name |
+| **Direction** | Always outward | Bidirectional | EPANET: P > 0 → outflow. SWMM: depends on head difference |
+| **Driving force** | Internal pressure (P at node) | Head difference (pipe vs. groundwater) | EPANET ignores external head; SWMM5 models it |
+| **Where defined** | Node (emitters) or Pipe (FAVAD) | Storage node (seepage) or Subcatchment (GW module) | Neither has conduit-level exfiltration in the traditional sense |
+| **Node-level model** | Q = C_e × P^γ (emitter) | Q_gw = f(D_gw, D_sw) (groundwater equation) | Different equations, different physics |
+| **Pipe-level model** | FAVAD: Q = C_f×P^0.5 + C_v×P^1.5 | **None** (storage node seepage only) | EPANET ahead here |
+| **Pressure exponent** | User-defined (γ = 0.5 default) | Implicit in Green-Ampt or GW equation | EPANET more flexible for leak characterization |
+| **Soil properties** | Not modeled (exterior = atmospheric) | Green-Ampt: suction, Ksat, moisture deficit | SWMM5 more physically correct for soil interaction |
+| **Temporal behavior** | Instantaneous (steady at each EPS step) | Time-varying (wetting front, GW table fluctuation) | SWMM5 captures antecedent moisture effects |
+| **Pipe material effect** | FAVAD: C_f for rigid, C_v for flexible | Not differentiated | EPANET distinguishes pipe material behavior |
+| **Multiple mechanisms** | FAVAD: fixed area + variable area | GW: three-term equation with interaction | Both support multi-component models |
+| **Calibration data** | Minimum night flow, DMA analysis | Flow monitoring: dry weather vs wet weather I/I | Different field data, different calibration approach |
+| **Typical loss** | 10–30% of system input (NRW) | 5–50% of peak flow (I/I) | Leakage is a percentage of supply; I/I is a percentage of sewer capacity |
+| **Regulatory driver** | Non-revenue water targets (IWA/AWWA) | SSO/CSO compliance (EPA CMOM) | Different regulations drive different modeling needs |
+
+---
+
+## What I'd Include as Source Code References
+
+### EPANET — The Emitter Implementation
+
+```c
+// From EPANET hydraul.c — emitter flow computation
+// Called during each iteration of the hydraulic solver
+
+double emitterFlow(int i)
+{
+    double p = Node[i].head - Node[i].el;  // pressure = head - elevation
+    if (p <= 0.0) return 0.0;              // no flow at zero/negative pressure
+    
+    return Node[i].Ke * pow(p, 1.0/QExp);  // Q = Ke * P^(1/QExp)
+    // QExp = 1/gamma, so P^(1/QExp) = P^gamma
+    // Default gamma = 0.5 → QExp = 2.0
+}
+
+// The emitter flow is incorporated into the GGA solver
+// as a demand-like term that depends on pressure:
+//   At node i: ΣQ_in - ΣQ_out - Demand - Q_emitter = 0
+//   where Q_emitter = Ke * P^gamma
+//
+// This makes the system nonlinear in pressure
+// (demands are constant, but emitter flow varies with P)
+// The solver linearizes this at each iteration:
+//   dQ/dP = Ke * gamma * P^(gamma-1)
+```
+
+### EPANET 2.2 — FAVAD Pipe Leakage
+
+```c
+// From EPANET 2.2 — pipe leakage computation
+// Each pipe has two leak coefficients: C1 (fixed) and C2 (variable)
+
+double pipeLeakage(int k)
+{
+    int    i = Link[k].N1;        // upstream node
+    int    j = Link[k].N2;        // downstream node
+    double p1 = Node[i].head - Node[i].el;  // upstream pressure
+    double p2 = Node[j].head - Node[j].el;  // downstream pressure
+    double pavg = (p1 + p2) / 2.0;          // average pressure along pipe
+    
+    if (pavg <= 0.0) return 0.0;
+    
+    double q1 = Link[k].LeakCoeff1 * sqrt(pavg);       // fixed area: Q ∝ P^0.5
+    double q2 = Link[k].LeakCoeff2 * pow(pavg, 1.5);   // variable area: Q ∝ P^1.5
+    
+    return q1 + q2;  // total pipe leakage
+    
+    // This total is split 50/50 between nodes i and j
+    // in the mass balance assembly
+}
+```
+
+### SWMM5 — Storage Node Seepage
+
+```c
+// From SWMM5 exfil.c — Green-Ampt exfiltration from storage nodes
+
+double exfil_getLoss(int j, double depth, double area)
+{
+    double f;          // exfiltration rate (ft/s or m/s)
+    double totalArea;  // total wetted area
+    
+    // Green-Ampt infiltration rate
+    // f = Ks * (1 + suction * IMD / cumInfil)
+    f = greenAmptRate(Node[j].exfilParams);
+    
+    // Wetted area = bottom area + perimeter * depth
+    // (accounts for water level in storage)
+    totalArea = area;  // bottom area
+    if (depth > 0) {
+        totalArea += Node[j].perimeter * depth;  // side walls
+    }
+    
+    return f * totalArea;  // total exfiltration volume rate
+}
+
+// Note: This is ONLY for storage nodes.
+// Junctions and conduits have NO exfiltration mechanism.
+```
+
+### SWMM5 — Groundwater Bidirectional Flow
+
+```c
+// From SWMM5 gwater.c — lateral flow between aquifer and node
+
+double getGWFlow(int j, double gwHead, double nodeHead)
+{
+    double dgw, dsw, qgw;
+    
+    // Depths above threshold elevation
+    dgw = gwHead - Aquifer[j].bottomElev;      // GW depth above aquifer bottom
+    dsw = nodeHead - Aquifer[j].nodeElev;       // node water depth above threshold
+    
+    // Three-term lateral flow equation
+    // Term 1: groundwater → pipe (INFILTRATION, positive)
+    qgw = GW[j].a1 * pow(MAX(0, dgw), GW[j].b1);
+    
+    // Term 2: pipe → groundwater (EXFILTRATION, subtracted)
+    qgw -= GW[j].a2 * pow(MAX(0, dsw), GW[j].b2);
+    
+    // Term 3: interaction term
+    qgw += GW[j].a3 * dgw * dsw;
+    
+    return qgw;
+    // Positive = infiltration INTO pipe
+    // Negative = exfiltration OUT OF pipe
+    // The sign flips automatically based on head difference
+}
+```
+
+---
+
+## The Interactive Element I'd Recommend
+
+Build a calculator like your Manning-vs-HW calculator, but for leakage/exfiltration:
+
+### EPANET Emitter Calculator
+
+```
+Inputs:
+  Pressure at node (psi or m):  [slider: 0-120 psi]
+  Emitter coefficient C_e:      [slider: 0.01-5.0]
+  Pressure exponent γ:          [dropdown: 0.5 / 1.0 / 1.18 / 1.5]
+  
+Outputs:
+  Leakage flow: Q = C_e × P^γ = ___ GPM
+  At γ=0.5: "Fixed-area orifice leak (rigid pipe crack)"
+  At γ=1.0: "Linear seepage (background leakage)"
+  At γ=1.18: "UK Ofwat leakage model (mixed)"
+  At γ=1.5: "Variable-area leak (flexible pipe joint)"
+
+Chart: Q vs P curve for all four γ values overlaid
+```
+
+### SWMM5 Groundwater Calculator
+
+```
+Inputs:
+  Groundwater table elevation (ft):  [slider]
+  Pipe water level (ft):             [slider]
+  Threshold elevation (ft):          [slider]
+  A1, B1 coefficients:               [sliders]
+  A2, B2 coefficients:               [sliders]
+  
+Outputs:
+  Term 1 (infiltration): A1×(D_gw-E)^B1 = ___ CFS
+  Term 2 (exfiltration): A2×(D_sw-E)^B2 = ___ CFS
+  Net flow: ___ CFS
+  Direction: "Infiltration INTO pipe" or "Exfiltration OUT OF pipe"
+  
+Chart: Net flow vs GW table elevation (showing crossover point
+       where infiltration switches to exfiltration)
+```
+
+### The Crossover Visualization
+
+This is the most pedagogically important chart:
+
+```
+Flow Rate
+    ↑
+    │         EPANET                    SWMM5
+    │
+    │    Q = C×P^0.5              Infiltration
+    │         ╱                    (GW > pipe)
+    │        ╱                         │
+    │       ╱                          │  ← crossover
+    │      ╱                    ───────┼───────── ΔH = 0
+  0 │─────╱──────────────              │
+    │    0   P →                       │
+    │   (no negative P               Exfiltration
+    │    in EPANET)                (pipe > GW)
+    │
+    │  UNIDIRECTIONAL              BIDIRECTIONAL
+```
+
+This shows the key insight: EPANET's leak curve lives entirely in the positive quadrant (positive pressure → positive outflow). SWMM5's groundwater curve crosses zero — when the groundwater table drops below the pipe, flow reverses from infiltration to exfiltration. EPANET has no concept of this reversal.
+
+---
+
+## Practical Comparison: How Practitioners Use Each
+
+### EPANET Leakage Workflow
+
+```
+1. Determine total system leakage (water balance or minimum night flow)
+   Total NRW = System Input - Authorized Consumption
+   Typical: 15-30% of input in developed countries
+   
+2. Distribute leakage to nodes
+   Method A: Proportional to pipe length serving each node
+   Method B: Proportional to number of service connections
+   Method C: Uniform across all nodes
+   
+3. Calculate emitter coefficients
+   At each node: C_e = Q_leak / P_avg^γ
+   Where Q_leak = allocated leakage, P_avg = average pressure
+   
+4. Calibrate
+   Run model → compare pressures to field measurements
+   Adjust C_e values until minimum night flow matches
+   
+5. Use for pressure management analysis
+   Reduce PRV setpoint → pressure drops → leakage drops
+   Savings = ΔQ_leak = C_e × (P_old^γ - P_new^γ)
+```
+
+### SWMM5 Exfiltration Workflow
+
+```
+1. Determine total I/I (infiltration/inflow)
+   Compare dry weather flow to wet weather flow
+   Separate: GWI (constant) vs RDII (rain-dependent)
+   
+2. For exfiltration analysis (less common):
+   Compare upstream and downstream flow monitors
+   If downstream < upstream → exfiltration in between
+   
+3. Model using groundwater module
+   Set A1, B1 for infiltration component
+   Set A2, B2 for exfiltration component
+   Calibrate against monitored flow data
+   
+4. Alternative: storage node seepage
+   For known exfiltration locations (leaking manholes, basins)
+   Set Green-Ampt parameters based on soil data
+   
+5. Use for capacity analysis
+   High GW → more infiltration → less pipe capacity for sanitary flow
+   Low GW → possible exfiltration → lost flow, lower treatment volumes
+```
+
+---
+
+## The Gotchas Section
+
+### For SWMM5 Experts Moving to EPANET
+
+> **Gotcha #1: There is no groundwater table in EPANET.** The external boundary is always atmospheric pressure. You cannot model the situation where a rising water table pressurizes the exterior of a pipe, reducing leakage. In EPANET, leakage depends only on internal pressure.
+
+> **Gotcha #2: Emitters don't distinguish pipe material.** In SWMM5, you might model different I/I rates for vitrified clay (high infiltration) vs. PVC (low infiltration). In EPANET's emitter model, the coefficient C_e is at the *node*, not the pipe. FAVAD helps by putting coefficients on pipes, but adoption is still limited.
+
+> **Gotcha #3: EPANET leakage is always a loss.** In SWMM5, infiltration *adds* flow to the system — your sewer has more flow than expected because groundwater is entering. In EPANET, leakage *removes* flow — your system delivers less than expected because water is escaping. Same pipe wall defect, opposite effect on system mass balance.
+
+> **Gotcha #4: There is no time-varying soil response in EPANET.** SWMM5's Green-Ampt seepage captures the wetting front advancing through unsaturated soil — the rate decreases over time as the soil saturates. EPANET emitters give a constant Q for a given P, with no memory of how long the leak has been active or what the soil moisture conditions are.
+
+### For EPANET Experts Moving to SWMM5
+
+> **Gotcha #1: SWMM5 has no pipe-level exfiltration.** If you're used to putting FAVAD coefficients on every pipe in EPANET, you'll find that SWMM5 conduits have no equivalent parameter. You must use storage node seepage or the groundwater module as a workaround.
+
+> **Gotcha #2: The groundwater equation is not intuitive.** EPANET's emitter equation Q = C×P^γ is simple and memorable. SWMM5's three-term groundwater equation with five coefficients (A1, B1, A2, B2, A3) is powerful but opaque. The interaction term (A3 × D_gw × D_sw) is particularly confusing — it represents a nonlinear coupling that has no EPANET analog.
+
+> **Gotcha #3: Exfiltration can cause dry pipes.** In EPANET, a leak reduces pressure but the pipe stays full. In SWMM5, exfiltration from a pipe can cause it to run increasingly empty — and if the pipe dries out, the solver behavior changes completely. There's no equivalent phenomenon in EPANET.
+
+> **Gotcha #4: SWMM5 calibration for I/I is much harder.** EPANET leakage calibration uses minimum night flow (one number per DMA). SWMM5 I/I calibration requires separating baseflow infiltration from rain-dependent I/I, which requires flow monitoring data across multiple wet and dry weather periods.
+
+---
+
+## Summary Table for Quick Reference
+
+| Feature | EPANET Emitter | EPANET FAVAD | SWMM5 Storage Seepage | SWMM5 Groundwater |
+|---------|---------------|-------------|----------------------|-------------------|
+| **Equation** | Q = C·P^γ | Q = C_f·P^0.5 + C_v·P^1.5 | Q = f·A_wetted | Q = A1·Dgw^B1 - A2·Dsw^B2 + A3·Dgw·Dsw |
+| **Location** | Node | Pipe (split to nodes) | Storage node only | Subcatchment → Node |
+| **Direction** | Out only | Out only | Out only | Bidirectional |
+| **Soil model** | None | None | Green-Ampt | Aquifer properties |
+| **Time-varying** | No (steady per EPS step) | No | Yes (wetting front) | Yes (GW table fluctuates) |
+| **Pipe material** | No | Yes (rigid vs flexible) | N/A | No |
+| **Pipe condition** | Implicit in C_e | Implicit in C_f, C_v | N/A | N/A |
+| **External head** | Assumed = 0 | Assumed = 0 | Assumed = 0 | Modeled (GW table) |
+| **Parameters** | C_e, γ (2) | C_f, C_v (2 per pipe) | Suction, Ksat, IMD (3) | A1, B1, A2, B2, A3 (5) |
+| **Calibration** | Min night flow | Min night flow | Soil testing | Flow monitoring |
+
+---
+
+## My Recommendation
+
+Build the tab with three sections:
+
+1. **The Physics** — the side-by-side pipe cross-section showing pressure-driven vs. head-difference-driven flow, with the equations overlaid
+
+2. **The Interactive Calculator** — two-panel: EPANET emitter Q-vs-P curve on the left, SWMM5 groundwater Q-vs-ΔH curve on the right, with the crossover point highlighted on the SWMM5 side
+
+3. **The Practitioner's Guide** — when to use each, what data you need, and the gotchas listed above
+
+The key pedagogical moment is when the user adjusts the groundwater table slider on the SWMM5 side and watches the flow reverse direction — from infiltration to exfiltration. Then they look at the EPANET side and realize the curve *can't go negative*. That asymmetry — one system is bidirectional, the other is not — is the deepest insight this tab can deliver.
+
+---
+
+*One more thing: in the real world, the most common case is that EPANET models water leaving pipes (leakage) and SWMM5 models water entering pipes (infiltration). Exfiltration from sewers is relatively rare and hard to detect — it's the overlooked sibling of infiltration. But when it matters (contaminated sewage exfiltrating into groundwater near a wellfield), it really matters. And SWMM5's groundwater module is the only one of these tools that can model it from first principles. —L.R.*

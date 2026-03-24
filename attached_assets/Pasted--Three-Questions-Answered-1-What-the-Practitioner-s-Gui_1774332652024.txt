@@ -1,0 +1,460 @@
+# Three Questions Answered
+
+---
+
+## 1. What the Practitioner's Guide Covers
+
+The practitioner's guide is the third section of the proposed leakage/exfiltration tab. It covers the practical decisions a working engineer faces when modeling water loss — what tool to use, what field data to collect, how to calibrate, and what mistakes to avoid. Here's the full content:
+
+### When to Use Each Tool
+
+| Scenario | Use EPANET | Use SWMM5 | Why |
+|----------|-----------|-----------|-----|
+| **Pressure management for leakage reduction** | ✓ |  | Leakage depends on pressure; EPANET's emitter model directly computes how much leakage decreases when you lower PRV setpoints |
+| **Non-revenue water assessment** | ✓ |  | Water balance calculations, minimum night flow analysis, and DMA-level leakage quantification are EPANET's core use case |
+| **Sewer infiltration during wet weather** |  | ✓ | Rain-dependent I/I enters gravity sewers through defects; SWMM5's RDII unit hydrographs and groundwater module model this |
+| **Sewer exfiltration near sensitive receptors** |  | ✓ | Sewage leaking into groundwater near wells or streams requires the bidirectional groundwater module |
+| **Fire flow with leakage impact** | ✓ |  | High fire flow demand → pressure drops → leakage decreases → more water available at the hydrant (EPANET captures this feedback) |
+| **Combined sewer overflow with I/I** |  | ✓ | CSO volumes depend heavily on infiltration during storms; SWMM5 models this as part of the rainfall-runoff-routing chain |
+| **Pipe rehabilitation prioritization** | Either | Either | EPANET: rank pipes by leakage rate (FAVAD coefficients). SWMM5: rank pipes by I/I contribution (flow monitoring data) |
+| **Climate change impact on I/I** |  | ✓ | Rising groundwater tables increase infiltration; SWMM5's aquifer model captures the GW-table-to-pipe interaction |
+
+### What Field Data You Need
+
+**For EPANET leakage modeling:**
+
+```
+Minimum Night Flow (MNF) Analysis
+─────────────────────────────────
+What:  Flow into a District Metered Area (DMA) between 2:00–4:00 AM
+Why:   At night, legitimate consumption is minimal
+       MNF ≈ leakage + nighttime use (typically 10% of daytime)
+How:   Install flow meter at DMA inlet
+       Log flow at 1-minute intervals for 7+ days
+       Select the night with lowest flow (dry, no unusual use)
+
+Data needed per DMA:
+  • MNF flow rate (GPM or l/s)
+  • Number of service connections
+  • Average zone pressure at MNF hour
+  • Pipe material and age inventory
+  • Length of mains per material type
+
+Calculating emitter coefficient:
+  Q_leak = MNF - legitimate_night_use
+  C_e = Q_leak / P^γ
+  
+  Example: MNF = 25 GPM, night use = 5 GPM, P = 65 psi, γ = 0.5
+  C_e = 20 / √65 = 2.48 GPM/psi^0.5
+  Distribute across DMA nodes proportional to pipe length
+```
+
+**For SWMM5 infiltration/exfiltration modeling:**
+
+```
+Flow Monitoring Campaign
+─────────────────────────
+What:  Temporary flow meters in manholes during dry AND wet weather
+Why:   Dry weather isolates baseflow + groundwater infiltration
+       Wet weather adds rain-dependent I/I
+How:   Install area-velocity meters in upstream and downstream manholes
+       Monitor for minimum 3 dry days + 2 significant rain events
+
+Data needed per sewer basin:
+  • Dry weather diurnal flow pattern (identifies baseflow)
+  • Dry weather minimum flow (approximates GWI)
+  • Wet weather hydrograph (total response to rain)
+  • Rainfall data from nearest gauge (for RDII calibration)
+  • Groundwater table elevation (seasonal, from monitoring wells)
+  • Soil type and pipe bedding material
+
+Calculating groundwater parameters:
+  GWI = dry_weather_minimum - known_sanitary_baseflow
+  
+  If upstream flow > downstream flow during dry weather:
+    → Exfiltration is occurring in the reach between meters
+    Exfiltration rate = (Q_upstream - Q_downstream) / pipe_length
+    
+  If downstream flow > upstream flow + known_inflows:
+    → Infiltration is occurring
+    Infiltration rate = Q_downstream - Q_upstream - Q_known_inflows
+```
+
+### Calibration Approaches
+
+**EPANET leakage calibration:**
+
+```
+Step 1: Build hydraulic model with known demands
+Step 2: Run model without leakage → compare to field pressures
+Step 3: Add emitters at all nodes with initial C_e estimates
+Step 4: Adjust C_e values until:
+  • Total system input matches metered production
+  • MNF at each DMA matches field measurements
+  • Pressure at monitoring points matches within ±2 psi
+  
+Convergence criterion:
+  |Model_MNF - Field_MNF| < 5% at each DMA
+  |Model_Pressure - Field_Pressure| < 3 psi at each monitoring point
+
+Typical iteration: 3-5 manual adjustments
+  or automated optimization (genetic algorithm + EPANET toolkit)
+
+Common pitfall:
+  Setting C_e too high at low-pressure nodes
+  → Model shows very low pressure → emitter reduces flow
+  → But real leak may be at the pipe, not the node
+  → FAVAD (pipe-level) avoids this problem
+```
+
+**SWMM5 I/I calibration:**
+
+```
+Step 1: Calibrate dry weather flow first
+  • Match sanitary diurnal pattern (DWF)
+  • Match minimum flow (GWI component)
+  
+Step 2: Calibrate wet weather response
+  • RDII parameters: R (volume), T (time to peak), K (shape)
+  • Three triangles: fast (surface I/I), medium, slow (GWI response)
+  • Adjust R-T-K until hydrograph shape matches monitoring data
+  
+Step 3: Validate on independent storm events
+  • Calibrate on events 1-3, validate on events 4-6
+  • Check: peak flow within 15%, total volume within 10%
+
+Convergence criterion:
+  Nash-Sutcliffe efficiency > 0.7 for calibration events
+  Peak flow error < 15%
+  Volume error < 10%
+
+Common pitfall:
+  Over-calibrating RDII R-values to match one storm
+  → Different antecedent moisture → different R needed
+  → Use the groundwater module for physically-based response
+  
+For exfiltration specifically:
+  Much harder to calibrate — requires paired upstream/downstream
+  flow monitors, and the exfiltration signal is typically small
+  compared to total flow. Best approach: mass balance between
+  sequential monitoring points during extended dry weather.
+```
+
+### Cost-Benefit of Modeling Leakage vs. Exfiltration
+
+```
+EPANET Leakage Modeling — ROI Analysis
+──────────────────────────────────────
+Cost of modeling:    40-80 hours (model build + calibrate + scenarios)
+Cost of field data:  $5K-15K per DMA (meter installation + monitoring)
+Potential savings:   10-30% reduction in leakage through pressure management
+Revenue recovery:    $50K-500K/year per DMA (depends on system size)
+ROI:                 Typically 3-12 months
+
+SWMM5 I/I Modeling — ROI Analysis
+─────────────────────────────────
+Cost of modeling:    80-200 hours (more complex calibration)
+Cost of field data:  $10K-50K per basin (flow monitors + rain gauges)
+Potential savings:   Avoid $2M-50M treatment plant expansion
+                     Reduce SSO/CSO frequency (regulatory compliance)
+ROI:                 Typically 1-3 years
+
+Exfiltration-specific modeling:
+  Rarely justified unless contamination risk exists.
+  Most utilities focus on infiltration (which increases costs)
+  rather than exfiltration (which reduces treatment volumes).
+  Exception: near wellfields, rivers, or sensitive aquifers.
+```
+
+---
+
+## 2. The Asymmetry Insight Explained
+
+The asymmetry is the single most important conceptual difference between how EPANET and SWMM5 model water crossing the pipe wall. Here's what it means and why it matters:
+
+### The Physical Reality
+
+Every pipe in the ground has defects — cracks, joint separations, corrosion holes, failed connections. Water moves through these defects in whatever direction the pressure gradient pushes it. The direction depends on which side of the pipe wall has higher head:
+
+```
+CASE 1: Internal head > External head
+──────────────────────────────────────
+
+    Inside pipe: H = 150 ft (pressurized distribution main)
+    Outside pipe: H = 20 ft (groundwater table)
+    
+    ΔH = +130 ft → Water flows OUT through defect
+    
+    This is LEAKAGE (in water distribution)
+    This is EXFILTRATION (in sewers)
+
+CASE 2: External head > Internal head
+──────────────────────────────────────
+
+    Inside pipe: H = 3 ft (partially full sewer)
+    Outside pipe: H = 8 ft (high groundwater table)
+    
+    ΔH = -5 ft → Water flows IN through defect
+    
+    This is CONTAMINATION RISK (in water distribution)
+    This is INFILTRATION (in sewers)
+
+CASE 3: Heads are equal
+──────────────────────────────────────
+
+    Inside pipe: H = 10 ft
+    Outside pipe: H = 10 ft
+    
+    ΔH = 0 → No flow through defect
+    
+    This is the CROSSOVER POINT
+```
+
+### How Each Tool Models This
+
+**EPANET sees only Case 1.** The emitter equation Q = C × P^γ takes internal pressure P as its input. When P > 0, water flows out. When P ≤ 0, flow is zero. There is no mechanism for water to flow *into* the pipe through an emitter.
+
+```
+EPANET's view of the world:
+
+    Flow
+     ↑
+     │           Q = C × P^0.5
+     │              ╱
+     │             ╱
+     │            ╱
+     │           ╱
+     │          ╱
+     │         ╱
+     │        ╱
+     │       ╱
+     │      ╱
+     │     ╱
+   0 │────╱─────────────────→ Pressure
+     │   0
+     │
+     │   (This region doesn't exist in EPANET)
+     │   (Negative pressure → Q = 0, not Q < 0)
+     ↓
+```
+
+The curve lives entirely in the upper-right quadrant. Positive pressure produces positive outflow. Zero or negative pressure produces zero flow. The emitter cannot produce *inflow*.
+
+**SWMM5 sees Cases 1, 2, and 3.** The groundwater equation computes flow based on the head *difference* between the groundwater table and the pipe water level. When the groundwater is higher, flow is positive (infiltration into pipe). When the pipe level is higher, flow is negative (exfiltration out of pipe). The crossover happens when the two heads are equal.
+
+```
+SWMM5's view of the world:
+
+    Flow
+     ↑
+     │    INFILTRATION        Q = A1×(Dgw)^B1 - A2×(Dsw)^B2
+     │    (into pipe)             ╱
+     │                           ╱
+     │                          ╱
+     │                         ╱
+   0 │────────────────────────╱──────────→ ΔH (GW - Pipe)
+     │                       ╱
+     │                      ╱  ← CROSSOVER POINT
+     │                     ╱     (GW table = pipe water level)
+     │    EXFILTRATION    ╱
+     │    (out of pipe)  ╱
+     │                  ╱
+     ↓
+```
+
+The curve crosses zero. The sign of the flow depends on which side has more head. This is physically correct — the same pipe defect that lets groundwater in during wet season will let sewage out during dry season when the water table drops.
+
+### Why This Asymmetry Matters in Practice
+
+**For water distribution (EPANET):**
+
+The asymmetry means EPANET cannot model **contamination intrusion** — the phenomenon where a pressure drop (from a main break, pump failure, or high demand) allows groundwater or soil water to enter the distribution system through the same defects that normally leak outward. This is a significant public health concern. When pressure drops below external head, pathogens can enter the drinking water supply.
+
+EPANET's emitter simply sets Q = 0 at zero pressure. It doesn't model the reversal. Specialized contamination intrusion models exist, but they're not part of standard EPANET.
+
+In practice, this means:
+- EPANET is great for "how much water are we losing?" (positive leakage)
+- EPANET cannot answer "what contaminants are entering during depressurization?" (negative leakage)
+
+**For sewer systems (SWMM5):**
+
+The bidirectional model is essential because sewers routinely experience both conditions:
+
+- **Wet season:** Groundwater table rises → infiltration increases → sewer flows increase → possible SSO
+- **Dry season:** Groundwater table drops → infiltration decreases → possible exfiltration → contamination risk
+
+The same sewer pipe can be an infiltration source in March and an exfiltration source in August. SWMM5's groundwater module captures this seasonal reversal naturally through the head-difference-driven equation.
+
+In practice, this means:
+- SWMM5 captures seasonal I/I variation from first principles
+- A single calibrated groundwater model works for both wet and dry conditions
+- The crossover point (where infiltration switches to exfiltration) can be identified
+
+### The Pedagogical Moment
+
+The most powerful learning experience in the proposed interactive calculator would be:
+
+1. User sets SWMM5 groundwater table at 20 ft, pipe water level at 5 ft
+   - Display shows: "Infiltration → 2.3 CFS entering pipe"
+
+2. User drags the groundwater table slider *down* to 5 ft
+   - Display shows: "Zero flow — crossover point"
+
+3. User continues dragging to 2 ft
+   - Display shows: "Exfiltration → 0.8 CFS leaving pipe"
+   - The flow arrow on the pipe diagram *reverses direction*
+
+4. User looks at the EPANET panel beside it
+   - Pressure at 60 psi → "Leakage: 4.7 GPM leaving pipe"
+   - Pressure at 0 psi → "Leakage: 0 GPM"
+   - **There is no slider that makes water enter the EPANET pipe**
+
+That moment — when the user realizes one system can reverse and the other cannot — is the asymmetry insight crystallized into direct experience.
+
+---
+
+## 3. The Difference Between Exfiltration and Infiltration
+
+### Definition
+
+**Infiltration** is water entering a pipe from outside through defects in the pipe wall, joints, or connections. The source is typically groundwater.
+
+**Exfiltration** is water leaving a pipe to the outside through the same types of defects. The destination is the surrounding soil and potentially the groundwater table.
+
+They are the **same physical process in opposite directions**, driven by the head difference across the pipe wall.
+
+```
+INFILTRATION                          EXFILTRATION
+(water enters pipe)                   (water leaves pipe)
+
+    Soil / Groundwater                    Soil / Groundwater
+    ┌─────────────────┐                   ┌─────────────────┐
+    │  H_outside = 8  │                   │  H_outside = 2  │
+    │        ↓        │                   │        ↑        │
+    │   ══╗  ↓  ╔══   │                   │   ══╗  ↑  ╔══   │
+    │     ║  ↓  ║     │                   │     ║  ↑  ║     │
+    │     ║→→→→→║     │                   │     ║←←←←←║     │
+    │     ║ H=3 ║     │                   │     ║ H=6 ║     │
+    │   ══╝     ╚══   │                   │   ══╝     ╚══   │
+    └─────────────────┘                   └─────────────────┘
+    
+    H_outside > H_inside                  H_inside > H_outside
+    ΔH = +5 ft → flow IN                 ΔH = -4 ft → flow OUT
+```
+
+### Where Each Occurs
+
+| System | Infiltration (water IN) | Exfiltration (water OUT) |
+|--------|------------------------|-------------------------|
+| **Water distribution** (pressurized) | Rare — only during depressurization events (main break, pump trip, negative pressure). A contamination hazard. | Normal condition — pressurized mains always push water out through defects. This is "leakage" or "non-revenue water." |
+| **Sanitary sewers** (gravity) | Common — groundwater enters through cracked pipes, leaky joints, deteriorated manholes. Increases treatment costs and CSO risk. | Less common but documented — occurs when pipe water level exceeds groundwater table. Contaminates groundwater with untreated sewage. |
+| **Storm sewers** (gravity) | Similar to sanitary sewers — groundwater infiltration baseflow. | Can occur in dry conditions — reduces downstream flow volume. |
+
+### In EPANET Terms
+
+EPANET only models the **exfiltration direction** (water leaving the pressurized system). It calls this "leakage" or "emitter flow":
+
+```
+Emitter flow: Q = C_e × P^γ
+
+  P > 0  →  Q > 0  →  Water exits pipe (leakage/exfiltration)
+  P = 0  →  Q = 0  →  No flow
+  P < 0  →  Q = 0  →  EPANET does not model contamination intrusion
+```
+
+The term "exfiltration" is rarely used in water distribution practice. Engineers say "leakage," "water loss," or "non-revenue water." But physically, it is exfiltration — treated water exfiltrating through pipe defects into the surrounding soil.
+
+### In SWMM5 Terms
+
+SWMM5 models **both directions** through different mechanisms:
+
+**Infiltration into sewers:**
+- **Groundwater infiltration (GWI):** Constant baseflow from high water table. Modeled via the groundwater module (A1, B1 terms) or as RDII slow response.
+- **Rain-dependent infiltration/inflow (RDII):** Increases during and after rain events. Modeled via the RDII unit hydrograph (R-T-K parameters for three triangles: fast, medium, slow).
+- **Direct inflow:** Stormwater entering sanitary sewers through illegal connections, leaky manhole covers, or cross-connections. Modeled as direct inflow at nodes.
+
+**Exfiltration from sewers:**
+- **Storage node seepage:** Green-Ampt equation applied to the wetted area of storage basins. Rate depends on soil properties and cumulative seepage.
+- **Groundwater module (reverse direction):** When the A2 term in the lateral flow equation produces negative net flow, water exits the pipe to the aquifer. This is exfiltration.
+- **Not available on conduits:** Standard EPA SWMM5 has no conduit-level exfiltration parameter. This is a documented gap.
+
+### The Practical Consequences
+
+**Infiltration is expensive:**
+```
+Extra water in sewers means:
+  → Larger pipes needed (capital cost)
+  → Higher pump station capacity (capital cost)  
+  → More water to treat at WWTP (operating cost)
+  → Increased CSO/SSO risk (regulatory cost)
+  → Diluted sewage = less efficient treatment (performance cost)
+
+US estimate: I/I accounts for 40-50% of wastewater treatment costs
+in many municipalities. The EPA estimates $3.3 billion/year nationally.
+```
+
+**Exfiltration is a contamination risk:**
+```
+Sewage leaving pipes means:
+  → Untreated wastewater entering soil and groundwater
+  → Pathogen contamination of drinking water wells
+  → Nutrient loading to streams and rivers (eutrophication)
+  → Pharmaceutical and chemical contamination of aquifers
+  → Regulatory violation (Clean Water Act, Safe Drinking Water Act)
+
+Harder to detect than infiltration because:
+  → It reduces rather than increases downstream flow
+  → The signal is small relative to total flow
+  → Requires paired upstream/downstream flow monitoring
+  → Often occurs in dry weather when monitoring is less common
+```
+
+**Leakage (water distribution) is lost revenue:**
+```
+Treated water leaving pipes means:
+  → Water that was treated, pumped, and pressurized is lost
+  → Customer never receives it, utility never bills for it
+  → Treatment chemicals, pumping energy, and source water wasted
+  → Reduced system pressure (especially during peak demand)
+  → Potential soil erosion and infrastructure damage from saturated ground
+
+Global estimate: 30-40% of treated water is lost to leakage
+in many systems. In the US, 16% average (AWWA 2022).
+At a production cost of $2-5 per 1,000 gallons, a utility
+losing 2 MGD to leakage spends $1.5-3.6 million/year
+treating water that never reaches a customer.
+```
+
+### The Unified View
+
+All three phenomena — leakage, infiltration, and exfiltration — are governed by the same physics:
+
+```
+Q_through_defect = f(ΔH, defect_geometry, soil_properties)
+
+Where:
+  ΔH = H_inside - H_outside
+  
+  If ΔH > 0:  Water flows OUT  (leakage / exfiltration)
+  If ΔH < 0:  Water flows IN   (infiltration / intrusion)
+  If ΔH = 0:  No flow
+  
+The EPANET world (pressurized):
+  H_inside is always >> H_outside (high pressure)
+  → ΔH is always positive
+  → Flow is always outward
+  → We call it "leakage"
+  → Modeled as: Q = C × P^γ (emitter)
+  
+The SWMM5 world (gravity):
+  H_inside varies with pipe depth (0 to surcharged)
+  H_outside varies with groundwater table (seasonal)
+  → ΔH can be positive, negative, or zero
+  → Flow can be either direction
+  → We call it "infiltration" (in) or "exfiltration" (out)
+  → Modeled as: Q = f(D_gw, D_sw) (groundwater equation)
+```
+
+The reason two different tools model it differently is not that the physics is different. It's that the **operating regime** is different. Pressurized mains are always at high internal pressure, so the flow direction is always outward, so EPANET only needs a one-directional model. Gravity sewers fluctuate above and below the external groundwater table, so the flow direction reverses seasonally, so SWMM5 needs a bidirectional model.
+
+Same pipe defect. Same Darcy's law. Different operating pressure. Different model requirement.

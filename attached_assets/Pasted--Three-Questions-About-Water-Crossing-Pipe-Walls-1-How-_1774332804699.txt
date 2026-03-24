@@ -1,0 +1,454 @@
+# Three Questions About Water Crossing Pipe Walls
+
+---
+
+## 1. How the Operating Regime Affects the Model
+
+The operating regime — whether the pipe is pressurized or gravity-driven — determines which direction water can flow through defects, how much driving force exists, and therefore what mathematical model is appropriate. This is not a software design choice. It is a physics constraint that dictates the software design.
+
+### The Two Regimes
+
+**Regime 1: Pressurized Distribution (EPANET's World)**
+
+A water distribution main operates at 40–100 psi internal pressure (roughly 90–230 feet of head). The surrounding soil and groundwater table might have a head of 5–20 feet. The pressure difference across the pipe wall is almost always positive and large:
+
+```
+Typical water main:
+  Internal head:  250 ft (≈ 108 psi at ground level)
+  External head:   15 ft (groundwater table)
+  ΔH = +235 ft → ALWAYS outward
+
+Even during extreme conditions:
+  Fire flow demand:  Internal head drops to 180 ft
+  ΔH = +165 ft → STILL outward
+
+  Pump failure:      Internal head drops to 120 ft
+  ΔH = +105 ft → STILL outward
+
+  Main break nearby: Internal head drops to 50 ft
+  ΔH = +35 ft → STILL outward (just less)
+
+  Complete depressurization: Internal head = 15 ft
+  ΔH = 0 ft → NO flow (crossover point)
+  
+  Below this: ΔH < 0 → intrusion (contamination)
+  But EPANET cannot model this condition.
+```
+
+Because internal pressure almost never drops below external head under normal operations, EPANET only needs a **one-directional model**. The emitter equation Q = C × P^γ handles this correctly — when P > 0, water flows out; when P ≤ 0, flow is zero. There is no need for a reverse-flow mechanism because the physical system almost never reverses.
+
+This is why the emitter equation has no term for external head. It assumes the exterior is at atmospheric pressure (P_external = 0), which is a reasonable approximation when the internal pressure is 60 psi and the external head is equivalent to maybe 7 psi of groundwater. The error from ignoring 7 psi against a 60 psi driving head is about 6% — acceptable for engineering practice.
+
+**Regime 2: Gravity Sewer (SWMM5's World)**
+
+A gravity sewer operates at atmospheric pressure when partially full, or at modest positive pressure when surcharged. The water depth in the pipe might range from 0 (dry) to the full pipe diameter plus a few feet of surcharge. Meanwhile, the groundwater table fluctuates seasonally — high in spring after snowmelt, low in late summer during drought:
+
+```
+Typical gravity sewer — SPRING (wet season):
+  Pipe water level:     3 ft above invert
+  Groundwater table:    8 ft above invert
+  ΔH = -5 ft → INWARD (infiltration)
+  
+  Water enters the sewer through cracked joints.
+  This adds flow. Sewers run fuller. SSO risk increases.
+
+Same sewer — SUMMER (dry season):
+  Pipe water level:     2 ft above invert (sanitary baseflow)
+  Groundwater table:    1 ft above invert (table dropped)
+  ΔH = +1 ft → OUTWARD (exfiltration)
+  
+  Sewage exits the sewer through the same cracked joints.
+  This removes flow. Sewers run less full. Groundwater contaminated.
+
+Same sewer — DURING A STORM (surcharge):
+  Pipe water level:     12 ft above invert (surcharged)
+  Groundwater table:    6 ft above invert (rising but slower)
+  ΔH = +6 ft → OUTWARD (exfiltration, stronger)
+  
+  Surcharged sewage pushes out through defects.
+  This is the highest exfiltration risk period.
+
+Same sewer — POST-STORM RECESSION:
+  Pipe water level:     4 ft (draining down)
+  Groundwater table:    9 ft (still elevated from rain)
+  ΔH = -5 ft → INWARD again (infiltration returns)
+```
+
+The head difference changes sign **multiple times per year** — and sometimes multiple times per storm event. A one-directional model cannot capture this. SWMM5 needs a **bidirectional model** where the same equation produces positive flow (infiltration) or negative flow (exfiltration) depending on which side has more head at that moment.
+
+This is why the SWMM5 groundwater equation has separate terms for each direction:
+
+```
+Q = A1 × (D_gw)^B1     ← infiltration component (GW → pipe)
+  - A2 × (D_sw)^B2     ← exfiltration component (pipe → GW)  
+  + A3 × D_gw × D_sw   ← interaction term
+
+The NET flow is the sum. It can be positive or negative.
+```
+
+### How This Shapes the Software Architecture
+
+The operating regime difference cascades through every aspect of model design:
+
+| Design Decision | EPANET (Pressurized) | SWMM5 (Gravity) | Why Different |
+|----------------|---------------------|-----------------|---------------|
+| **Leak equation form** | Q = C × P^γ (single term, one direction) | Q = f(D_gw, D_sw) (multi-term, bidirectional) | Pressurized systems don't reverse; gravity systems do |
+| **External boundary** | Ignored (assumed atmospheric) | Modeled explicitly (aquifer with water table) | External head is negligible vs. 60 psi; external head is comparable to 3 ft of pipe depth |
+| **Leak location** | Node or pipe (emitter or FAVAD) | Subcatchment → node (groundwater module) | Distribution networks are looped; sewer networks are dendritic with subcatchments |
+| **Time behavior** | Quasi-steady (constant C_e at each EPS step) | Dynamic (GW table rises/falls, wetting front advances) | Pressure changes are fast (seconds); GW table changes are slow (hours to months) |
+| **Solver coupling** | Weak (emitter adds a pressure-dependent demand) | Strong (aquifer ODE coupled to routing ODE) | Leakage is a small perturbation on a pressurized system; I/I can be 40-50% of total flow |
+| **Calibration data** | Minimum night flow (one number per DMA) | Multi-season flow monitoring + GW well data | One number suffices because flow is always outward; multiple conditions needed because flow reverses |
+| **Primary concern** | Revenue loss (water lost = money lost) | Capacity and compliance (extra flow = overflow risk) | Distribution utilities are businesses; sewer utilities face regulatory enforcement |
+
+### The Practical Consequence for Modelers
+
+A SWMM5 expert moving to EPANET will find leakage modeling **simpler than expected**. One equation, one coefficient, one direction. No aquifer, no wetting front, no seasonal variation. The simplicity is not a limitation — it reflects the physics of pressurized systems.
+
+An EPANET expert moving to SWMM5 will find I/I modeling **more complex than expected**. Multiple equations, multiple coefficients, bidirectional flow, seasonal calibration, and the need for extensive field data. The complexity is not over-engineering — it reflects the physics of gravity systems where the driving force changes sign.
+
+---
+
+## 2. How Darcy's Law Applies Here
+
+Darcy's law is the foundational equation for fluid flow through porous media. It governs the movement of water through soil — which is exactly what happens when water crosses a pipe wall through defects and enters (or leaves) the surrounding ground.
+
+### The Law Itself
+
+Henry Darcy published his equation in 1856 based on experiments with water flowing through sand columns in Dijon, France. The law states:
+
+```
+Q = -K × A × (dh/dl)
+
+Where:
+  Q  = volumetric flow rate (volume per time)
+  K  = hydraulic conductivity of the medium (length per time)
+  A  = cross-sectional area perpendicular to flow
+  dh/dl = hydraulic gradient (change in head per unit length)
+  
+The negative sign indicates flow goes from HIGH head to LOW head
+(in the direction of decreasing hydraulic gradient).
+```
+
+In simpler terms: the flow rate through porous material is proportional to the pressure difference and the material's permeability, and inversely proportional to the distance the water must travel.
+
+### How It Applies to Pipe Leakage and Exfiltration
+
+When water crosses a pipe wall through a defect, it must then travel through the pipe bedding material, backfill, and native soil to reach (or come from) the groundwater table. This soil pathway is governed by Darcy's law:
+
+```
+PIPE WITH DEFECT (crack, joint separation, corrosion hole)
+
+    ┌───────────────────────────────────┐
+    │           Soil backfill           │
+    │     K = hydraulic conductivity    │
+    │                                   │
+    │    ┌─────────────────────┐       │
+    │    │                     │       │ L = distance from
+    │    │   PIPE              │       │ pipe to GW table
+    │    │   H_inside          │───→   │
+    │    │                     │ Q     │
+    │    └─────────────────────┘       │
+    │                                   │
+    │         Groundwater table         │
+    │         H_outside                 │
+    └───────────────────────────────────┘
+
+Darcy's law applied to this system:
+
+  Q = K × A_defect × (H_inside - H_outside) / L
+
+Where:
+  K         = hydraulic conductivity of soil around pipe
+  A_defect  = area of the pipe wall defect
+  H_inside  = hydraulic head inside the pipe
+  H_outside = hydraulic head at the groundwater table
+  L         = distance from pipe defect to groundwater table
+```
+
+### Darcy's Law in EPANET's Emitter Equation
+
+EPANET's emitter equation Q = C × P^γ is **not** a direct application of Darcy's law. It is an empirical orifice/power-law relationship. However, the connection exists:
+
+```
+Darcy's law for flow through soil:
+  Q = K × A × ΔH / L
+
+EPANET emitter:
+  Q = C_e × P^γ
+
+The relationship:
+  If γ = 1.0 (linear leakage):
+    Q = C_e × P
+    This IS Darcy's law if C_e = K × A / L
+    (conductivity × defect area / soil path length)
+    
+  If γ = 0.5 (orifice flow):
+    Q = C_e × √P
+    This is NOT Darcy's law — it's the orifice equation
+    Q = C_d × A × √(2gΔH)
+    This applies when the defect itself (not the soil) 
+    controls the flow rate — like a crack in a cast iron main
+    where the pipe wall is the restriction, not the soil.
+    
+  If γ = 1.5 (variable-area leak):
+    Q = C_e × P^1.5
+    This is neither Darcy nor simple orifice — it represents
+    a leak where the defect AREA grows with pressure
+    (flexible pipe joints that open wider under pressure)
+    combined with orifice flow through the expanding opening.
+```
+
+The key insight: **Darcy's law controls the soil side; the orifice equation controls the defect side.** The overall flow rate is governed by whichever resistance is larger:
+
+```
+Two resistances in series:
+
+  DEFECT RESISTANCE (orifice):    R_defect ∝ 1/A_defect
+  SOIL RESISTANCE (Darcy):        R_soil ∝ L/(K × A_soil)
+
+  If R_defect >> R_soil:  Flow controlled by defect → Q ∝ √P (γ=0.5)
+    Example: small crack in rigid pipe, sandy soil around it
+    The crack is the bottleneck. Soil can accept all the water.
+    
+  If R_soil >> R_defect:  Flow controlled by soil → Q ∝ P (γ=1.0)
+    Example: large joint separation, clay soil around it
+    The joint is wide open. Clay soil limits how fast water can seep away.
+    
+  If both matter:  Flow is intermediate → 0.5 < γ < 1.0
+    Most real situations fall here.
+    The UK water industry uses γ ≈ 1.18 as a national average.
+```
+
+### Darcy's Law in SWMM5's Green-Ampt Seepage
+
+SWMM5's storage node seepage uses the Green-Ampt equation, which is a **direct derivation from Darcy's law** applied to infiltration through a wetting front in unsaturated soil:
+
+```
+Darcy's law (saturated):
+  Q = K_sat × A × ΔH / L
+
+Green-Ampt (unsaturated):
+  f = K_sat × (1 + ψ × Δθ / F)
+
+Where:
+  f     = infiltration rate (length/time)
+  K_sat = saturated hydraulic conductivity (Darcy's K)
+  ψ     = soil suction head at the wetting front (capillary forces)
+  Δθ    = moisture deficit (porosity - initial moisture content)
+  F     = cumulative infiltrated depth
+
+Derivation from Darcy's law:
+  
+  The wetting front is at depth z_f below the surface.
+  Above the front: soil is saturated (K = K_sat)
+  Below the front: soil is at initial moisture (suction = ψ)
+  
+  Hydraulic gradient across the saturated zone:
+    dh/dl = (H_surface + ψ + z_f) / z_f
+          = 1 + (H_surface + ψ) / z_f
+          
+  Since F = z_f × Δθ (cumulative depth = front depth × moisture deficit):
+    z_f = F / Δθ
+    
+  Substituting into Darcy's law:
+    f = K_sat × (1 + (H_surface + ψ) × Δθ / F)
+    
+  For pipe seepage, H_surface = depth of water in storage node.
+```
+
+This derivation shows that SWMM5's seepage model is **Darcy's law applied to a moving wetting front**. As the wetting front advances (F increases), the hydraulic gradient decreases, and the seepage rate decreases toward K_sat. This is physically correct — the soil near the pipe saturates over time, reducing the driving gradient.
+
+### Darcy's Law in SWMM5's Groundwater Module
+
+The groundwater lateral flow equation is an **empirical generalization** of Darcy's law, not a direct application:
+
+```
+Darcy's law (strict form):
+  Q_lateral = K × A_lateral × (H_gw - H_pipe) / L_lateral
+
+SWMM5 groundwater equation:
+  Q = A1 × (D_gw)^B1 - A2 × (D_sw)^B2 + A3 × D_gw × D_sw
+
+The connection:
+  If B1 = 1.0 and B2 = 1.0 and A3 = 0:
+    Q = A1 × D_gw - A2 × D_sw
+    This IS linear Darcy's law with:
+      A1 = K × perimeter × length / L_lateral  (GW side conductance)
+      A2 = K × perimeter × length / L_lateral  (pipe side conductance)
+      
+  If B1 ≠ 1.0 or B2 ≠ 1.0:
+    The power-law form captures nonlinear effects:
+    - Unsaturated zone behavior (K varies with moisture)
+    - Non-uniform defect distribution along pipe
+    - Turbulent flow through large defects
+    
+  The A3 × D_gw × D_sw interaction term:
+    Has no direct Darcy analog
+    Represents coupled behavior where BOTH levels matter
+    simultaneously (e.g., a confining layer between pipe and aquifer
+    where flow depends on pressure from both sides)
+```
+
+### Summary: Where Darcy's Law Fits
+
+```
+                     Darcy's Law
+                    (flow through soil)
+                          │
+            ┌─────────────┼─────────────┐
+            │             │             │
+         EPANET        SWMM5         SWMM5
+        Emitter      Green-Ampt    Groundwater
+         Q=C×P^γ     f=Ks(1+ψΔθ/F)   Q=A1×D^B1...
+            │             │             │
+       Indirect:     Direct:        Generalized:
+       γ=1.0 is     Derived from    Power-law
+       Darcy if     Darcy + moving  extension of
+       soil limits  wetting front   Darcy for
+       flow rate    in unsat. soil  lateral flow
+```
+
+Darcy's law is the foundation. Each tool builds on it differently because each faces a different flow geometry (orifice vs. distributed seepage vs. lateral exchange) and a different soil condition (saturated vs. unsaturated vs. variable).
+
+---
+
+## 3. The Difference Between Exfiltration and Infiltration
+
+### The One-Sentence Answer
+
+**Infiltration** is water entering a pipe from outside. **Exfiltration** is water leaving a pipe to the outside. Same defect, same physics, opposite directions — determined entirely by which side of the pipe wall has higher hydraulic head.
+
+### The Physical Process
+
+Every buried pipe has defects — cracks from ground movement, joint separations from settlement, corrosion holes from chemical attack, failed service connections, deteriorated manhole walls. These defects are pathways through which water can move in either direction.
+
+The direction depends on one thing: the **head difference** across the pipe wall.
+
+```
+INFILTRATION (H_outside > H_inside)
+════════════════════════════════════
+
+    Ground Surface
+    ─────────────────────────────────
+    
+    Soil     Groundwater Table
+    ·········════════════════···  ← H_outside = 8 ft
+    ·        ↓  ↓  ↓  ↓       ·
+    ·      ┌──╝  ↓  ╚──┐      ·
+    ·      │     ↓      │      ·     Water flows IN
+    ·      │  →→→→→→→→  │      ·     through crack
+    ·      │  H = 3 ft  │      ·     at pipe crown
+    ·      │  ~~~water~  │      ·
+    ·      └────────────┘      ·
+    ·                          ·
+    ····························
+    
+    Result: Extra water in pipe
+    Effect: Increased sewer flow → higher treatment cost → SSO risk
+
+EXFILTRATION (H_inside > H_outside)
+════════════════════════════════════
+
+    Ground Surface
+    ─────────────────────────────────
+    
+    Soil     Groundwater Table
+    ····     ════════════  ← H_outside = 2 ft (low table)
+    ·                          ·
+    ·      ┌────────────┐      ·
+    ·      │  SURCHARGED │      ·     Water flows OUT
+    ·      │  ←←←←←←←←  │      ·     through same crack
+    ·      │  H = 10 ft  │      ·     now at pipe crown
+    ·      │  ████████████│      ·
+    ·      └──╗      ╔──┘      ·
+    ·         ↓      ↓         ·
+    ·         ↓      ↓         ·
+    ····························
+    
+    Result: Water (possibly contaminated sewage) enters soil
+    Effect: Groundwater contamination, reduced downstream flow
+```
+
+### Detailed Comparison
+
+| Characteristic | Infiltration | Exfiltration |
+|---------------|-------------|-------------|
+| **Direction** | Outside → Inside pipe | Inside pipe → Outside |
+| **Driving condition** | External head > Internal head | Internal head > External head |
+| **Common in** | Gravity sewers during wet season | Pressurized mains (always); gravity sewers during surcharge or low GW |
+| **What enters/exits** | Groundwater (relatively clean) | Sewage (contaminated) or treated water (clean but expensive) |
+| **Effect on pipe flow** | Increases flow downstream | Decreases flow downstream |
+| **Detection method** | Downstream flow > expected (excess flow) | Upstream flow > downstream flow (missing flow) |
+| **Ease of detection** | Relatively easy — excess flow is measurable | Difficult — missing flow is a small signal |
+| **Primary concern** | Capacity (I/I consumes pipe and treatment capacity) | Contamination (sewage in groundwater) or revenue loss (treated water lost) |
+| **Regulatory driver** | CSO/SSO control (EPA CMOM, LTCP) | Groundwater protection, non-revenue water targets |
+| **Season** | Worse in wet season (high GW table) | Worse in dry season (low GW table) or during surcharge |
+| **EPANET term** | Not modeled (intrusion risk only during depressurization) | "Leakage" — the primary water loss mechanism |
+| **SWMM5 term** | "Infiltration" or "I/I" (infiltration and inflow) | "Exfiltration" or "seepage" |
+| **SWMM5 model** | GW module (A1 term), RDII, direct inflow | GW module (A2 term), storage node seepage |
+| **EPANET model** | Not modeled | Emitters (Q = C × P^γ) or FAVAD |
+| **Typical magnitude (sewers)** | 20–50% of dry weather flow | 5–15% of dry weather flow (harder to measure) |
+| **Typical magnitude (water mains)** | Negligible under normal operation | 10–30% of system input (non-revenue water) |
+
+### The Same Defect, Both Directions — A Seasonal Story
+
+Consider a single cracked joint in a 12-inch vitrified clay sewer pipe buried 8 feet deep:
+
+**January (wet season):**
+```
+Groundwater table: 4 ft below ground surface (4 ft above pipe invert)
+Pipe water level:  6 inches above invert (low dry weather flow)
+Head difference:   4.0 - 0.5 = +3.5 ft (GW is higher)
+Direction:         INFILTRATION
+Flow:              Groundwater seeps INTO the sewer
+Rate:              ≈ 0.002 CFS through this one joint
+Effect:            Adds baseflow to sanitary flow
+                   Treatment plant sees 10% more flow than expected
+```
+
+**March (spring storm):**
+```
+Groundwater table: 2 ft below ground surface (6 ft above pipe invert)
+Pipe water level:  Surcharged 3 ft above crown (storm + I/I)
+Head difference:   6.0 - (1.0 + 3.0) = +2.0 ft (GW still higher at joint level)
+Direction:         STILL INFILTRATION (but rate changed)
+Flow:              Groundwater still entering, but ΔH smaller
+Rate:              ≈ 0.001 CFS (reduced because pipe head rose)
+Effect:            I/I contributes to surcharging and possible SSO
+```
+
+**August (dry season):**
+```
+Groundwater table: 10 ft below ground surface (2 ft below pipe invert)
+Pipe water level:  4 inches above invert (summer baseflow)
+Head difference:   -2.0 - 0.33 = -2.33 ft (pipe head is higher)
+Direction:         EXFILTRATION
+Flow:              Sewage seeps OUT through the same cracked joint
+Rate:              ≈ 0.0005 CFS (lower because driving head is smaller)
+Effect:            Untreated sewage enters unsaturated soil
+                   Contaminants migrate toward water table
+                   Downstream flow meter shows slightly less than expected
+```
+
+**October (fall storm, pipe surcharged, GW still low):**
+```
+Groundwater table: 9 ft below ground surface (still low from summer)
+Pipe water level:  Surcharged 5 ft above crown
+Head difference:   -1.0 - (1.0 + 5.0) = -7.0 ft (pipe much higher)
+Direction:         EXFILTRATION (strongest of the year)
+Flow:              Surcharged sewage pushes out forcefully
+Rate:              ≈ 0.004 CFS (high ΔH drives high flow)
+Effect:            Maximum contamination risk
+                   Diluted but surcharged sewage enters ground
+                   This is the worst-case exfiltration scenario
+```
+
+The same crack. The same pipe. Four different flow conditions in one year. Only SWMM5's bidirectional groundwater model can capture all four. EPANET's unidirectional emitter would model only the outward flow cases.
+
+### Why Most Engineers Focus on Infiltration, Not Exfiltration
+
+Infiltration is easier to detect, easier to measure, and has a more obvious cost (treatment plant capacity, SSO compliance). Exfiltration is harder to detect because it reduces flow rather than increasing it, and the contamination impact is diffuse and delayed.
+
+However, exfiltration is increasingly recognized as a significant environmental issue. Studies in Europe have found that sewer exfiltration can be the dominant source of pharmaceutical contamination in shallow aquifers near sewer mains, and that the total volume of exfiltrated sewage in some cities exceeds the volume of reported sanitary sewer overflows.
+
+The modeling gap — SWMM5's lack of pipe-level exfiltration parameters — means that detailed exfiltration studies require either the groundwater module workaround, storage node approximations, or commercial tools like InfoWorks ICM that support conduit-level exfiltration directly.

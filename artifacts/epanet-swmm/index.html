@@ -2557,7 +2557,182 @@ THEN PUMP Pump1 STATUS IS OPEN</div>
       </div>
     </div>
 
-    <div class="ref-note">
+    <h3 style="font-size:1.0rem;margin:24px 0 12px;">When to Use Each Tool</h3>
+    <table class="map-table" style="font-size:0.78rem;">
+      <thead>
+        <tr><th style="color:var(--text-primary);width:38%;">Scenario</th><th style="width:8%;">EPANET</th><th style="width:8%;">SWMM5</th><th style="width:46%;">Why</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Pressure management for leakage reduction</td><td style="color:var(--accent-green);">&check;</td><td></td><td>Leakage depends on pressure; emitter model directly computes how much leakage decreases when you lower PRV setpoints</td></tr>
+        <tr><td>Non-revenue water assessment</td><td style="color:var(--accent-green);">&check;</td><td></td><td>Water balance, minimum night flow analysis, and DMA-level leakage quantification are EPANET&rsquo;s core use case</td></tr>
+        <tr><td>Sewer infiltration during wet weather</td><td></td><td style="color:var(--accent-green);">&check;</td><td>Rain-dependent I/I enters gravity sewers; SWMM5&rsquo;s RDII unit hydrographs and GW module model this</td></tr>
+        <tr><td>Sewer exfiltration near sensitive receptors</td><td></td><td style="color:var(--accent-green);">&check;</td><td>Sewage leaking into groundwater near wells/streams requires the bidirectional groundwater module</td></tr>
+        <tr><td>Fire flow with leakage impact</td><td style="color:var(--accent-green);">&check;</td><td></td><td>High fire flow &rarr; pressure drops &rarr; leakage decreases &rarr; more water at hydrant (EPANET captures this feedback)</td></tr>
+        <tr><td>Combined sewer overflow with I/I</td><td></td><td style="color:var(--accent-green);">&check;</td><td>CSO volumes depend heavily on infiltration during storms; SWMM5 models this in the rainfall-runoff-routing chain</td></tr>
+        <tr><td>Pipe rehabilitation prioritization</td><td style="color:var(--accent-green);">&check;</td><td style="color:var(--accent-green);">&check;</td><td>EPANET: rank by FAVAD leakage rate. SWMM5: rank by I/I contribution from flow monitoring</td></tr>
+        <tr><td>Climate change impact on I/I</td><td></td><td style="color:var(--accent-green);">&check;</td><td>Rising groundwater tables increase infiltration; SWMM5&rsquo;s aquifer model captures GW-to-pipe interaction</td></tr>
+      </tbody>
+    </table>
+
+    <details style="margin-top:16px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">Field Data Requirements &amp; Calibration</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <h4 style="color:var(--epanet-amber);margin:0 0 8px;">EPANET: Minimum Night Flow Analysis</h4>
+            <p>Flow into a District Metered Area (DMA) between 2:00&ndash;4:00 AM, when consumption is minimal. MNF &asymp; leakage + nighttime use (typically 10% of daytime).</p>
+            <p><strong>Data needed per DMA:</strong></p>
+            <ul style="padding-left:16px;margin:4px 0;">
+              <li>MNF flow rate (GPM or L/s) from 7+ day logging</li>
+              <li>Number of service connections</li>
+              <li>Average zone pressure at MNF hour</li>
+              <li>Pipe material and age inventory</li>
+              <li>Length of mains per material type</li>
+            </ul>
+            <div style="background:#0d1117;border-radius:6px;padding:10px;margin-top:8px;font-family:var(--font-mono);font-size:0.75rem;">
+              Q<sub>leak</sub> = MNF &minus; legitimate_night_use<br>
+              C<sub>e</sub> = Q<sub>leak</sub> / P<sup>&gamma;</sup><br><br>
+              Example: MNF=25 GPM, night use=5 GPM, P=65 psi, &gamma;=0.5<br>
+              C<sub>e</sub> = 20 / &radic;65 = <strong>2.48</strong> GPM/psi<sup>0.5</sup>
+            </div>
+            <h4 style="color:var(--epanet-amber);margin:16px 0 8px;">EPANET Calibration</h4>
+            <ol style="padding-left:16px;margin:4px 0;font-size:0.8rem;">
+              <li>Build hydraulic model with known demands</li>
+              <li>Run without leakage &rarr; compare to field pressures</li>
+              <li>Add emitters with initial C<sub>e</sub> estimates</li>
+              <li>Adjust until: total input matches production, MNF matches per DMA, pressures within &plusmn;2 psi</li>
+            </ol>
+            <p style="font-size:0.78rem;color:var(--text-dim);margin-top:6px;"><strong>Convergence:</strong> |Model_MNF &minus; Field_MNF| &lt; 5% per DMA; |Model_P &minus; Field_P| &lt; 3 psi. Typically 3&ndash;5 iterations or automated optimization.</p>
+          </div>
+          <div>
+            <h4 style="color:var(--swmm-glow);margin:0 0 8px;">SWMM5: Flow Monitoring Campaign</h4>
+            <p>Temporary area-velocity meters in manholes during dry AND wet weather. Dry weather isolates baseflow + GWI; wet weather adds rain-dependent I/I.</p>
+            <p><strong>Data needed per sewer basin:</strong></p>
+            <ul style="padding-left:16px;margin:4px 0;">
+              <li>Dry weather diurnal flow pattern (baseflow ID)</li>
+              <li>Dry weather minimum flow (GWI approximation)</li>
+              <li>Wet weather hydrograph (total rain response)</li>
+              <li>Rainfall data from nearest gauge</li>
+              <li>Groundwater table elevation (seasonal)</li>
+              <li>Soil type and pipe bedding material</li>
+            </ul>
+            <div style="background:#0d1117;border-radius:6px;padding:10px;margin-top:8px;font-family:var(--font-mono);font-size:0.75rem;">
+              GWI = dry_min &minus; known_sanitary_base<br><br>
+              If Q<sub>up</sub> &gt; Q<sub>down</sub> (dry weather):<br>
+              &nbsp;&nbsp;&rarr; Exfiltration in that reach<br>
+              If Q<sub>down</sub> &gt; Q<sub>up</sub> + Q<sub>known</sub>:<br>
+              &nbsp;&nbsp;&rarr; Infiltration in that reach
+            </div>
+            <h4 style="color:var(--swmm-glow);margin:16px 0 8px;">SWMM5 I/I Calibration</h4>
+            <ol style="padding-left:16px;margin:4px 0;font-size:0.8rem;">
+              <li>Calibrate dry weather flow first (DWF pattern + GWI)</li>
+              <li>Calibrate wet weather: RDII R-T-K parameters (3 triangles: fast, medium, slow)</li>
+              <li>Validate on independent storm events</li>
+            </ol>
+            <p style="font-size:0.78rem;color:var(--text-dim);margin-top:6px;"><strong>Convergence:</strong> Nash-Sutcliffe &gt; 0.7; peak flow error &lt; 15%; volume error &lt; 10%. Exfiltration calibration requires paired upstream/downstream monitors during extended dry weather.</p>
+          </div>
+        </div>
+
+        <h4 style="color:var(--text-primary);margin:20px 0 8px;">Cost-Benefit Comparison</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:6px;padding:10px;">
+            <div style="color:var(--epanet-amber);font-weight:600;font-size:0.8rem;">EPANET Leakage Modeling ROI</div>
+            <div style="font-size:0.78rem;margin-top:4px;">
+              Modeling: 40&ndash;80 hrs &bull; Field data: $5K&ndash;15K/DMA<br>
+              Savings: 10&ndash;30% leakage reduction via pressure management<br>
+              Revenue recovery: $50K&ndash;500K/yr per DMA<br>
+              <strong>ROI: 3&ndash;12 months</strong>
+            </div>
+          </div>
+          <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:6px;padding:10px;">
+            <div style="color:var(--swmm-glow);font-weight:600;font-size:0.8rem;">SWMM5 I/I Modeling ROI</div>
+            <div style="font-size:0.78rem;margin-top:4px;">
+              Modeling: 80&ndash;200 hrs &bull; Field data: $10K&ndash;50K/basin<br>
+              Savings: Avoid $2M&ndash;50M treatment plant expansion<br>
+              Compliance: Reduce SSO/CSO frequency<br>
+              <strong>ROI: 1&ndash;3 years</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">The Unified Physics: Infiltration, Exfiltration &amp; Leakage</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+        <p>All three phenomena are governed by the same physics: <code style="color:var(--accent-green);">Q = f(&Delta;H, defect_geometry, soil_properties)</code></p>
+        <div style="background:#0d1117;border-radius:6px;padding:12px;font-family:var(--font-mono);font-size:0.78rem;margin:12px 0;">
+          &Delta;H = H<sub>inside</sub> &minus; H<sub>outside</sub><br><br>
+          If &Delta;H &gt; 0: Water flows OUT (leakage / exfiltration)<br>
+          If &Delta;H &lt; 0: Water flows IN (infiltration / intrusion)<br>
+          If &Delta;H = 0: No flow (crossover point)
+        </div>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Where Each Occurs</h4>
+        <table class="map-table" style="font-size:0.78rem;">
+          <thead><tr><th style="color:var(--text-primary);">System</th><th>Infiltration (water IN)</th><th>Exfiltration (water OUT)</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Water distribution</strong> (pressurized)</td><td>Rare &mdash; only during depressurization (main break, pump trip). A contamination hazard.</td><td>Normal condition &mdash; pressurized mains always push water out. This is &ldquo;leakage&rdquo; or &ldquo;non-revenue water.&rdquo;</td></tr>
+            <tr><td><strong>Sanitary sewers</strong> (gravity)</td><td>Common &mdash; GW enters through cracked pipes, leaky joints. Increases treatment costs and CSO risk.</td><td>Less common &mdash; occurs when pipe water level exceeds GW table. Contaminates groundwater with untreated sewage.</td></tr>
+            <tr><td><strong>Storm sewers</strong> (gravity)</td><td>Similar to sanitary &mdash; GW infiltration baseflow.</td><td>Can occur in dry conditions &mdash; reduces downstream volume.</td></tr>
+          </tbody>
+        </table>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">The Asymmetry Explained</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:6px;padding:12px;">
+            <div style="color:var(--epanet-amber);font-weight:600;font-size:0.82rem;margin-bottom:6px;">EPANET sees only one direction</div>
+            <p style="font-size:0.78rem;margin:0;">The emitter equation Q&nbsp;=&nbsp;C&times;P<sup>&gamma;</sup> takes internal pressure P as input. When P&gt;0, water flows out. When P&le;0, flow is zero. There is no mechanism for water to flow <em>into</em> the pipe. The curve lives entirely in the positive quadrant.</p>
+            <p style="font-size:0.78rem;margin:8px 0 0;"><strong>Cannot model:</strong> contamination intrusion during depressurization events.</p>
+          </div>
+          <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:6px;padding:12px;">
+            <div style="color:var(--swmm-glow);font-weight:600;font-size:0.82rem;margin-bottom:6px;">SWMM5 sees both directions</div>
+            <p style="font-size:0.78rem;margin:0;">The GW equation computes flow from the head <em>difference</em>. When GW is higher &rarr; infiltration. When pipe level is higher &rarr; exfiltration. The same pipe can be an infiltration source in March and an exfiltration source in August.</p>
+            <p style="font-size:0.78rem;margin:8px 0 0;"><strong>Captures:</strong> seasonal I/I reversal from first principles in a single calibrated model.</p>
+          </div>
+        </div>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">The Practical Consequences</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div style="background:var(--card-bg);border-left:3px solid var(--accent-red);border-radius:4px;padding:10px;">
+            <div style="color:var(--accent-red);font-weight:600;font-size:0.78rem;">Infiltration is Expensive</div>
+            <ul style="font-size:0.75rem;padding-left:14px;margin:4px 0;">
+              <li>Larger pipes needed</li>
+              <li>Higher pump station capacity</li>
+              <li>More water to treat at WWTP</li>
+              <li>Increased CSO/SSO risk</li>
+              <li>US estimate: I/I = 40&ndash;50% of treatment costs in many municipalities</li>
+            </ul>
+          </div>
+          <div style="background:var(--card-bg);border-left:3px solid var(--accent-yellow);border-radius:4px;padding:10px;">
+            <div style="color:var(--accent-yellow);font-weight:600;font-size:0.78rem;">Exfiltration is a Contamination Risk</div>
+            <ul style="font-size:0.75rem;padding-left:14px;margin:4px 0;">
+              <li>Untreated sewage entering soil/GW</li>
+              <li>Pathogen contamination of wells</li>
+              <li>Nutrient loading to streams</li>
+              <li>Harder to detect (reduces downstream flow)</li>
+              <li>Often occurs in dry weather when monitoring is less common</li>
+            </ul>
+          </div>
+          <div style="background:var(--card-bg);border-left:3px solid var(--epanet-amber);border-radius:4px;padding:10px;">
+            <div style="color:var(--epanet-amber);font-weight:600;font-size:0.78rem;">Leakage is Lost Revenue</div>
+            <ul style="font-size:0.75rem;padding-left:14px;margin:4px 0;">
+              <li>Treated, pumped water never billed</li>
+              <li>Treatment chemicals &amp; energy wasted</li>
+              <li>Reduced system pressure at peak demand</li>
+              <li>Global: 30&ndash;40% lost in many systems</li>
+              <li>US: 16% average (AWWA 2022). At $2&ndash;5/kgal, 2 MGD lost = $1.5&ndash;3.6M/yr</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="ref-note" style="margin-top:12px;">
+          <strong>The unified view:</strong> Same pipe defect. Same Darcy&rsquo;s law. Different operating pressure. EPANET&rsquo;s pressurized mains always push water out (&Delta;H always positive), so it only needs a one-directional model. SWMM5&rsquo;s gravity sewers fluctuate above and below the GW table, so it needs a bidirectional model. The physics is identical &mdash; the operating regime is what differs.
+        </div>
+      </div>
+    </details>
+
+    <div class="ref-note" style="margin-top:12px;">
       <strong>The real-world perspective:</strong> EPANET typically models water <em>leaving</em> pipes (leakage) and SWMM5 models water <em>entering</em> pipes (infiltration). Exfiltration from sewers is relatively rare and hard to detect &mdash; the overlooked sibling of infiltration. But when it matters (contaminated sewage exfiltrating into groundwater near a wellfield), it really matters. And SWMM5&rsquo;s groundwater module is the only one of these tools that can model it from first principles.
     </div>
 

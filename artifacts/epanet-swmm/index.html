@@ -3965,14 +3965,18 @@ No coupled species</code>
             <span style="font-size:0.75rem;color:var(--text-dim);font-family:var(--font-body);" id="txCurveLegendLabel">Effluent</span>
           </div>
         </div>
-        <canvas id="txCurveChart" height="280" style="background:#0d1117;border-radius:8px;"></canvas>
+        <div style="position:relative;height:220px;">
+        <canvas id="txCurveChart" style="background:#0d1117;border-radius:8px;"></canvas>
+        </div>
         <div class="tx-stats-grid" id="txStatsGrid"></div>
       </div>
 
       <!-- Removal Overlay View -->
       <div class="tx-view-pane" id="txViewRemoval">
         <div id="txRemovalMsg" style="text-align:center;padding:40px 0;color:var(--text-dim);font-family:var(--font-body);font-size:0.88rem;">Add more pollutants to see removal comparison overlay</div>
-        <canvas id="txRemovalChart" height="300" style="display:none;background:#0d1117;border-radius:8px;"></canvas>
+        <div style="position:relative;height:220px;">
+        <canvas id="txRemovalChart" style="display:none;background:#0d1117;border-radius:8px;"></canvas>
+        </div>
       </div>
 
       <!-- Table View -->

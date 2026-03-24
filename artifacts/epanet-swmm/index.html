@@ -2736,6 +2736,167 @@ THEN PUMP Pump1 STATUS IS OPEN</div>
       <strong>The real-world perspective:</strong> EPANET typically models water <em>leaving</em> pipes (leakage) and SWMM5 models water <em>entering</em> pipes (infiltration). Exfiltration from sewers is relatively rare and hard to detect &mdash; the overlooked sibling of infiltration. But when it matters (contaminated sewage exfiltrating into groundwater near a wellfield), it really matters. And SWMM5&rsquo;s groundwater module is the only one of these tools that can model it from first principles.
     </div>
 
+    <details style="margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">Operating Regimes: Why the Models Are Fundamentally Different</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+        <p>The operating regime &mdash; pressurized vs. gravity &mdash; determines which direction water can flow through defects, how much driving force exists, and what mathematical model is appropriate. This is a physics constraint that dictates the software design.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0;">
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:6px;padding:12px;">
+            <div style="color:var(--epanet-amber);font-weight:600;font-size:0.82rem;margin-bottom:6px;">Regime 1: Pressurized Distribution (EPANET)</div>
+            <p style="font-size:0.78rem;margin:0;">Internal pressure: 40&ndash;100 psi (90&ndash;230 ft head). External head: 5&ndash;20 ft (groundwater). &Delta;H is almost always positive and large:</p>
+            <div style="background:#0d1117;border-radius:6px;padding:10px;margin-top:8px;font-family:var(--font-mono);font-size:0.72rem;">
+              Normal operation: &Delta;H = +235 ft &rarr; OUTWARD<br>
+              Fire flow demand: &Delta;H = +165 ft &rarr; STILL outward<br>
+              Pump failure: &Delta;H = +105 ft &rarr; STILL outward<br>
+              Main break nearby: &Delta;H = +35 ft &rarr; STILL outward<br>
+              Full depressurization: &Delta;H = 0 &rarr; crossover<br>
+              Below this: &Delta;H &lt; 0 &rarr; intrusion (EPANET can&rsquo;t model)
+            </div>
+            <p style="font-size:0.78rem;margin:8px 0 0;">Ignoring external head (7 psi GW vs 60 psi internal) introduces ~6% error &mdash; acceptable for engineering practice. This is why the emitter has no term for external head.</p>
+          </div>
+          <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:6px;padding:12px;">
+            <div style="color:var(--swmm-glow);font-weight:600;font-size:0.82rem;margin-bottom:6px;">Regime 2: Gravity Sewer (SWMM5)</div>
+            <p style="font-size:0.78rem;margin:0;">Pipe water depth: 0 to surcharge. GW table fluctuates seasonally. &Delta;H changes sign multiple times per year:</p>
+            <div style="background:#0d1117;border-radius:6px;padding:10px;margin-top:8px;font-family:var(--font-mono);font-size:0.72rem;">
+              Spring (wet): pipe 3ft, GW 8ft &rarr; &Delta;H = &minus;5 ft INWARD<br>
+              Summer (dry): pipe 2ft, GW 1ft &rarr; &Delta;H = +1 ft OUTWARD<br>
+              Storm (surcharge): pipe 12ft, GW 6ft &rarr; &Delta;H = +6 ft OUT<br>
+              Post-storm: pipe 4ft, GW 9ft &rarr; &Delta;H = &minus;5 ft INWARD
+            </div>
+            <p style="font-size:0.78rem;margin:8px 0 0;">The head difference changes sign multiple times per year &mdash; and sometimes multiple times per storm event. A one-directional model cannot capture this.</p>
+          </div>
+        </div>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">How This Shapes the Software Architecture</h4>
+        <table class="map-table" style="font-size:0.75rem;">
+          <thead><tr><th style="color:var(--text-primary);width:22%;">Design Decision</th><th style="width:28%;">EPANET (Pressurized)</th><th style="width:28%;">SWMM5 (Gravity)</th><th style="width:22%;">Why Different</th></tr></thead>
+          <tbody>
+            <tr><td>Leak equation form</td><td>Q = C&times;P<sup>&gamma;</sup> (single term, one direction)</td><td>Q = f(D<sub>gw</sub>, D<sub>sw</sub>) (multi-term, bidirectional)</td><td>Pressurized systems don&rsquo;t reverse; gravity systems do</td></tr>
+            <tr><td>External boundary</td><td>Ignored (assumed atmospheric)</td><td>Modeled explicitly (aquifer with water table)</td><td>External head negligible vs 60 psi; comparable to 3 ft pipe depth</td></tr>
+            <tr><td>Leak location</td><td>Node or pipe (emitter or FAVAD)</td><td>Subcatchment &rarr; node (GW module)</td><td>Distribution networks are looped; sewers are dendritic</td></tr>
+            <tr><td>Time behavior</td><td>Quasi-steady (constant C<sub>e</sub> per EPS step)</td><td>Dynamic (GW table + wetting front)</td><td>Pressure changes in seconds; GW changes in hours to months</td></tr>
+            <tr><td>Solver coupling</td><td>Weak (pressure-dependent demand)</td><td>Strong (aquifer ODE coupled to routing ODE)</td><td>Leakage is a small perturbation; I/I can be 40&ndash;50% of total flow</td></tr>
+            <tr><td>Calibration data</td><td>MNF (one number per DMA)</td><td>Multi-season flow monitoring + GW wells</td><td>One number suffices because flow is always outward</td></tr>
+            <tr><td>Primary concern</td><td>Revenue loss (water lost = money lost)</td><td>Capacity &amp; compliance (extra flow = overflow risk)</td><td>Utilities are businesses; sewers face regulatory enforcement</td></tr>
+          </tbody>
+        </table>
+
+        <div class="ref-note" style="margin-top:12px;">
+          <strong>For modelers crossing over:</strong> A SWMM5 expert moving to EPANET will find leakage modeling <em>simpler than expected</em>. One equation, one coefficient, one direction. The simplicity reflects the physics. An EPANET expert moving to SWMM5 will find I/I modeling <em>more complex than expected</em>. The complexity is not over-engineering &mdash; it reflects gravity systems where the driving force changes sign.
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">How Darcy&rsquo;s Law Connects Everything</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+        <p>Darcy&rsquo;s law (1856) governs flow through porous media: <code style="color:var(--accent-green);">Q = &minus;K &times; A &times; (dh/dl)</code>. Flow rate is proportional to the pressure difference and the material&rsquo;s permeability, inversely proportional to distance. It is the foundation for all pipe leakage and seepage modeling.</p>
+
+        <h4 style="color:var(--text-primary);margin:12px 0 8px;">Two Resistances in Series</h4>
+        <p>When water crosses a pipe wall through a defect, it passes through two resistances: the defect itself (orifice) and the surrounding soil (Darcy). The overall flow rate is governed by whichever is larger:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:8px 0;">
+          <div style="background:var(--card-bg);border-left:3px solid var(--accent-green);border-radius:4px;padding:10px;">
+            <div style="color:var(--accent-green);font-weight:600;font-size:0.78rem;">Defect-Controlled (&gamma; &asymp; 0.5)</div>
+            <p style="font-size:0.75rem;margin:4px 0;">Small crack in rigid pipe, sandy soil. The crack is the bottleneck &mdash; soil can accept all the water. Flow follows the orifice equation Q &prop; &radic;P.</p>
+          </div>
+          <div style="background:var(--card-bg);border-left:3px solid var(--accent-yellow);border-radius:4px;padding:10px;">
+            <div style="color:var(--accent-yellow);font-weight:600;font-size:0.78rem;">Soil-Controlled (&gamma; &asymp; 1.0)</div>
+            <p style="font-size:0.75rem;margin:4px 0;">Large joint separation, clay soil. The joint is wide open &mdash; clay limits seepage rate. Flow follows Darcy&rsquo;s law Q &prop; P (linear).</p>
+          </div>
+          <div style="background:var(--card-bg);border-left:3px solid var(--accent-cyan);border-radius:4px;padding:10px;">
+            <div style="color:var(--accent-cyan);font-weight:600;font-size:0.78rem;">Both Matter (0.5 &lt; &gamma; &lt; 1.0)</div>
+            <p style="font-size:0.75rem;margin:4px 0;">Most real situations. The UK water industry uses &gamma;&asymp;1.18 as a national average. Variable-area leaks (&gamma;&asymp;1.5) add defect expansion under pressure.</p>
+          </div>
+        </div>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Darcy&rsquo;s Law in Each Tool</h4>
+        <table class="map-table" style="font-size:0.75rem;">
+          <thead><tr><th style="color:var(--text-primary);">Tool / Equation</th><th>Relationship to Darcy</th><th>Key Insight</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong style="color:var(--epanet-amber);">EPANET Emitter</strong><br>Q = C<sub>e</sub> &times; P<sup>&gamma;</sup></td>
+              <td><strong>Indirect.</strong> When &gamma;=1.0, it IS Darcy&rsquo;s law if C<sub>e</sub> = K&times;A/L (conductivity &times; defect area / soil path length). When &gamma;=0.5, it&rsquo;s the orifice equation Q = C<sub>d</sub>&times;A&times;&radic;(2g&Delta;H).</td>
+              <td>Whether defect or soil controls determines &gamma;</td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--swmm-glow);">SWMM5 Green-Ampt</strong><br>f = K<sub>s</sub>(1 + &psi;&Delta;&theta;/F)</td>
+              <td><strong>Direct derivation.</strong> Darcy&rsquo;s law applied to a moving wetting front in unsaturated soil. As the front advances (F increases), gradient decreases, seepage rate drops toward K<sub>s</sub>.</td>
+              <td>Soil near pipe saturates over time, reducing seepage</td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--swmm-glow);">SWMM5 Groundwater</strong><br>Q = A1&times;D<sup>B1</sup> &minus; A2&times;D<sup>B2</sup> + &hellip;</td>
+              <td><strong>Generalized.</strong> When B1=B2=1.0 and A3=0, it IS linear Darcy. Power-law exponents capture nonlinear effects: unsaturated K, non-uniform defects, turbulent flow. The A3 interaction term has no Darcy analog.</td>
+              <td>Empirical extension of Darcy for lateral flow</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="ref-note" style="margin-top:12px;">
+          <strong>The hierarchy:</strong> Darcy&rsquo;s law is the foundation. Each tool builds on it differently because each faces a different flow geometry (orifice vs. distributed seepage vs. lateral exchange) and soil condition (saturated vs. unsaturated vs. variable).
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">Infiltration vs. Exfiltration: A Seasonal Story</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+        <p><strong>Infiltration</strong> is water entering a pipe from outside through defects. <strong>Exfiltration</strong> is water leaving a pipe to the outside through the same defects. Same physics, opposite directions &mdash; determined entirely by which side has higher hydraulic head.</p>
+
+        <h4 style="color:var(--text-primary);margin:12px 0 8px;">One Crack, Four Seasons</h4>
+        <p style="font-size:0.78rem;">Consider a single cracked joint in a 12-inch vitrified clay sewer pipe buried 8 feet deep:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0;">
+          <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:10px;">
+            <div style="font-weight:600;font-size:0.8rem;color:var(--swmm-glow);">January (Wet Season)</div>
+            <div style="font-size:0.75rem;font-family:var(--font-mono);margin:6px 0;">GW: 4 ft above invert &bull; Pipe: 0.5 ft<br>&Delta;H = +3.5 ft &rarr; <strong style="color:var(--accent-cyan);">INFILTRATION</strong></div>
+            <div style="font-size:0.75rem;">GW seeps INTO sewer. Treatment plant sees 10% more flow than expected.</div>
+          </div>
+          <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:10px;">
+            <div style="font-weight:600;font-size:0.8rem;color:var(--swmm-glow);">March (Spring Storm)</div>
+            <div style="font-size:0.75rem;font-family:var(--font-mono);margin:6px 0;">GW: 6 ft above invert &bull; Pipe: surcharged +3 ft<br>&Delta;H = +2.0 ft &rarr; <strong style="color:var(--accent-cyan);">STILL INFILTRATION</strong></div>
+            <div style="font-size:0.75rem;">GW still entering but &Delta;H smaller. I/I contributes to surcharging and possible SSO.</div>
+          </div>
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;padding:10px;">
+            <div style="font-weight:600;font-size:0.8rem;color:var(--epanet-amber);">August (Dry Season)</div>
+            <div style="font-size:0.75rem;font-family:var(--font-mono);margin:6px 0;">GW: 2 ft below invert &bull; Pipe: 0.33 ft<br>&Delta;H = &minus;2.33 ft &rarr; <strong style="color:var(--accent-red);">EXFILTRATION</strong></div>
+            <div style="font-size:0.75rem;">Sewage seeps OUT through the same crack. Contaminants migrate toward water table.</div>
+          </div>
+          <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:10px;">
+            <div style="font-weight:600;font-size:0.8rem;color:var(--accent-red);">October (Fall Storm, Low GW)</div>
+            <div style="font-size:0.75rem;font-family:var(--font-mono);margin:6px 0;">GW: still low &bull; Pipe: surcharged +5 ft<br>&Delta;H = &minus;7.0 ft &rarr; <strong style="color:var(--accent-red);">STRONGEST EXFILTRATION</strong></div>
+            <div style="font-size:0.75rem;">Maximum contamination risk. Surcharged sewage pushes out forcefully. Worst-case scenario.</div>
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:8px;">The same crack. The same pipe. Four different flow conditions in one year. Only SWMM5&rsquo;s bidirectional groundwater model can capture all four.</p>
+
+        <h4 style="color:var(--text-primary);margin:16px 0 8px;">Detailed Comparison</h4>
+        <div style="overflow-x:auto;">
+        <table class="map-table" style="font-size:0.72rem;">
+          <thead><tr><th style="color:var(--text-primary);">Characteristic</th><th>Infiltration</th><th>Exfiltration</th></tr></thead>
+          <tbody>
+            <tr><td>Direction</td><td>Outside &rarr; Inside pipe</td><td>Inside pipe &rarr; Outside</td></tr>
+            <tr><td>Driving condition</td><td>External head &gt; Internal head</td><td>Internal head &gt; External head</td></tr>
+            <tr><td>Common in</td><td>Gravity sewers during wet season</td><td>Pressurized mains (always); gravity sewers during surcharge or low GW</td></tr>
+            <tr><td>What crosses pipe wall</td><td>Groundwater (relatively clean)</td><td>Sewage (contaminated) or treated water (clean but expensive)</td></tr>
+            <tr><td>Effect on pipe flow</td><td>Increases flow downstream</td><td>Decreases flow downstream</td></tr>
+            <tr><td>Detection method</td><td>Downstream flow &gt; expected (excess)</td><td>Upstream flow &gt; downstream (missing)</td></tr>
+            <tr><td>Ease of detection</td><td>Relatively easy &mdash; excess is measurable</td><td>Difficult &mdash; missing flow is a small signal</td></tr>
+            <tr><td>Primary concern</td><td>Capacity (consumes pipe &amp; treatment capacity)</td><td>Contamination (sewage in GW) or revenue loss</td></tr>
+            <tr><td>Season</td><td>Worse in wet season (high GW table)</td><td>Worse in dry season or during surcharge</td></tr>
+            <tr><td>Typical magnitude (sewers)</td><td>20&ndash;50% of dry weather flow</td><td>5&ndash;15% of dry weather flow</td></tr>
+            <tr><td>Typical magnitude (mains)</td><td>Negligible under normal operation</td><td>10&ndash;30% of system input (NRW)</td></tr>
+            <tr><td>EPANET model</td><td>Not modeled (intrusion risk only)</td><td>Emitters (Q=C&times;P<sup>&gamma;</sup>) or FAVAD</td></tr>
+            <tr><td>SWMM5 model</td><td>GW module (A1 term), RDII, direct inflow</td><td>GW module (A2 term), storage node seepage</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="ref-note" style="margin-top:12px;">
+          <strong>Why most engineers focus on infiltration:</strong> It&rsquo;s easier to detect, easier to measure, and has obvious costs (treatment capacity, SSO compliance). Exfiltration is increasingly recognized as a significant environmental issue &mdash; European studies have found sewer exfiltration can be the dominant source of pharmaceutical contamination in shallow aquifers, and total exfiltrated volume in some cities exceeds reported SSO volume. The modeling gap &mdash; SWMM5&rsquo;s lack of pipe-level exfiltration parameters &mdash; means detailed studies require the GW module workaround or commercial tools like InfoWorks ICM.
+        </div>
+      </div>
+    </details>
+
     <details style="margin-top:16px;border:1px solid var(--border);border-radius:8px;padding:0;">
       <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">Source Code References</summary>
       <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">

@@ -1314,6 +1314,25 @@ Chart.register({
       <p>In SWMM, surcharging is an exception — something you worry about and design against. In EPANET, what you'd call "surcharged" is the <em>normal and only operating condition</em>. There's no concept of a partially-full pipe. If a pipe has water in it, it's full, period.</p>
     </div>
 
+    <details style="margin-top:16px;margin-bottom:24px;border:1px solid var(--border);border-radius:8px;padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--accent-cyan);background:rgba(6,182,212,0.05);border-radius:8px;">The 7 Mental Model Shifts That Trip Up Every SWMM5 Expert</summary>
+      <div style="padding:16px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+        <p style="margin-bottom:12px;">A SWMM5 expert opening EPANET for the first time will be confused by these fundamental differences. Each one is a place where your intuition works backwards:</p>
+        <table class="map-table" style="font-size:0.78rem;">
+          <thead><tr><th style="color:var(--text-primary);width:5%;">#</th><th style="width:20%;">Your SWMM5 Instinct</th><th style="width:20%;">EPANET Reality</th><th style="width:55%;">Why It Trips You Up</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--accent-red);font-weight:700;">1</td><td>Water enters at nodes (inflows, runoff)</td><td>Water <em>leaves</em> at nodes (demands)</td><td>The entire flow direction is reversed. In SWMM5, you add water via subcatchments and route it to an outfall. In EPANET, reservoirs push water in and demands pull it out. There is no outfall &mdash; demands are the &ldquo;outfall.&rdquo;</td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:700;">2</td><td>Subcatchments generate flow</td><td>No subcatchments exist at all</td><td>EPANET has no hydrology. No rainfall, no runoff coefficients, no unit hydrographs. You must calculate demands externally and enter them directly. The entire subcatchment&rarr;node&rarr;conduit mental model collapses to node&rarr;link&rarr;node.</td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:700;">3</td><td>Higher roughness n = rougher pipe</td><td>Higher H-W C = <em>smoother</em> pipe</td><td>Manning&rsquo;s n and Hazen-Williams C work in <em>opposite directions</em>. A new CI pipe: n&asymp;0.012 (low = smooth), C&asymp;130 (high = smooth). An old corroded pipe: n&asymp;0.025 (high = rough), C&asymp;60 (low = rough). Enter the wrong direction and headloss is off by 10&times;.</td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:700;">4</td><td>CFS is your default flow unit</td><td>GPM is EPANET&rsquo;s default</td><td>1 CFS = 448.8 GPM. A demand of &ldquo;10&rdquo; in EPANET means 10 GPM (0.022 CFS), not 10 CFS (4,488 GPM). Enter SWMM5 magnitudes into EPANET and your pressures will be catastrophically wrong.</td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:700;">5</td><td>EPS = dynamic simulation</td><td>EPS = sequence of <em>steady states</em></td><td>Extended Period Simulation looks like time-stepping but it is NOT transient. EPANET solves a brand-new steady-state at each step. No wave propagation, no acceleration terms, no Courant limit. A 1-hour step is fine &mdash; the pressure wave equilibrates in ~13 seconds across a typical network.</td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:700;">6</td><td>Negative depth = dry pipe (no flow)</td><td>Negative pressure = vacuum / contamination risk</td><td>In SWMM5, depth &ge; 0 always. In EPANET, pressure can go negative, meaning the system cannot deliver water &mdash; a pipe may cavitate, or external contaminants may intrude. This is EPANET&rsquo;s equivalent of &ldquo;your system is failing.&rdquo;</td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:700;">7</td><td>Flow goes downstream to the outfall</td><td>Flow goes wherever pressure pushes it</td><td>In SWMM5&rsquo;s dendritic network, flow has one direction: downstream. In EPANET&rsquo;s looped network, flow in any pipe can reverse based on demand patterns and pump schedules. A pipe that flows north at 8 AM may flow south at 2 PM. This is normal, not an error.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
     <!-- SVG Equation Diagram -->
     <div class="diagram-canvas">
       <svg width="700" height="290" viewBox="0 0 700 290">
@@ -1504,6 +1523,23 @@ Chart.register({
       <div class="insight-label">💡 Aha Moment</div>
       <h3>Demands are the "inflows" — but they leave, not enter</h3>
       <p>In SWMM you think about water entering the system (rainfall → subcatchment → junction inflow). In EPANET, water <em>leaves</em> at junctions as "demands" — customers consuming water. The source (reservoir) pushes water in; demands pull it out. It's the opposite direction of thinking, even though the math is the same conservation of mass.</p>
+    </div>
+
+    <div class="insight warn" style="margin-top:16px;">
+      <div class="insight-label">⚠️ What Has No Equivalent</div>
+      <h3>Five SWMM5 concepts that simply don&rsquo;t exist in EPANET</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+        <div style="font-size:0.82rem;">
+          <p><strong style="color:var(--accent-red);">Subcatchment</strong> &mdash; No hydrology layer. You must calculate demands externally (billing data, population, per-capita rates).</p>
+          <p style="margin-top:8px;"><strong style="color:var(--accent-red);">Rain Gage</strong> &mdash; No rainfall. Instead, demand <em>patterns</em> create time variation (morning/evening peaks, weekend shifts, seasonal factors).</p>
+          <p style="margin-top:8px;"><strong style="color:var(--accent-red);">Outfall</strong> &mdash; No downstream boundary. EPANET&rsquo;s closest analog is a <em>reservoir</em>, but reservoirs are <strong>sources</strong> (fixed-head supply), not sinks. Water leaves via demands, not outfalls.</p>
+        </div>
+        <div style="font-size:0.82rem;">
+          <p><strong style="color:var(--accent-red);">Divider</strong> &mdash; No flow-splitting rules. In EPANET, flow divides naturally by the pressure gradient through looped network topology.</p>
+          <p style="margin-top:8px;"><strong style="color:var(--accent-red);">Pipe cross-sections</strong> &mdash; No shapes (egg, horseshoe, basket handle). EPANET pipes are circular, always full. The [XSECTIONS] section does not exist.</p>
+          <p style="margin-top:8px;"><em style="color:var(--text-dim);">The simplification is intentional &mdash; pressurized distribution networks don&rsquo;t need these concepts because the physics is fundamentally different.</em></p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1946,6 +1982,35 @@ Daily    1.3 1.1 0.9 0.7 0.6 0.5</div>
       <div class="equation-block" style="margin-top:12px;margin-bottom:0;">
         <div class="eq">V<sub>tank</sub>(t+Δt) = V<sub>tank</sub>(t) + (ΣQ<sub>in</sub> - ΣQ<sub>out</sub>) · Δt</div>
       </div>
+    </div>
+
+    <div class="insight warn" style="border-left-color:var(--accent-red);">
+      <div class="insight-label">⚠️ Critical Distinction</div>
+      <h3>EPS is NOT Transient &mdash; Don&rsquo;t Be Fooled by the Timesteps</h3>
+      <p>Extended Period Simulation (EPS) <em>looks</em> like dynamic simulation because it marches through time with timesteps. But it is <strong>fundamentally different from SWMM5&rsquo;s transient solver:</strong></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+        <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:6px;padding:10px;font-size:0.82rem;">
+          <div style="color:var(--swmm-glow);font-weight:600;margin-bottom:4px;">SWMM5 Dynamic Wave</div>
+          <ul style="padding-left:14px;margin:0;line-height:1.6;">
+            <li>Each timestep <em>continues</em> from the previous one</li>
+            <li>Waves propagate through the network</li>
+            <li>Inertia and acceleration terms are tracked</li>
+            <li>Pressure changes travel at finite celerity</li>
+            <li>History matters &mdash; the solution remembers its past</li>
+          </ul>
+        </div>
+        <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:6px;padding:10px;font-size:0.82rem;">
+          <div style="color:var(--epanet-amber);font-weight:600;margin-bottom:4px;">EPANET EPS</div>
+          <ul style="padding-left:14px;margin:0;line-height:1.6;">
+            <li>Each timestep is a <em>fresh steady-state solve</em></li>
+            <li>No wave propagation at all</li>
+            <li>No inertia &mdash; purely algebraic equations</li>
+            <li>Pressure changes affect the <em>entire</em> network instantly</li>
+            <li>Only tank levels and control states carry forward</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top:8px;font-size:0.85rem;"><strong>Practical implication:</strong> If you close a valve at timestep t in EPANET, the pressure impact reaches every node <em>at timestep t</em> &mdash; not t+1, t+2, etc. as the pressure wave travels. There is no water hammer, no surge, no transient oscillation. For those phenomena, you need a dedicated transient solver (such as Bentley HAMMER, AFT Impulse, or InfoSurge).</p>
     </div>
 
     <div class="insight aha">
@@ -3624,6 +3689,63 @@ Pump1   WetWell FM-1    PumpCurve1</div>
       <p>Traditional EPANET assumes demands are always met regardless of pressure (demand-driven). This is like SWMM always accepting inflows at a junction regardless of capacity. Newer EPANET versions (2.2+) support <strong>pressure-driven demand</strong> where demand decreases with low pressure — much more realistic, like SWMM's surcharge limiting inflow.</p>
     </div>
 
+    <div class="insight warn">
+      <div class="insight-label">⚠️ Gotcha #6</div>
+      <h3>The CFS &rarr; GPM magnitude trap</h3>
+      <p>This will ruin your first EPANET model if you don&rsquo;t catch it. SWMM5 uses CFS; EPANET defaults to GPM.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:10px;text-align:center;">
+          <div style="font-size:0.78rem;color:var(--text-dim);">1 CFS equals</div>
+          <div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);font-family:var(--font-mono);">448.8 GPM</div>
+          <div style="font-size:0.72rem;color:var(--text-dim);">Factor of ~449&times;</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;padding:10px;text-align:center;">
+          <div style="font-size:0.78rem;color:var(--text-dim);">A SWMM5 demand of</div>
+          <div style="font-size:1.3rem;font-weight:700;color:var(--epanet-amber);font-family:var(--font-mono);">10 CFS</div>
+          <div style="font-size:0.72rem;color:var(--text-dim);">= 4,488 GPM in EPANET</div>
+        </div>
+        <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:10px;text-align:center;">
+          <div style="font-size:0.78rem;color:var(--text-dim);">Enter &ldquo;10&rdquo; as GPM</div>
+          <div style="font-size:1.3rem;font-weight:700;color:var(--accent-cyan);font-family:var(--font-mono);">0.022 CFS</div>
+          <div style="font-size:0.72rem;color:var(--text-dim);">~449&times; less than intended!</div>
+        </div>
+      </div>
+      <p style="margin-top:8px;font-size:0.85rem;"><strong>Also note:</strong> In EPANET, the flow unit choice (GPM, LPS, CFS, MGD, etc.) also sets whether all other parameters use US or SI units. Choosing &ldquo;LPS&rdquo; puts you in SI for diameters (mm), lengths (m), and pressures (m). SWMM5&rsquo;s flow units do NOT have this side effect.</p>
+    </div>
+
+    <div class="insight warn">
+      <div class="insight-label">⚠️ Gotcha #7</div>
+      <h3>The roughness direction is reversed</h3>
+      <p>Manning&rsquo;s n and Hazen-Williams C measure roughness in <strong>opposite directions</strong>. This is the #1 numerical mistake when crossing between tools.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+        <div style="background:var(--card-bg);border-left:3px solid var(--swmm-glow);border-radius:4px;padding:10px;">
+          <div style="color:var(--swmm-glow);font-weight:600;font-size:0.82rem;">Manning&rsquo;s n (SWMM5)</div>
+          <div style="font-size:0.78rem;margin-top:4px;">New CI pipe: n &asymp; 0.012 (low = smooth)<br>Old corroded: n &asymp; 0.025 (high = rough)<br><strong>Higher n &rarr; rougher &rarr; more friction</strong></div>
+        </div>
+        <div style="background:var(--card-bg);border-left:3px solid var(--epanet-amber);border-radius:4px;padding:10px;">
+          <div style="color:var(--epanet-amber);font-weight:600;font-size:0.82rem;">Hazen-Williams C (EPANET)</div>
+          <div style="font-size:0.78rem;margin-top:4px;">New CI pipe: C &asymp; 130 (high = smooth)<br>Old corroded: C &asymp; 60 (low = rough)<br><strong>Higher C &rarr; smoother &rarr; less friction</strong></div>
+        </div>
+      </div>
+      <p style="margin-top:8px;font-size:0.85rem;"><strong>Rule of thumb:</strong> If your EPANET headloss seems wildly wrong, check whether you accidentally entered a Manning&rsquo;s-style number (0.013) as a H-W coefficient. That would mean C=0.013 &mdash; an impossibly rough pipe that produces infinite headloss.</p>
+    </div>
+
+    <div class="insight warn">
+      <div class="insight-label">⚠️ Gotcha #8</div>
+      <h3>Negative pressure is not &ldquo;dry pipe&rdquo; &mdash; it&rsquo;s contamination risk</h3>
+      <p>In SWMM5, you worry about <strong>flooding</strong> (water overtopping manholes). In EPANET, the mirror-image failure is <strong>negative pressure</strong>.</p>
+      <div style="font-size:0.82rem;margin-top:8px;line-height:1.7;">
+        <p><strong>What negative pressure means physically:</strong> The hydraulic grade line drops below the node elevation. The pipe cannot deliver water at that location. In reality this creates a partial vacuum, which can cause:</p>
+        <ul style="padding-left:16px;margin:4px 0;">
+          <li><strong>Air entrainment</strong> &mdash; air enters through service connections and air/vacuum relief valves</li>
+          <li><strong>Column separation</strong> &mdash; the water column breaks, leading to transient pressure spikes when it rejoins</li>
+          <li><strong>Contamination intrusion</strong> &mdash; groundwater, soil bacteria, or surface contaminants are sucked INTO the pipe through joints and cracks</li>
+          <li><strong>Service interruption</strong> &mdash; customers at that elevation get no water</li>
+        </ul>
+        <p style="margin-top:6px;"><strong>SWMM5 analog:</strong> Negative pressure in EPANET is conceptually similar to flooding in SWMM5 &mdash; both mean the system has exceeded its capacity at that point. But the consequences are different: SWMM5 flooding is visible (water on the street); EPANET contamination intrusion is invisible and potentially deadly.</p>
+      </div>
+    </div>
+
     <div class="insight aha">
       <div class="insight-label">💡 The Good News</div>
       <h3>Your hydraulic intuition transfers 90%</h3>
@@ -3640,7 +3762,7 @@ Pump1   WetWell FM-1    PumpCurve1</div>
         <div><span style="color:var(--accent-green);font-weight:600;">✓</span> <strong>Understand the energy grade line</strong> — the HGL profile is your new best friend, equivalent to SWMM's HGL/EGL profile view</div>
         <div><span style="color:var(--accent-green);font-weight:600;">✓</span> <strong>Read the EPANET manual</strong> — it's excellent and has many worked examples. Rossman (2000) is the classic reference.</div>
         <div><span style="color:var(--accent-green);font-weight:600;">✓</span> <strong>Remember the roughness flip</strong> — higher C = smoother, not rougher! Tattoo this on your arm if needed.</div>
-        <div><span style="color:var(--accent-green);font-weight:600;">✓</span> <strong>Check units twice</strong> — especially flow units. A demand of "10" means 10 GPM in EPANET, not 10 CFS. That's a <strong>62×</strong> difference!</div>
+        <div><span style="color:var(--accent-green);font-weight:600;">✓</span> <strong>Check units twice</strong> — especially flow units. A demand of "10" means 10 GPM in EPANET, not 10 CFS. That's a <strong>449×</strong> difference!</div>
         <div><span style="color:var(--accent-green);font-weight:600;">✓</span> <strong>Use EPANET-SWMM together</strong> — many real systems have both gravity collection and pressurized distribution. Your SWMM expertise + EPANET knowledge = complete water systems modeling.</div>
       </div>
     </div>

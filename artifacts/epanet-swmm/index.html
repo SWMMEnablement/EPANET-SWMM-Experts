@@ -74,6 +74,8 @@ Chart.register({
     --accent-cyan: #06b6d4;
     --accent-green: #10b981;
     --accent-red: #ef4444;
+    --accent-yellow: #eab308;
+    --epanet-blue: #2563eb;
     --text-primary: #e2e8f0;
     --text-muted: #94a3b8;
     --text-dim: #64748b;
@@ -95,6 +97,8 @@ Chart.register({
     --accent-cyan: #4da6ff;
     --accent-green: #10b981;
     --accent-red: #FA4616;
+    --accent-yellow: #e6a817;
+    --epanet-blue: #3060d0;
     --text-primary: #e8ecf4;
     --text-muted: #9ab0d0;
     --text-dim: #6888aa;
@@ -115,6 +119,8 @@ Chart.register({
     --accent-cyan: #ff6666;
     --accent-green: #10b981;
     --accent-red: #BB0000;
+    --accent-yellow: #d4a017;
+    --epanet-blue: #cc4444;
     --text-primary: #f0e8e8;
     --text-muted: #c0a8a8;
     --text-dim: #907878;
@@ -135,6 +141,8 @@ Chart.register({
     --accent-cyan: #5588cc;
     --accent-green: #10b981;
     --accent-red: #DD550C;
+    --accent-yellow: #d4a017;
+    --epanet-blue: #4070b8;
     --text-primary: #e8ecf4;
     --text-muted: #9aa8c8;
     --text-dim: #6878a0;
@@ -155,6 +163,8 @@ Chart.register({
     --accent-cyan: #40a0e8;
     --accent-green: #2E8B57;
     --accent-red: #cf4444;
+    --accent-yellow: #b8a030;
+    --epanet-blue: #3090d0;
     --text-primary: #e0ecf4;
     --text-muted: #90b0c8;
     --text-dim: #6088a8;
@@ -333,7 +343,7 @@ Chart.register({
     transition: all 0.2s;
   }
   .rq-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-  .rq-btn.selected { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: var(--epanet-blue); }
+  .rq-btn.selected { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: var(--swmm-blue); }
   .rq-btn.correct { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.12); color: var(--accent-green); }
   .rq-btn.wrong { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.12); color: #ef4444; }
 
@@ -600,7 +610,7 @@ Chart.register({
   }
 
   .accordion-item.open .accordion-content {
-    max-height: 2000px;
+    max-height: 5000px;
   }
 
   .accordion-body {
@@ -9308,10 +9318,9 @@ STEP 6: Verify the correct equivalents
         document.getElementById('valFlipPressure').textContent = pressure + ' ft';
         document.getElementById('lblPressure').textContent = 'Upstream Pressure (ft)';
       } else {
-        pressure_ft = pressure; // slider still in m of head
         document.getElementById('valFlipPressure').textContent = pressure + ' m';
         document.getElementById('lblPressure').textContent = 'Upstream Pressure (m)';
-        pressure_ft = pressure * 3.28084; // m → ft for internal calc
+        pressure_ft = pressure * 3.28084;
       }
 
       const A = Math.PI * D_ft * D_ft / 4;

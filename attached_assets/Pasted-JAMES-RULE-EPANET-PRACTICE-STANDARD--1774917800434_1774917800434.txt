@@ -1,0 +1,58 @@
+JAMES RULE                      EPANET PRACTICE STANDARD
+──────────                      ────────────────────────
+
+Rule 1: Define the problem      Before opening EPANET, write down:
+first                           • What decision will this model inform?
+                                • What accuracy is needed?
+                                • What data is available?
+
+Rule 2: Match complexity to     Planning model: 100-500 nodes
+data                            Operational: 1,000-10,000 nodes
+                                All-pipes: Full GIS import
+                                "A 50,000-node model with 2 rain gages
+                                 is irresponsible" — James
+
+Rule 3: Verify data currency    Check pipe inventory date
+                                Check demand data vintage
+                                Check elevation data source (LiDAR? 
+                                Contours? GPS?)
+                                If data > 5 years old, re-validate
+
+Rule 4: Find optimal            The "U-curve" of reliability:
+complexity                      ┌─────────────────────────────┐
+                                │ Reliability                  │
+                                │     ╱╲                       │
+                                │    ╱  ╲                      │
+                                │   ╱    ╲ ← Too complex:     │
+                                │  ╱      ╲   overfitting,    │
+                                │ ╱        ╲  data insufficient│
+                                │╱          ╲                  │
+                                │ Too simple  ╲                │
+                                └─────────────────────────────┘
+                                More subcatchments ≠ better model
+
+Rule 5: Use continuous           Don't model one storm.
+simulation                       Model 30 years of rainfall.
+                                 (More relevant to SWMM than EPANET,
+                                  but applies to EPS duration)
+
+Rule 9: Use proper objective     Don't just "eyeball" calibration.
+functions                        Calculate Nash-Sutcliffe, R², RMSE.
+                                 Compare model vs observed at EVERY
+                                 monitoring point, not just one.
+
+Rule 10: Iterate and improve     Models are living documents.
+                                 Re-calibrate annually.
+                                 Update when CIP projects change 
+                                 the physical system.
+
+Rule 14: Calibrate AND validate  Split field data into two sets:
+                                 Set A → Calibrate (adjust C-factors)
+                                 Set B → Validate (test predictions)
+                                 If Set B fails: model is overfit.
+
+Rule 17: Communicate             Include in every model report:
+uncertainty                      • Data quality assessment
+                                 • Parameter uncertainty ranges
+                                 • Sensitivity analysis results
+                                 • Conditions where model is NOT valid

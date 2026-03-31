@@ -1,0 +1,1237 @@
+# EPANET Hydraulic Modeling: A Comprehensive Guide
+
+## From First Principles to Professional Practice
+
+*Based on Mastering Water Models fundamentals, expanded with EPANET-specific implementation details*
+
+---
+
+## Table of Contents
+
+1. [What is Hydraulic Modeling?](#1-what-is-hydraulic-modeling)
+2. [Why Theory Matters in EPANET Practice](#2-why-theory-matters-in-epanet-practice)
+3. [Core Concepts: The Physics EPANET Solves](#3-core-concepts-the-physics-epanet-solves)
+4. [Steady-State Analysis in EPANET](#4-steady-state-analysis-in-epanet)
+5. [Extended Period Simulation (EPS)](#5-extended-period-simulation-eps)
+6. [Transient Analysis (Water Hammer)](#6-transient-analysis-water-hammer)
+7. [EPANET Network Components](#7-epanet-network-components)
+8. [The Mathematics Behind EPANET](#8-the-mathematics-behind-epanet)
+9. [Head Loss Formulas](#9-head-loss-formulas)
+10. [Pressure, Head & Elevation](#10-pressure-head--elevation)
+11. [Demand Modeling](#11-demand-modeling)
+12. [Pumps & Energy](#12-pumps--energy)
+13. [Valves & Pressure Management](#13-valves--pressure-management)
+14. [Water Quality Modeling](#14-water-quality-modeling)
+15. [Building Your First EPANET Model](#15-building-your-first-epanet-model)
+16. [Calibration Fundamentals](#16-calibration-fundamentals)
+17. [Common Mistakes & Troubleshooting](#17-common-mistakes--troubleshooting)
+18. [The EPANET .inp File Format](#18-the-epanet-inp-file-format)
+19. [Tools & Ecosystem](#19-tools--ecosystem)
+20. [Further Reading & Resources](#20-further-reading--resources)
+
+---
+
+## 1. What is Hydraulic Modeling?
+
+### The Core Idea
+
+A hydraulic model is a **mathematical representation** of a real water distribution system. It simulates how water moves through pipes, pumps, valves, and storage tanks to predict pressures, flows, velocities, and water quality throughout the network.
+
+### Why We Model
+
+```
+Real World Problem                    Model Solution
+─────────────────                    ──────────────
+"Will pressure drop if we           → Run simulation with new
+ add 200 homes to Zone 3?"            demand added to Zone 3
+
+"What happens if Pump 2 fails       → Disable Pump 2 in model,
+ during peak demand?"                  run peak-hour scenario
+
+"Is chlorine residual adequate       → Run water quality simulation
+ at the dead-end on Oak Street?"       with chlorine decay model
+
+"Can we upsize Main St pipe          → Change pipe diameter from
+ from 8" to 12" and fix pressure?"     8" to 12", compare results
+```
+
+### The Modeling Hierarchy
+
+```
+Level 1: SKETCH MODEL
+├── Purpose: Conceptual understanding
+├── Nodes: 10-50
+├── Calibration: None
+└── Use: Education, feasibility
+
+Level 2: PLANNING MODEL
+├── Purpose: Master planning, CIP prioritization
+├── Nodes: 100-2,000
+├── Calibration: Approximate (±15% pressure)
+└── Use: 10-year capital plans
+
+Level 3: OPERATIONAL MODEL
+├── Purpose: Daily operations, emergency response
+├── Nodes: 2,000-50,000+
+├── Calibration: Tight (±5% pressure, ±10% flow)
+└── Use: Real-time SCADA integration
+
+Level 4: ALL-PIPES MODEL
+├── Purpose: Every pipe in the system
+├── Nodes: 10,000-500,000+
+├── Calibration: Comprehensive field testing
+└── Use: Fire flow, flushing, water quality
+```
+
+---
+
+## 2. Why Theory Matters in EPANET Practice
+
+### The Dangerous Shortcut
+
+Many new modelers treat EPANET as a **black box**: draw pipes, assign demands, click "Run." This works until it doesn't — and when it fails, you won't know *why* unless you understand the physics.
+
+### Real-World Consequences of Ignoring Theory
+
+| Mistake | Root Cause | Consequence |
+|---------|-----------|-------------|
+| Negative pressures at hilltop nodes | Didn't understand HGL vs elevation | Model says water flows uphill (impossible) |
+| Pump "exceeds max flow" warning | Pump curve doesn't match system curve | Model predicts pump failure |
+| Zero flow in pipes | Disconnected network (topology error) | Entire zones show no service |
+| Unrealistic velocities (>15 ft/s) | Wrong pipe diameter or demand | Model predicts pipe erosion |
+| Chlorine residual = 0 everywhere | Bulk decay coefficient too high | False alarm for water quality violation |
+
+### The Mental Model You Need
+
+```
+EPANET solves ONE fundamental equation at every timestep:
+
+    ENERGY IN = ENERGY OUT + ENERGY LOST
+
+For every node:   Flow In = Flow Out  (Conservation of Mass)
+For every loop:   Head Loss Around Loop = 0  (Conservation of Energy)
+
+Everything else — pressures, velocities, pump operation,
+tank levels, chlorine decay — derives from these two laws.
+```
+
+---
+
+## 3. Core Concepts: The Physics EPANET Solves
+
+### Conservation of Mass (Continuity)
+
+At every junction node, the total flow entering must equal the total flow leaving plus any demand (consumption):
+
+```
+        ΣQ_in = ΣQ_out + D
+
+Where:
+  Q_in  = flow from all incoming pipes (GPM or LPS)
+  Q_out = flow to all outgoing pipes
+  D     = demand (consumption) at the node
+
+Example: Junction J1
+  ┌──── P1 (500 GPM in) ────┐
+  │                          │
+  │         J1               │
+  │      D = 100 GPM         │
+  │                          │
+  └──── P2 (200 GPM out) ───┘
+        P3 (200 GPM out) ───┘
+
+  Check: 500 = 200 + 200 + 100 ✓
+```
+
+### Conservation of Energy (Loop Equation)
+
+Around any closed loop in the network, the algebraic sum of head losses equals zero:
+
+```
+        Σh_L = 0  (around any loop)
+
+Example: Simple Loop
+       J1 ───P1──→ J2
+       │              │
+       P4             P2
+       ↑              ↓
+       J4 ←──P3─── J3
+
+  h_L(P1) + h_L(P2) - h_L(P3) - h_L(P4) = 0
+```
+
+### What EPANET Actually Calculates
+
+```
+INPUTS (You provide):              OUTPUTS (EPANET calculates):
+─────────────────────              ────────────────────────────
+Network topology (connectivity)  → Flow in each pipe (GPM)
+Pipe properties (D, L, C)       → Velocity in each pipe (ft/s)
+Node elevations (ft)             → Head loss in each pipe (ft)
+Node demands (GPM)               → Pressure at each node (psi)
+Reservoir/tank levels (ft)       → Hydraulic grade at each node (ft)
+Pump curves (Head vs Flow)       → Pump operating point
+Valve settings (psi or %)        → Tank levels over time (EPS)
+Demand patterns (hourly)         → Water quality (if enabled)
+```
+
+---
+
+## 4. Steady-State Analysis in EPANET
+
+### What It Is
+
+A steady-state analysis solves the network for a **single moment in time**. All demands are fixed, all tank levels are fixed, all pump statuses are fixed. EPANET finds the unique set of flows and pressures that satisfies both conservation laws simultaneously.
+
+### When to Use It
+
+```
+✓ Fire flow analysis (peak instantaneous demand)
+✓ "What if" pipe break scenarios
+✓ Initial pressure check for new developments
+✓ Quick validation of model connectivity
+
+✗ NOT for: Tank filling/draining behavior
+✗ NOT for: Pump cycling analysis
+✗ NOT for: Water age or chlorine decay
+```
+
+### EPANET Settings for Steady-State
+
+```ini
+[TIMES]
+DURATION            0:00      ; Zero duration = single snapshot
+HYDRAULIC TIMESTEP  1:00      ; Irrelevant for steady-state
+QUALITY TIMESTEP    0:05      ; Irrelevant for steady-state
+REPORT TIMESTEP     1:00      ; Irrelevant for steady-state
+```
+
+### Reading Steady-State Results
+
+```
+Node Results at t = 0:00:
+─────────────────────────
+Node ID    Demand    Head     Pressure
+                     (ft)     (psi)
+J1         5.00      985.2    52.3
+J2         8.00      978.6    48.5
+J3         12.00     965.1    41.7
+J4         3.00      959.8    38.4
+Tank1      -28.00    1020.0   N/A (tank)
+
+Link Results at t = 0:00:
+─────────────────────────
+Link ID    Flow     Velocity  Head Loss
+           (GPM)    (ft/s)    (ft/mi)
+P1         28.00    3.2       4.1
+P2         15.00    1.7       1.2
+P3         8.00     2.8       6.3
+PUMP1      28.00    N/A       -55.0 (adds head)
+```
+
+---
+
+## 5. Extended Period Simulation (EPS)
+
+### What It Is
+
+An EPS runs the steady-state solver **repeatedly** over a time period (typically 24-168 hours), updating tank levels, pump controls, and demand patterns between each timestep. This captures the **dynamic behavior** of the system.
+
+### The EPS Loop
+
+```
+┌─────────────────────────────────────┐
+│         START (t = 0)               │
+│  Set initial tank levels            │
+│  Set initial pump statuses          │
+└──────────────┬──────────────────────┘
+               ↓
+┌─────────────────────────────────────┐
+│  HYDRAULIC TIMESTEP                 │
+│  1. Apply demand pattern multiplier │
+│  2. Check pump controls/rules       │
+│  3. Solve steady-state equations    │
+│  4. Update tank levels:             │
+│     ΔLevel = (Q_in - Q_out) × Δt   │
+│             / Tank_Area             │
+│  5. Check tank min/max levels       │
+└──────────────┬──────────────────────┘
+               ↓
+           t < Duration?
+          /            \
+        YES             NO
+         ↓               ↓
+    Advance t       ┌──────────┐
+    by Δt           │  END     │
+    Loop back       │  Report  │
+                    └──────────┘
+```
+
+### EPANET Settings for EPS
+
+```ini
+[TIMES]
+DURATION            72:00     ; 3-day simulation
+HYDRAULIC TIMESTEP  0:15      ; Solve every 15 minutes
+QUALITY TIMESTEP    0:05      ; WQ update every 5 minutes
+REPORT TIMESTEP     1:00      ; Report every hour
+PATTERN TIMESTEP    1:00      ; Demand pattern resolution
+
+[OPTIONS]
+UNBALANCED  CONTINUE 10       ; Allow 10 extra iterations if unconverged
+```
+
+### What EPS Reveals That Steady-State Cannot
+
+```
+Hour  Tank Level  Pump Status  Zone 3 Pressure
+────  ──────────  ───────────  ────────────────
+0:00  28.5 ft     ON           62 psi
+3:00  32.1 ft     ON           60 psi
+6:00  35.0 ft     OFF (full)   58 psi    ← Morning demand rising
+9:00  30.2 ft     OFF          45 psi    ← Peak demand!
+12:00 25.8 ft     ON (low)     42 psi    ← Tank refilling
+15:00 22.1 ft     ON           48 psi
+18:00 26.5 ft     ON           55 psi    ← Evening peak
+21:00 30.0 ft     ON           60 psi
+24:00 28.3 ft     ON           62 psi    ← Back to start ≈ ✓
+```
+
+### The 24-Hour Repeatability Test
+
+A well-calibrated EPS should show tank levels returning to approximately the same level after 24 hours. If tanks keep draining or filling over multiple days, something is wrong:
+
+```
+✓ Good: Tank starts at 28.5 ft, ends at 28.3 ft (Δ = -0.2 ft)
+✗ Bad:  Tank starts at 28.5 ft, ends at 22.1 ft (Δ = -6.4 ft)
+        → Demand too high, or supply insufficient
+```
+
+---
+
+## 6. Transient Analysis (Water Hammer)
+
+### What EPANET Does NOT Do
+
+EPANET solves **incompressible, steady-state hydraulics** at each timestep. It does NOT simulate:
+
+```
+✗ Pressure waves from sudden valve closure
+✗ Column separation and vapor cavity collapse
+✗ Surge pressures from pump trip (power failure)
+✗ Elastic deformation of pipe walls
+✗ Acoustic wave propagation (speed of sound in water)
+```
+
+### Why This Matters
+
+```
+Scenario: 36" transmission main, pump trips suddenly
+
+EPANET says:           Reality:
+  Pressure drops        Pressure wave travels at ~3,000 ft/s
+  gradually over        Pressure spikes to 300+ psi
+  15-minute timestep    Then drops to -14.7 psi (vacuum)
+                        Then oscillates for minutes
+                        Pipe may burst or collapse
+
+EPANET CANNOT model this. You need dedicated transient software:
+  - Bentley HAMMER
+  - InfoSurge
+  - AFT Impulse
+  - KYPipe Surge
+```
+
+### When You Need Transient Analysis
+
+```
+Always required for:
+├── Pump stations > 100 HP
+├── Transmission mains > 24" diameter
+├── Pipelines > 1 mile with limited surge protection
+├── Systems with check valves or PRVs
+└── Any system where valve closure < 10 seconds
+
+Can usually skip for:
+├── Small distribution networks (< 12" pipes)
+├── Systems with open tanks nearby (natural surge suppression)
+└── Gravity-fed systems with no pumps
+```
+
+---
+
+## 7. EPANET Network Components
+
+### Nodes (Points)
+
+```
+JUNCTIONS ──── Demand points (where water is consumed)
+│               Properties: Elevation, Base Demand, Pattern
+│
+RESERVOIRS ─── Infinite sources (treatment plants, wells)
+│               Properties: Total Head (fixed)
+│               Note: Water level never changes
+│
+TANKS ──────── Finite storage (elevated tanks, ground storage)
+                Properties: Elevation, Init Level, Min/Max Level,
+                           Diameter (or Volume Curve)
+                Note: Water level changes during EPS
+```
+
+### Links (Connections)
+
+```
+PIPES ──────── Conduits between nodes
+│               Properties: Length, Diameter, Roughness,
+│                          Minor Loss, Status (OPEN/CLOSED/CV)
+│
+PUMPS ──────── Energy sources (add head to flow)
+│               Properties: Pump Curve (Head vs Flow),
+│                          Speed, Pattern, Status
+│               Types: Constant speed, Variable speed
+│
+VALVES ─────── Flow/pressure control devices
+                Types:
+                ├── PRV: Pressure Reducing Valve (limits downstream P)
+                ├── PSV: Pressure Sustaining Valve (maintains upstream P)
+                ├── PBV: Pressure Breaker Valve (fixed P drop)
+                ├── FCV: Flow Control Valve (limits flow)
+                ├── TCV: Throttle Control Valve (minor loss)
+                └── GPV: General Purpose Valve (custom headloss curve)
+```
+
+### Visual Map
+
+```
+                    [RESERVOIR]
+                    Head = 1050 ft
+                         │
+                      ═══╪═══  PUMP (adds 150 ft head)
+                         │
+                    ─────┼───── 24" Transmission Main
+                         │
+                    ┌────J1────┐
+                    │  El=800  │
+                12" │          │ 12"
+                    │          │
+               ────J2────────J3────
+               El=750  8"   El=720
+                    │          │
+                 6" │    PRV   │ 6"
+                    │  Set=50  │
+               ────J4────────J5────  ← Low pressure zone
+               El=650       El=630
+                                │
+                           [TANK]
+                           El=680
+                           Max=700
+```
+
+---
+
+## 8. The Mathematics Behind EPANET
+
+### The Global Gradient Algorithm (GGA)
+
+EPANET uses Todini & Pilati's (1988) **Global Gradient Algorithm** — a Newton-Raphson method that simultaneously solves for all unknown heads and flows.
+
+### The Matrix System
+
+```
+For a network with N nodes and NF fixed-grade nodes (reservoirs/tanks):
+
+┌                    ┐ ┌     ┐   ┌        ┐
+│ A₁₁  A₁₂  ...     │ │ H₁  │   │ -d₁   │
+│ A₂₁  A₂₂  ...     │ │ H₂  │ = │ -d₂   │
+│ ...                │ │ ... │   │ ...    │
+│ Aₙ₁  Aₙ₂  Aₙₙ    │ │ Hₙ  │   │ -dₙ   │
+└                    ┘ └     ┘   └        ┘
+
+Where:
+  H = vector of unknown heads at junction nodes
+  d = vector of demands at junction nodes
+  A = Jacobian matrix (depends on pipe resistances & current flows)
+
+EPANET iterates until:
+  |ΔH| < ACCURACY (default 0.001)
+  |ΔQ| < ACCURACY
+```
+
+### Convergence
+
+```
+Iteration 1:  Max ΔH = 45.2 ft     (far from solution)
+Iteration 2:  Max ΔH = 12.8 ft     (getting closer)
+Iteration 3:  Max ΔH = 3.1 ft
+Iteration 4:  Max ΔH = 0.4 ft
+Iteration 5:  Max ΔH = 0.02 ft
+Iteration 6:  Max ΔH = 0.0008 ft   (< 0.001 → CONVERGED ✓)
+
+If after MAX_TRIALS (default 40) iterations:
+  → "System Unbalanced" warning
+  → Check for disconnected nodes, closed pipes, or impossible demands
+```
+
+---
+
+## 9. Head Loss Formulas
+
+### Hazen-Williams (Most Common in US)
+
+```
+h_L = 4.727 × L × Q^1.852 / (C^1.852 × D^4.871)
+
+Where:
+  h_L = head loss (ft)
+  L   = pipe length (ft)
+  Q   = flow (cfs)
+  C   = Hazen-Williams C-factor (dimensionless)
+  D   = pipe diameter (ft)
+
+Typical C-factors:
+  New PVC/PE:        150
+  New ductile iron:  140
+  10-year CI:        120
+  20-year CI:        100
+  50-year CI:        80
+  Tuberculated CI:   60
+```
+
+### Darcy-Weisbach (More Physically Rigorous)
+
+```
+h_L = f × (L/D) × (V²/2g)
+
+Where:
+  f = Darcy friction factor (from Moody diagram / Colebrook-White)
+  L = pipe length (ft)
+  D = pipe diameter (ft)
+  V = velocity (ft/s)
+  g = gravitational acceleration (32.2 ft/s²)
+
+EPANET computes f using the Colebrook-White equation:
+  1/√f = -2.0 × log₁₀(ε/(3.7D) + 2.51/(Re×√f))
+
+Where:
+  ε  = roughness height (ft) — EPANET's "roughness" input for D-W
+  Re = Reynolds number = VD/ν
+```
+
+### Chezy-Manning
+
+```
+h_L = (4.66 × n² × L × Q²) / D^5.33
+
+Where:
+  n = Manning's roughness coefficient
+
+Rarely used for pressurized pipe systems.
+Mainly used for open channels and gravity sewers (SWMM, not EPANET).
+```
+
+### Which Formula to Use?
+
+```
+Hazen-Williams:
+  ✓ Simple, widely used in US practice
+  ✓ C-factors well-documented in literature
+  ✗ Only valid for water at normal temperatures
+  ✗ Only valid for turbulent flow (Re > 4000)
+
+Darcy-Weisbach:
+  ✓ Physically correct for all fluids and flow regimes
+  ✓ Required for non-water fluids (fire suppression foam, etc.)
+  ✗ Roughness height (ε) less intuitive than C-factor
+  ✗ Slightly more computationally expensive
+
+EPANET default: Hazen-Williams
+EPANET setting: [OPTIONS] HEADLOSS H-W  (or D-W, or C-M)
+```
+
+---
+
+## 10. Pressure, Head & Elevation
+
+### The Fundamental Relationship
+
+```
+Pressure (psi) = (Head - Elevation) × 0.4333
+
+Or equivalently:
+
+Head (ft) = Elevation (ft) + Pressure (ft of water)
+
+Where:
+  Head (H)      = Hydraulic Grade Line (HGL) elevation
+  Elevation (E) = Physical elevation of the node above datum
+  Pressure (P)  = Gauge pressure at the node
+
+  Conversion: 1 psi = 2.31 ft of water
+              1 ft of water = 0.4333 psi
+```
+
+### Visual Explanation
+
+```
+                          HGL (Hydraulic Grade Line)
+                    ╔═══════════════════════════════╗
+                    ║     ↕ Pressure = HGL - Elev   ║
+Elevation ──────────╚═══════════════════════════════╝──── Ground Level
+(physical height)        ↕ If HGL < Elev → NEGATIVE PRESSURE
+                         ↕ (vacuum, air intrusion, contamination risk)
+
+Example:
+  Node elevation = 750 ft
+  HGL at node    = 865 ft
+  Pressure head  = 865 - 750 = 115 ft = 49.8 psi ✓
+
+  Node elevation = 750 ft
+  HGL at node    = 730 ft
+  Pressure head  = 730 - 750 = -20 ft = -8.7 psi ✗ NEGATIVE!
+```
+
+### Typical Pressure Standards
+
+```
+Minimum pressure (US standards):
+├── Normal conditions:    20 psi  (AWWA, most states)
+├── Peak hour demand:     35 psi  (common utility standard)
+├── Fire flow conditions: 20 psi  (AWWA M31)
+└── Emergency (1 pump out): 20 psi
+
+Maximum pressure:
+├── Typical limit:        80 psi  (residential plumbing code)
+├── Acceptable range:     80-100 psi (with PRV at service)
+└── Warning threshold:    >100 psi (pipe stress, leak risk)
+
+Ideal operating range: 40-80 psi
+```
+
+---
+
+## 11. Demand Modeling
+
+### Base Demand
+
+The average demand assigned to each junction node, representing water consumption at that point.
+
+```
+[JUNCTIONS]
+;ID    Elev    Demand   Pattern
+J1     750     5.2      PAT_RES    ; 5.2 GPM average residential
+J2     720     25.0     PAT_COM    ; 25 GPM commercial
+J3     680     150.0    PAT_IND    ; 150 GPM industrial
+```
+
+### Demand Patterns (Multipliers)
+
+```
+Residential Pattern (PAT_RES):
+Hour:    1    2    3    4    5    6    7    8    9   10   11   12
+Mult:  0.3  0.2  0.2  0.2  0.3  0.6  1.2  1.5  1.4  1.1  0.9  0.8
+
+Hour:   13   14   15   16   17   18   19   20   21   22   23   24
+Mult:  0.8  0.8  0.9  1.0  1.3  1.6  1.5  1.2  0.9  0.6  0.4  0.3
+
+Actual demand at hour 7:
+  Q_actual = Q_base × Multiplier = 5.2 × 1.2 = 6.24 GPM
+
+Peak hour (6 PM):
+  Q_peak = 5.2 × 1.6 = 8.32 GPM
+```
+
+### Demand Categories
+
+```
+Category          Typical Base Demand    Pattern Shape
+────────────      ──────────────────     ─────────────
+Residential       0.25 GPM/connection    AM/PM peaks
+Commercial        0.5-5 GPM/account      Midday plateau
+Industrial        10-500 GPM/meter       Flat daytime
+Institutional     1-50 GPM               Varies
+Unaccounted       15-25% of total        Flat (constant)
+Fire flow         500-5000 GPM           Single event
+```
+
+### Spatial Demand Allocation
+
+```
+Method 1: Manual assignment (small models)
+  → Assign demands directly to junctions based on meters
+
+Method 2: Proportional (by pipe length)
+  → Total zone demand distributed proportionally to pipe length
+
+Method 3: Thiessen polygons (GIS-based)
+  → Each junction "captures" demand from nearest meters
+
+Method 4: Nearest pipe (most accurate)
+  → Each meter assigned to nearest pipe, split to end nodes
+```
+
+---
+
+## 12. Pumps & Energy
+
+### Pump Curves
+
+EPANET uses **Head vs. Flow** curves to define pump performance:
+
+```
+[CURVES]
+;ID    Flow(GPM)   Head(ft)
+PUMP1  0           180        ; Shutoff head (zero flow)
+PUMP1  500         150        ; Design point
+PUMP1  1000        100        ; Max flow point
+
+Head
+(ft)
+200 ┤
+    │╲
+180 ┤  ╲  ← Shutoff head
+    │    ╲
+150 ┤     ╲← Design point (BEP)
+    │       ╲
+100 ┤         ╲← Max flow
+    │           ╲
+ 50 ┤             ╲
+    │               ╲
+  0 ┼───┬───┬───┬───┬───→ Flow (GPM)
+    0  200 400 600 800 1000
+```
+
+### System Curve vs. Pump Curve
+
+```
+The OPERATING POINT is where the pump curve
+intersects the system curve:
+
+Head │
+     │  Pump Curve
+     │ ╲
+     │   ╲
+     │    ╲─────── ← Operating Point
+     │     ╱      ╲
+     │   ╱  System Curve (static lift + friction)
+     │ ╱
+     │╱
+     └──────────────→ Flow
+
+System head = Static Lift + Friction Loss
+            = (Tank Elev - Pump Elev) + h_L(Q)
+```
+
+### Pump Controls in EPANET
+
+```ini
+[CONTROLS]
+; Simple controls (tank level-based)
+LINK PUMP1 OPEN IF NODE TANK1 BELOW 20.0
+LINK PUMP1 CLOSED IF NODE TANK1 ABOVE 35.0
+
+[RULES]
+; Rule-based controls (more complex logic)
+RULE 1
+IF SYSTEM CLOCKTIME >= 6:00 AM
+AND SYSTEM CLOCKTIME <= 10:00 PM
+AND NODE TANK1 LEVEL BELOW 25.0
+THEN LINK PUMP1 STATUS IS OPEN
+
+RULE 2
+IF NODE TANK1 LEVEL ABOVE 34.0
+THEN LINK PUMP1 STATUS IS CLOSED
+```
+
+### Energy & Cost
+
+```
+[ENERGY]
+GLOBAL EFFICIENCY    75        ; Pump efficiency (%)
+GLOBAL PRICE         0.10      ; $/kWh
+DEMAND CHARGE        50.0      ; $/kW/month (peak demand charge)
+
+Power (kW) = Q × H × SG / (3960 × η)
+
+Where:
+  Q  = flow (GPM)
+  H  = pump head (ft)
+  SG = specific gravity (1.0 for water)
+  η  = efficiency (decimal)
+  3960 = unit conversion constant
+
+Example:
+  Q = 500 GPM, H = 150 ft, η = 0.75
+  Power = 500 × 150 / (3960 × 0.75) = 25.3 kW
+  Daily cost = 25.3 × 24 × $0.10 = $60.60/day
+```
+
+---
+
+## 13. Valves & Pressure Management
+
+### PRV (Pressure Reducing Valve)
+
+```
+Upstream    ──PRV──    Downstream
+(high P)    Set=50     (P ≤ 50 psi)
+
+Three operating modes:
+1. ACTIVE:  Downstream P = Setting (50 psi)
+            → PRV is throttling
+2. OPEN:    Downstream P < Setting even fully open
+            → Not enough upstream head
+3. CLOSED:  Downstream P > Upstream P
+            → Prevents reverse flow
+
+EPANET input:
+[VALVES]
+;ID    Node1  Node2  Diameter  Type  Setting  MinorLoss
+V1     J10    J11    12        PRV   50       0
+```
+
+### Common Valve Applications
+
+```
+PRV Use Cases:
+├── Pressure zone boundary control
+├── Service pressure reduction (>80 psi areas)
+└── Fire flow bypass (PRV opens wider during high demand)
+
+FCV Use Cases:
+├── Wholesale metering (limit flow to customer utility)
+├── Well field balancing (equalize production)
+└── Emergency rationing
+
+TCV Use Cases:
+├── Modeling partially closed valves
+├── Calibration (adjusting minor losses)
+└── Representing orifice plates or flow restrictors
+```
+
+---
+
+## 14. Water Quality Modeling
+
+### What EPANET Can Simulate
+
+```
+1. CHEMICAL CONCENTRATION
+   Track chlorine, fluoride, or any conservative/reactive substance
+   
+2. WATER AGE
+   How long water has been in the system since entering from a source
+   
+3. SOURCE TRACING
+   What percentage of water at each node comes from a specific source
+```
+
+### Chlorine Decay Model
+
+```
+EPANET models chlorine as first-order decay:
+
+Bulk decay:  dC/dt = -Kb × C^n
+Wall decay:  dC/dt = -Kw × C   (at pipe wall)
+
+Where:
+  C  = chlorine concentration (mg/L)
+  Kb = bulk decay coefficient (1/day)  → typically -0.5 to -1.5
+  Kw = wall decay coefficient (ft/day) → typically -0.1 to -5.0
+  n  = reaction order (usually 1)
+
+[REACTIONS]
+GLOBAL BULK    -0.5      ; Bulk decay rate (1/day)
+GLOBAL WALL    -1.0      ; Wall decay rate (ft/day)
+
+[QUALITY]
+;Node   InitQuality
+R1      2.0               ; Reservoir chlorine = 2.0 mg/L
+```
+
+### Water Age
+
+```
+[OPTIONS]
+QUALITY AGE               ; Enable water age tracking
+
+Results show hours since water entered from any source:
+
+Node    Age (hours)
+J1      2.4         ← Fresh water, near source
+J15     18.7        ← Moderate age
+J42     72.3        ← OLD! Dead-end, stagnant ← investigate
+J50     168.0       ← 7 DAYS! Serious water quality concern
+```
+
+---
+
+## 15. Building Your First EPANET Model
+
+### Step-by-Step Workflow
+
+```
+Step 1: DEFINE SCOPE
+  What question are you answering?
+  What level of detail is needed?
+  What data is available?
+
+Step 2: GATHER DATA
+  □ Pipe inventory (diameter, material, age, length)
+  □ Node elevations (survey or DEM)
+  □ Demands (billing data, meter readings)
+  □ Tank dimensions (diameter, min/max levels)
+  □ Pump curves (manufacturer data or field test)
+  □ Valve locations and settings
+  □ SCADA data (pressures, flows, tank levels)
+
+Step 3: BUILD SKELETON
+  Draw major transmission mains first
+  Add tanks and reservoirs
+  Add pumps
+  Connect distribution system
+
+Step 4: ASSIGN PROPERTIES
+  Pipe diameters and roughness
+  Node elevations and demands
+  Pump curves and controls
+  Valve types and settings
+
+Step 5: RUN AND DEBUG
+  Fix connectivity errors (isolated nodes)
+  Fix negative pressures (elevation errors)
+  Fix "System Unbalanced" (check demands, pumps)
+
+Step 6: CALIBRATE
+  Compare model to field data
+  Adjust C-factors, demands, valve settings
+  Validate with independent dataset
+
+Step 7: ANALYZE AND REPORT
+  Run scenarios
+  Document assumptions
+  Communicate uncertainty
+```
+
+### Minimum Viable Model (10 Minutes)
+
+```ini
+[TITLE]
+My First EPANET Model
+
+[JUNCTIONS]
+;ID    Elev    Demand
+J1     700     0
+J2     695     10
+J3     690     15
+J4     685     10
+J5     680     20
+
+[RESERVOIRS]
+;ID    Head
+R1     750
+
+[TANKS]
+;ID    Elev  InitLvl  MinLvl  MaxLvl  Diam
+T1     710   25       10      35      50
+
+[PIPES]
+;ID    Node1  Node2  Length  Diam  Roughness
+P1     R1     J1     2000   16    120
+P2     J1     J2     1500   12    110
+P3     J2     J3     1000   8     100
+P4     J3     J4     1200   8     100
+P5     J4     J5     800    6     100
+P6     J1     T1     3000   12    120
+P7     T1     J3     2500   10    110
+
+[COORDINATES]
+;Node  X-Coord  Y-Coord
+R1     0        5000
+J1     2000     5000
+J2     4000     5000
+J3     6000     5000
+J4     6000     3000
+J5     6000     1000
+T1     2000     3000
+
+[OPTIONS]
+UNITS   GPM
+HEADLOSS H-W
+
+[TIMES]
+DURATION   24:00
+HYDRAULIC TIMESTEP  1:00
+
+[END]
+```
+
+---
+
+## 16. Calibration Fundamentals
+
+### The Calibration Process
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Field Data  │ ──→ │   Compare    │ ──→ │   Adjust     │
+│  (SCADA,     │     │  Model vs    │     │  Parameters  │
+│   loggers)   │     │  Observed    │     │  (C, demand) │
+└──────────────┘     └──────┬───────┘     └──────┬───────┘
+                            │                     │
+                            ↓                     │
+                     Within tolerance? ───NO──────┘
+                            │
+                           YES
+                            ↓
+                     ┌──────────────┐
+                     │  VALIDATE    │
+                     │  (independent│
+                     │   dataset)   │
+                     └──────────────┘
+```
+
+### Calibration Targets
+
+```
+Parameter        Acceptable    Good        Excellent
+─────────        ──────────    ────        ─────────
+Pressure (psi)   ±5 psi       ±3 psi      ±1 psi
+Flow (GPM)       ±15%         ±10%        ±5%
+Tank Level (ft)  ±2 ft        ±1 ft       ±0.5 ft
+Velocity (ft/s)  ±20%         ±15%        ±10%
+
+Rule of thumb (from William James):
+  "A model that matches field data to ±10% on flows
+   and ±5 psi on pressures is well-calibrated for
+   most planning and design purposes."
+```
+
+### What to Adjust (In Order)
+
+```
+1. DEMANDS (biggest impact, least certainty)
+   → Unaccounted-for water (add 15-25% to metered demand)
+   → Spatial distribution (are demands at correct nodes?)
+   → Temporal patterns (do patterns match SCADA flows?)
+
+2. ROUGHNESS (C-factors)
+   → Reduce C for old unlined cast iron (80-100)
+   → Increase C for new PVC/HDPE (140-150)
+   → Use pipe age as proxy if no field data
+
+3. VALVE SETTINGS
+   → PRV settings may differ from nameplate
+   → Closed valves (field crew closed but not recorded)
+   → Partially closed valves (most common hidden error)
+
+4. PUMP CURVES
+   → Worn impellers reduce head by 10-20%
+   → Variable frequency drive (VFD) speed settings
+
+5. TANK OPERATIONS
+   → Actual control levels vs. design levels
+   → SCADA setpoints may have changed
+```
+
+---
+
+## 17. Common Mistakes & Troubleshooting
+
+### Error: "System Unbalanced"
+
+```
+Cause: EPANET cannot find a solution that satisfies
+       conservation of mass AND energy simultaneously.
+
+Common fixes:
+1. Check for disconnected nodes:
+   → Run connectivity check (epanet-js: Network Review tool)
+   → Look for pipes with Status = CLOSED that isolate nodes
+
+2. Check for impossible demands:
+   → Total demand exceeds total supply capacity
+   → Demand at node higher than any source can deliver
+
+3. Check pump curves:
+   → Shutoff head too low (pump can't reach highest node)
+   → Pump curve has only 1 point (need at least 3)
+
+4. Reduce ACCURACY or increase MAX_TRIALS:
+   [OPTIONS]
+   ACCURACY     0.01       ; Relax from 0.001
+   TRIALS       100        ; Increase from 40
+   UNBALANCED   CONTINUE 10
+```
+
+### Error: Negative Pressures
+
+```
+Cause: HGL at node is below node elevation.
+
+Common fixes:
+1. Check node elevation:
+   → Is it in correct units (ft vs m)?
+   → Was it imported from wrong datum?
+
+2. Check reservoir/tank head:
+   → Is source head high enough to serve all nodes?
+   → Does pump provide enough head?
+
+3. Check for closed paths:
+   → Is there actually a hydraulic path from source to node?
+
+4. Check demand magnitude:
+   → Is demand realistic? (e.g., 1000 GPM at a house?)
+```
+
+### Error: "Pump Cannot Deliver Flow"
+
+```
+Cause: System requires more flow than pump curve allows,
+       or system head exceeds pump shutoff head.
+
+Fix: Check pump curve definition:
+  [CURVES]
+  PUMP1  0     180    ; Shutoff (must be highest head)
+  PUMP1  500   150    ; Design point
+  PUMP1  1000  100    ; Max flow
+
+  Common mistake: Only providing 1 point
+  → EPANET needs at least 3 points for a proper curve
+  → Or use POWER keyword for constant-power pump
+```
+
+---
+
+## 18. The EPANET .inp File Format
+
+### Complete Section Reference
+
+```
+[TITLE]           ; Project description
+[JUNCTIONS]       ; Junction nodes (ID, Elevation, Demand, Pattern)
+[RESERVOIRS]      ; Fixed-head source nodes
+[TANKS]           ; Variable-level storage nodes
+[PIPES]           ; Pipe links (ID, Node1, Node2, Length, Diameter, Roughness)
+[PUMPS]           ; Pump links (ID, Node1, Node2, Properties)
+[VALVES]          ; Valve links (ID, Node1, Node2, Diameter, Type, Setting)
+[EMITTERS]        ; Pressure-dependent outflows (leaks, sprinklers)
+[CURVES]          ; Pump curves, efficiency curves, volume curves
+[PATTERNS]        ; Time-varying multipliers for demands, sources
+[CONTROLS]        ; Simple conditional controls
+[RULES]           ; Complex rule-based controls
+[ENERGY]          ; Energy pricing and pump efficiency
+[REACTIONS]       ; Water quality reaction parameters
+[SOURCES]         ; Water quality source concentrations
+[MIXING]          ; Tank mixing models
+[OPTIONS]         ; Simulation options (units, headloss formula, etc.)
+[TIMES]           ; Simulation timing parameters
+[REPORT]          ; Output reporting options
+[COORDINATES]     ; Node X-Y coordinates for map display
+[VERTICES]        ; Intermediate points for curved pipes
+[LABELS]          ; Map text labels
+[BACKDROP]        ; Background image settings
+[TAGS]            ; Node and link grouping tags
+[DEMANDS]         ; Multiple demand categories per node
+[QUALITY]         ; Initial water quality at nodes
+[STATUS]          ; Initial status of links (OPEN/CLOSED)
+[END]             ; Required terminator
+```
+
+### Reading an .inp File
+
+```ini
+[JUNCTIONS]
+;ID              Elev        Demand      Pattern
+;──────────      ────        ──────      ───────
+ 10               710        0                           ; No demand (transmission node)
+ 11               710        150         PAT_RES         ; 150 GPM residential
+ 12               700        150         PAT_RES
+ 13               695        100         PAT_COM         ; 100 GPM commercial
+ 21               700        150         PAT_RES
+ 22               695        200         PAT_IND         ; 200 GPM industrial
+ 23               690        150         PAT_RES
+ 31               700        100         PAT_RES
+ 32               710        100         PAT_RES
+
+; Semicolons = comments
+; Whitespace-separated columns
+; Pattern name references [PATTERNS] section
+```
+
+---
+
+## 19. Tools & Ecosystem
+
+### EPANET Software Options
+
+```
+FREE / OPEN SOURCE:
+├── Classic EPANET 2.2 (Windows only, EPA download)
+│   └── The original. Dated UI but fully functional.
+├── epanet-js (Browser-based, epanetjs.com)
+│   └── Modern UI, Mac/Linux/Windows, local-first
+├── WNTR (Python, Water Network Tool for Resilience)
+│   └── Scripting, resilience analysis, no GUI
+├── EPANET-MSX (Multi-Species Extension)
+│   └── Complex water quality reactions
+└── OpenWaterAnalytics EPANET (GitHub)
+    └── Community-maintained C library
+
+COMMERCIAL (Built on EPANET engine):
+├── WaterGEMS / WaterCAD (Bentley) — $5,000-15,000/yr
+├── InfoWater Pro (Autodesk/Innovyze) — $8,000-20,000/yr
+├── PIPE2000 / KYPipe — $2,000-8,000/yr
+└── WDNetXL (Excel-based) — $500-2,000/yr
+
+PYTHON LIBRARIES:
+├── WNTR — pip install wntr
+├── epynet — pip install epynet
+├── epanet-python — pip install epanet
+└── viswaternet — pip install viswaternet (visualization)
+```
+
+### Quick Start with epanet-js
+
+```
+1. Open browser → app.epanetjs.com
+2. No login required
+3. Import .inp file OR draw from scratch
+4. Shift+Enter to run simulation
+5. View color-coded results on satellite map
+6. Export .inp file to desktop
+```
+
+---
+
+## 20. Further Reading & Resources
+
+### Essential References
+
+```
+THEORY:
+├── Rossman, L.A. (2000) "EPANET 2 Users Manual" (EPA/600/R-00/057)
+│   └── The definitive guide. Free from EPA website.
+├── Walski, T.M. et al. (2003) "Advanced Water Distribution Modeling"
+│   └── Haestad Methods press. Best practical textbook.
+├── James, W. (2005) "Rules for Responsible Modeling"
+│   └── Philosophy of modeling. Interactive: rulesforresponsiblemodeling.lovable.app
+└── AWWA Manual M32 "Computer Modeling of Water Distribution Systems"
+
+PRACTICE:
+├── AWWA Manual M31 "Distribution System Requirements for Fire Protection"
+├── AWWA C651 "Disinfecting Water Mains"
+├── Ten States Standards (Recommended Standards for Water Works)
+└── EPA Stage 2 DBP Rule (chlorine residual compliance)
+
+ONLINE:
+├── masteringwater.com — Comprehensive course (in development)
+├── epanetjs.com — Browser-based EPANET
+├── swmm5.org — Robert Dickinson's SWMM encyclopedia
+├── openswmm.org — Community forums
+└── github.com/OpenWaterAnalytics — Open-source tools
+```
+
+---
+
+*This guide was compiled from Mastering Water Models fundamentals, EPA EPANET documentation, William James's "Rules for Responsible Modeling," and professional hydraulic modeling practice. It is intended as an educational reference—not for regulatory compliance or design certification.*
